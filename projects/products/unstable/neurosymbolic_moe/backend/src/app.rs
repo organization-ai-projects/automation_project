@@ -1,5 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/app.rs
 use std::path::PathBuf;
+use std::{collections, io};
 use std::{
     collections::VecDeque,
     fs,
@@ -10,18 +11,20 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+use protocol::ProtocolId;
+
 use crate::aggregator::AggregationStrategy;
 use crate::apps::{
     DynError, SloThresholds, cmd_impl_check, run_concurrent_pipeline_checks_with_report,
     run_runtime_persistence_checks_with_report, run_training_and_cas_checks,
 };
 use crate::dataset_engine::DatasetTrainingBuildOptions;
-use crate::echo_expert::EchoExpert;
-use crate::moe_core::{self, ExpertCapability, Task, TaskPriority, TaskType};
-use crate::orchestrator::{AutoImprovementPolicy, MoePipeline, MoePipelineBuilder};
-use crate::policy_guard::{Policy, PolicyType};
+use crate::moe_core::{self, Task, TaskPriority, TaskType};
+use crate::orchestrator::{self, AutoImprovementPolicy, MoePipeline, MoePipelineBuilder};
+use crate::policies_guard::{Policy, PolicyType};
 use crate::router::HeuristicRouter;
-use crate::trace_logger::TraceLogger;
+use crate::specialized_expert::SpecializedExpert;
+use crate::trace_logging::TraceLogger;
 
 const STATUS_COMPONENT_LINES: [&str; 13] = [
     "  moe_core          - Expert trait, Task model, ExecutionContext",
@@ -40,17 +43,31 @@ const STATUS_COMPONENT_LINES: [&str; 13] = [
 ];
 
 type HealthSnapshot = (String, Vec<String>, String, Vec<String>);
-type ServeMetricsOptions = (
-    String,
-    bool,
-    u64,
-    Vec<String>,
-    Option<String>,
-    Option<String>,
-    Option<String>,
-    bool,
-    Option<u64>,
-);
+
+pub(crate) struct ServeMetricsConfig {
+    addr: String,
+    once: bool,
+    cache_ttl_requests: u64,
+    threshold_args: Vec<String>,
+    slo_profile_path: Option<String>,
+    admin_token: Option<String>,
+    slo_audit_path: Option<String>,
+    disable_auto_rollback: bool,
+    slo_audit_max_bytes: Option<u64>,
+}
+
+struct HttpResponse {
+    status_line: &'static str,
+    content_type: &'static str,
+    body: String,
+}
+
+pub(crate) struct RunConfig {
+    pub(crate) input: String,
+    pub(crate) bootstrap_dataset_bundle_path: Option<String>,
+    pub(crate) task_type: TaskType,
+}
+
 const DEFAULT_ADMIN_AUDIT_LIMIT: usize = 50;
 const MAX_ADMIN_AUDIT_LIMIT: usize = 1000;
 
@@ -86,9 +103,9 @@ pub fn run() -> Result<(), DynError> {
 }
 
 fn cmd_run(args: &[String]) -> Result<(), DynError> {
-    let (input, bootstrap_dataset_bundle_path) = parse_run_options(args)?;
+    let run_config = parse_run_options(args)?;
     let mut pipeline = build_cli_pipeline();
-    if let Some(bootstrap_path) = bootstrap_dataset_bundle_path.as_deref() {
+    if let Some(bootstrap_path) = run_config.bootstrap_dataset_bundle_path.as_deref() {
         let payload = fs::read_to_string(bootstrap_path)?;
         let seeded = pipeline.bootstrap_initial_dataset_from_training_bundle_json(&payload)?;
         tracing::info!("Auto bootstrap dataset: {} seeded entries", seeded);
@@ -96,7 +113,7 @@ fn cmd_run(args: &[String]) -> Result<(), DynError> {
     register_default_cli_experts(&mut pipeline)?;
     add_default_cli_policy(&mut pipeline);
 
-    let task = Task::new("task-001", TaskType::CodeGeneration, input)
+    let task = Task::new(run_config.task_type, run_config.input)
         .with_context("runtime")
         .with_priority(TaskPriority::High)
         .with_metadata("source", "cli");
@@ -124,7 +141,7 @@ fn cmd_status() -> Result<(), DynError> {
         tracing::info!("{line}");
     }
     tracing::info!("");
-    tracing::info!("Use `impl-check` to run the full component wiring smoke test.");
+    tracing::info!("Use `impl-check` to run the runtime capability diagnostic.");
     Ok(())
 }
 
@@ -139,8 +156,8 @@ fn cmd_trace(args: &[String]) -> Result<(), DynError> {
         tracing::info!("Trace output path: {}", path.display());
     }
 
-    let task_id = moe_core::TaskId::new("trace-demo");
-    let expert_id = moe_core::ExpertId::new("trace-expert");
+    let task_id = moe_core::TaskId::new();
+    let expert_id = moe_core::ExpertId::new();
     let mut logger = TraceLogger::new(8);
 
     logger.log_phase(
@@ -222,38 +239,12 @@ fn cmd_trainer_events(args: &[String]) -> Result<(), DynError> {
             let popped = pipeline.pop_next_trainer_trigger_event();
             tracing::info!("pop result: {}", popped.is_some());
         }
-        "lease" => {
-            let now_epoch_seconds = parse_u64_arg(args, 1, "now_epoch_seconds", 0)?;
-            let leased = if args.get(2).is_some() {
-                let min_retry_delay_seconds = parse_u64_arg(args, 2, "min_retry_delay_seconds", 0)?;
-                pipeline
-                    .lease_next_trainer_trigger_event(now_epoch_seconds, min_retry_delay_seconds)
-            } else {
-                pipeline.lease_next_trainer_trigger_event_with_policy(now_epoch_seconds)
-            };
-            tracing::info!("lease result: {}", leased.is_some());
-        }
-        "ack" => {
-            let event_id = parse_u64_arg(args, 1, "event_id", 0)?;
-            let acknowledged = pipeline.acknowledge_trainer_trigger_event(event_id);
-            tracing::info!("ack result: {acknowledged}");
-        }
-        "fail" => {
-            let event_id = parse_u64_arg(args, 1, "event_id", 0)?;
-            let failed_at_epoch_seconds =
-                parse_u64_arg(args, 2, "failed_at_epoch_seconds", event_id)?;
-            let marked = pipeline
-                .mark_trainer_trigger_event_delivery_failed(event_id, failed_at_epoch_seconds);
-            tracing::info!("mark-failed result: {marked}");
-        }
-        "drain" => {
-            let max_events = parse_usize_arg(args, 1, "max_events", 1)?;
-            let drained = pipeline.drain_trainer_trigger_events(max_events);
-            tracing::info!("drain result: {}", drained.len());
+        "lease" | "fail" => {
+            handle_trainer_event(&mut pipeline, args, command);
         }
         other => {
             return Err(
-                std::io::Error::other(format!("unknown trainer-events command: {other}")).into(),
+                io::Error::other(format!("unknown trainer-events command: {other}")).into(),
             );
         }
     }
@@ -269,40 +260,39 @@ fn cli_input_or_default(args: &[String]) -> String {
     }
 }
 
-fn parse_u64_arg(args: &[String], idx: usize, name: &str, default: u64) -> Result<u64, DynError> {
-    if let Some(raw) = args.get(idx) {
-        raw.parse::<u64>()
-            .map_err(|err| std::io::Error::other(format!("invalid {name}: {err}")).into())
-    } else {
-        Ok(default)
+fn parse_task_type(raw: &str) -> Result<TaskType, DynError> {
+    match raw.to_ascii_lowercase().as_str() {
+        "codegen" | "code-generation" | "generation" => Ok(TaskType::CodeGeneration),
+        "analysis" | "code-analysis" => Ok(TaskType::CodeAnalysis),
+        "transform" | "code-transformation" => Ok(TaskType::CodeTransformation),
+        "refactor" | "refactoring" => Ok(TaskType::Refactoring),
+        "docs" | "documentation" => Ok(TaskType::Documentation),
+        "plan" | "planning" => Ok(TaskType::Planning),
+        "retrieval" | "retrieve" => Ok(TaskType::Retrieval),
+        "evaluation" | "evaluate" => Ok(TaskType::Evaluation),
+        "validation" | "validate" => Ok(TaskType::Validation),
+        other => Err(io::Error::other(format!("unsupported task type: {other}")).into()),
     }
 }
 
-fn parse_usize_arg(
-    args: &[String],
-    idx: usize,
-    name: &str,
-    default: usize,
-) -> Result<usize, DynError> {
-    if let Some(raw) = args.get(idx) {
-        raw.parse::<usize>()
-            .map_err(|err| std::io::Error::other(format!("invalid {name}: {err}")).into())
-    } else {
-        Ok(default)
-    }
-}
-
-pub(crate) fn parse_run_options(args: &[String]) -> Result<(String, Option<String>), DynError> {
+pub(crate) fn parse_run_options(args: &[String]) -> Result<RunConfig, DynError> {
     let mut idx = 0_usize;
     let mut bootstrap_dataset_bundle_path = None;
+    let mut task_type = TaskType::CodeGeneration;
     let mut input_parts = Vec::new();
     while idx < args.len() {
         let arg = &args[idx];
         if arg == "--bootstrap-dataset-bundle-json" {
             let value = args.get(idx + 1).ok_or_else(|| {
-                std::io::Error::other("missing value for --bootstrap-dataset-bundle-json")
+                io::Error::other("missing value for --bootstrap-dataset-bundle-json")
             })?;
             bootstrap_dataset_bundle_path = Some(value.to_string());
+            idx += 2;
+        } else if arg == "--task-type" {
+            let value = args
+                .get(idx + 1)
+                .ok_or_else(|| io::Error::other("missing value for --task-type"))?;
+            task_type = parse_task_type(value)?;
             idx += 2;
         } else {
             input_parts.push(arg.to_string());
@@ -310,10 +300,11 @@ pub(crate) fn parse_run_options(args: &[String]) -> Result<(String, Option<Strin
         }
     }
 
-    Ok((
-        cli_input_or_default(&input_parts),
+    Ok(RunConfig {
+        input: cli_input_or_default(&input_parts),
         bootstrap_dataset_bundle_path,
-    ))
+        task_type,
+    })
 }
 
 fn build_cli_pipeline() -> MoePipeline {
@@ -342,32 +333,20 @@ fn build_cli_pipeline() -> MoePipeline {
 }
 
 fn register_default_cli_experts(pipeline: &mut MoePipeline) -> Result<(), DynError> {
-    let experts = [
-        (
-            "code_gen",
-            "CodeGenerationExpert",
-            vec![ExpertCapability::CodeGeneration],
-        ),
-        (
-            "code_transform",
-            "CodeTransformExpert",
-            vec![ExpertCapability::CodeTransformation],
-        ),
-        (
-            "validator",
-            "ValidationExpert",
-            vec![ExpertCapability::Validation],
-        ),
-    ];
-    for (id, name, capabilities) in experts {
-        pipeline.register_expert(Box::new(EchoExpert::new(id, name, capabilities)))?;
-    }
+    pipeline.register_expert(Box::new(SpecializedExpert::planning("PlanningExpert")))?;
+    pipeline.register_expert(Box::new(SpecializedExpert::code_generation(
+        "CodeGenerationExpert",
+    )))?;
+    pipeline.register_expert(Box::new(SpecializedExpert::code_transformation(
+        "CodeTransformExpert",
+    )))?;
+    pipeline.register_expert(Box::new(SpecializedExpert::validation("ValidationExpert")))?;
     Ok(())
 }
 
 fn add_default_cli_policy(pipeline: &mut MoePipeline) {
     pipeline.add_policy(Policy {
-        id: "length_check".to_string(),
+        id: ProtocolId::default(),
         name: "Output Length Check".to_string(),
         description: "Ensures output is not too long".to_string(),
         policy_type: PolicyType::LengthLimit(10000),
@@ -376,14 +355,14 @@ fn add_default_cli_policy(pipeline: &mut MoePipeline) {
 }
 
 fn log_run_success(
-    result: &crate::moe_core::AggregatedOutput,
+    result: &moe_core::AggregatedOutput,
     task_kind: &str,
     task_priority: &str,
     has_context: bool,
 ) {
     tracing::info!("Pipeline execution successful");
     if let Some(selected) = &result.selected_output {
-        tracing::info!("Selected expert: {}", selected.expert_id.as_str());
+        tracing::info!("Selected expert: {}", selected.expert_id);
         tracing::info!("Confidence: {:.2}", selected.confidence);
         tracing::info!("Output: {}", selected.content);
     }
@@ -404,9 +383,11 @@ fn log_pipeline_runtime_summary(pipeline: &MoePipeline) {
     );
     let auto = pipeline.auto_improvement_status();
     tracing::info!(
-        "Auto improvement: runs={} bootstrap_entries={} last_included={}",
-        auto.runs_total,
-        auto.bootstrap_entries_total,
+        "Auto improvement: runs={} build_failures={} skipped_min_dataset_entries={} delivery_attempts={} last_included={}",
+        auto.global_counters.runs_total,
+        auto.global_counters.build_failures_total,
+        auto.skip_counters.min_dataset_entries_total,
+        auto.delivery_stats.delivery_attempts_total,
         auto.last_included_entries
     );
 }
@@ -415,8 +396,9 @@ fn print_usage() {
     tracing::info!("neurosymbolic_moe - advanced modular MoE platform");
     tracing::info!("");
     tracing::info!("Commands:");
+    tracing::info!("  run [--task-type TYPE] [--bootstrap-dataset-bundle-json PATH] [input...]");
     tracing::info!(
-        "  run [--bootstrap-dataset-bundle-json PATH] [input...]     Execute a task through the MoE pipeline"
+        "                   Execute a task through the MoE pipeline (TYPE: codegen|analysis|transform|refactor|docs|plan|retrieval|evaluation|validation)"
     );
     tracing::info!("  status             Show platform component status");
     tracing::info!("  trace [path]       Inspect execution traces");
@@ -450,7 +432,7 @@ fn cmd_slo_gate(args: &[String]) -> Result<(), DynError> {
     let (runtime_status, runtime_violations, concurrent_status, concurrent_violations) =
         collect_health_snapshot(&thresholds)?;
     if runtime_status != "OK" || concurrent_status != "OK" {
-        return Err(std::io::Error::other(format!(
+        return Err(io::Error::other(format!(
             "SLO gate failed: runtime={} ({}) | concurrent={} ({})",
             runtime_status,
             runtime_violations.join("; "),
@@ -474,24 +456,14 @@ fn cmd_metrics() -> Result<(), DynError> {
 }
 
 pub(crate) fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
-    let (
-        addr,
-        once,
-        cache_ttl_requests,
-        threshold_args,
-        slo_profile_path,
-        admin_token,
-        slo_audit_path,
-        disable_auto_rollback,
-        slo_audit_max_bytes,
-    ) = parse_serve_metrics_options(args)?;
-    let listener = TcpListener::bind(&addr)?;
+    let config = parse_serve_metrics_options(args)?;
+    let listener = TcpListener::bind(&config.addr)?;
     tracing::info!(
         "Metrics endpoint listening on http://{}/metrics and /healthz",
-        addr
+        config.addr
     );
-    let mut thresholds = SloThresholds::parse_args(&threshold_args)?;
-    if let Some(path) = slo_profile_path.as_deref()
+    let mut thresholds = SloThresholds::parse_args(&config.threshold_args)?;
+    if let Some(path) = config.slo_profile_path.as_deref()
         && let Some(profile) = load_persisted_profile(path)?
     {
         thresholds = SloThresholds::parse_args(&["--profile".to_string(), profile])?;
@@ -510,214 +482,67 @@ pub(crate) fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
         let mut request = [0_u8; 2048];
         let read_len = stream.read(&mut request).unwrap_or_default();
         let request_line = String::from_utf8_lossy(&request[..read_len]);
-        let is_metrics = request_line.starts_with("GET /metrics ");
-        let is_healthz = request_line.starts_with("GET /healthz ");
-        let is_readyz = request_line.starts_with("GET /readyz ");
-        let is_livez = request_line.starts_with("GET /livez ");
-        let is_admin_audit = request_line.starts_with("GET /admin/slo-audit");
-        let is_admin_slo = request_line.starts_with("POST /admin/slo-profile");
-        let (status_line, body) = if is_metrics {
-            match get_cached_metrics(
+        let response = if request_line.starts_with("GET /metrics ") {
+            handle_metrics_request(
                 &thresholds,
-                cache_ttl_requests,
+                config.cache_ttl_requests,
                 served_requests,
                 &mut cached_metrics,
-            ) {
-                Ok(metrics) => ("HTTP/1.1 200 OK", metrics),
-                Err(err) => (
-                    "HTTP/1.1 500 Internal Server Error",
-                    format!("metrics generation failed: {err}"),
-                ),
-            }
-        } else if is_healthz {
-            match get_cached_health(
-                &thresholds,
-                cache_ttl_requests,
-                served_requests,
-                &mut cached_health,
-            ) {
-                Ok((
-                    runtime_status,
-                    runtime_violations,
-                    concurrent_status,
-                    concurrent_violations,
-                )) => {
-                    let status_line = if runtime_status == "OK" && concurrent_status == "OK" {
-                        "HTTP/1.1 200 OK"
-                    } else {
-                        "HTTP/1.1 503 Service Unavailable"
-                    };
-                    match health_snapshot_json(
-                        &runtime_status,
-                        &runtime_violations,
-                        &concurrent_status,
-                        &concurrent_violations,
-                    ) {
-                        Ok(payload) => (status_line, payload),
-                        Err(err) => (
-                            "HTTP/1.1 500 Internal Server Error",
-                            format!("health serialization failed: {err}"),
-                        ),
-                    }
-                }
-                Err(err) => (
-                    "HTTP/1.1 500 Internal Server Error",
-                    format!("health generation failed: {err}"),
-                ),
-            }
-        } else if is_readyz {
-            match get_cached_health(
-                &thresholds,
-                cache_ttl_requests,
-                served_requests,
-                &mut cached_health,
-            ) {
-                Ok((
-                    runtime_status,
-                    runtime_violations,
-                    concurrent_status,
-                    concurrent_violations,
-                )) => {
-                    if runtime_status == "OK"
-                        && concurrent_status == "OK"
-                        && runtime_violations.is_empty()
-                        && concurrent_violations.is_empty()
-                    {
-                        ("HTTP/1.1 200 OK", "ready".to_string())
-                    } else {
-                        ("HTTP/1.1 503 Service Unavailable", "not ready".to_string())
-                    }
-                }
-                Err(err) => (
-                    "HTTP/1.1 500 Internal Server Error",
-                    format!("readiness evaluation failed: {err}"),
-                ),
-            }
-        } else if is_livez {
-            ("HTTP/1.1 200 OK", "alive".to_string())
-        } else if is_admin_audit {
-            if !is_authorized_admin_request(&request_line, admin_token.as_deref()) {
-                (
-                    "HTTP/1.1 401 Unauthorized",
-                    "missing or invalid X-Admin-Token".to_string(),
-                )
-            } else if let Some(path) = slo_audit_path.as_deref() {
-                let limit = parse_admin_audit_limit_from_request_line(&request_line)
-                    .unwrap_or(DEFAULT_ADMIN_AUDIT_LIMIT)
-                    .min(MAX_ADMIN_AUDIT_LIMIT);
-                match read_admin_audit_json(path, limit) {
-                    Ok(payload) => ("HTTP/1.1 200 OK", payload),
-                    Err(err) => (
-                        "HTTP/1.1 500 Internal Server Error",
-                        format!("audit read failed: {err}"),
-                    ),
-                }
-            } else {
-                (
-                    "HTTP/1.1 400 Bad Request",
-                    "slo audit is disabled (configure --slo-audit-path)".to_string(),
-                )
-            }
-        } else if is_admin_slo {
-            if !is_authorized_admin_request(&request_line, admin_token.as_deref()) {
-                (
-                    "HTTP/1.1 401 Unauthorized",
-                    "missing or invalid X-Admin-Token".to_string(),
-                )
-            } else {
-                match parse_admin_profile_from_request_line(&request_line) {
-                    Some(profile) => {
-                        let previous_profile = thresholds.profile_name().to_string();
-                        match SloThresholds::parse_args(&[
-                            "--profile".to_string(),
-                            profile.to_string(),
-                        ]) {
-                            Ok(updated) => {
-                                let switch_allowed = if disable_auto_rollback {
-                                    true
-                                } else {
-                                    profile_switch_guard_passes(&updated)?
-                                };
-                                if !switch_allowed {
-                                    if let Some(path) = slo_audit_path.as_deref() {
-                                        append_slo_audit_line(
-                                            path,
-                                            served_requests + 1,
-                                            &previous_profile,
-                                            profile,
-                                            "rejected",
-                                            "candidate profile failed readiness gate",
-                                            slo_audit_max_bytes,
-                                        )?;
-                                    }
-                                    (
-                                        "HTTP/1.1 409 Conflict",
-                                        format!(
-                                            "profile switch blocked by auto-rollback guard: {} -> {}",
-                                            previous_profile, profile
-                                        ),
-                                    )
-                                } else {
-                                    thresholds = updated;
-                                    cached_metrics = None;
-                                    cached_health = None;
-                                    if let Some(path) = slo_profile_path.as_deref() {
-                                        persist_profile(path, thresholds.profile_name())?;
-                                    }
-                                    if let Some(path) = slo_audit_path.as_deref() {
-                                        append_slo_audit_line(
-                                            path,
-                                            served_requests + 1,
-                                            &previous_profile,
-                                            thresholds.profile_name(),
-                                            "applied",
-                                            "profile switch accepted",
-                                            slo_audit_max_bytes,
-                                        )?;
-                                    }
-                                    (
-                                        "HTTP/1.1 200 OK",
-                                        format!("active profile set to {}", thresholds.profile_name()),
-                                    )
-                                }
-                            }
-                            Err(err) => (
-                                "HTTP/1.1 400 Bad Request",
-                                format!("invalid profile update: {err}"),
-                            ),
-                        }
-                    }
-                    None => (
-                        "HTTP/1.1 400 Bad Request",
-                        "missing profile query param (expected ?profile=strict|balanced|exploratory)"
-                            .to_string(),
-                    ),
-                }
-            }
-        } else {
-            (
-                "HTTP/1.1 404 Not Found",
-                "not found; use /metrics, /healthz, /readyz, /livez, GET /admin/slo-audit, or POST /admin/slo-profile?profile=..."
-                    .to_string(),
             )
-        };
-        let content_type = if is_metrics {
-            "text/plain; version=0.0.4"
-        } else if is_healthz || is_admin_audit {
-            "application/json"
+        } else if request_line.starts_with("GET /healthz ") {
+            handle_healthz_request(
+                &thresholds,
+                config.cache_ttl_requests,
+                served_requests,
+                &mut cached_health,
+            )
+        } else if request_line.starts_with("GET /readyz ") {
+            handle_readyz_request(
+                &thresholds,
+                config.cache_ttl_requests,
+                served_requests,
+                &mut cached_health,
+            )
+        } else if request_line.starts_with("GET /livez ") {
+            HttpResponse {
+                status_line: "HTTP/1.1 200 OK",
+                content_type: "text/plain",
+                body: "alive".to_string(),
+            }
+        } else if request_line.starts_with("GET /admin/slo-audit") {
+            handle_admin_audit_request(
+                &request_line,
+                config.admin_token.as_deref(),
+                config.slo_audit_path.as_deref(),
+            )?
+        } else if request_line.starts_with("POST /admin/slo-profile") {
+            handle_admin_profile_request(
+                &request_line,
+                &mut thresholds,
+                &config,
+                served_requests,
+                &mut cached_metrics,
+                &mut cached_health,
+            )?
         } else {
-            "text/plain"
+            HttpResponse {
+                status_line: "HTTP/1.1 404 Not Found",
+                content_type: "text/plain",
+                body: "not found; use /metrics, /healthz, /readyz, /livez, GET /admin/slo-audit, or POST /admin/slo-profile?profile=...".to_string(),
+            }
         };
         let response = format!(
             "{status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            body.len(),
-            body
+            response.body.len(),
+            response.body,
+            status_line = response.status_line,
+            content_type = response.content_type,
         );
         if let Err(err) = stream.write_all(response.as_bytes()) {
             tracing::error!("metrics response write failed: {err}");
         }
         served_requests += 1;
-        if once && served_requests >= 1 {
+        if config.once && served_requests >= 1 {
             break;
         }
     }
@@ -725,11 +550,9 @@ pub(crate) fn cmd_serve_metrics(args: &[String]) -> Result<(), DynError> {
 }
 
 fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynError> {
+    let (runtime_report, concurrent_report) = collect_reports(thresholds)?;
     let (runtime_status, runtime_violations, concurrent_status, concurrent_violations) =
-        collect_health_snapshot(thresholds)?;
-    let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
-    run_training_and_cas_checks(&mut pipeline)?;
-    let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
+        build_health_snapshot(thresholds, &runtime_report, &concurrent_report);
     Ok(format!(
         "{}\n{}\nmoe_runtime_slo_status {}\nmoe_concurrent_slo_status {}\nmoe_slo_profile{{profile=\"{}\"}} 1\n",
         runtime_report.to_prometheus_text("moe_runtime"),
@@ -748,9 +571,7 @@ fn collect_prometheus_metrics(thresholds: &SloThresholds) -> Result<String, DynE
     ))
 }
 
-pub(crate) fn parse_serve_metrics_options(
-    args: &[String],
-) -> Result<ServeMetricsOptions, DynError> {
+pub(crate) fn parse_serve_metrics_options(args: &[String]) -> Result<ServeMetricsConfig, DynError> {
     let mut addr = "127.0.0.1:9464".to_string();
     let mut once = false;
     let mut cache_ttl_requests = 1_u64;
@@ -769,32 +590,32 @@ pub(crate) fn parse_serve_metrics_options(
         } else if arg == "--cache-ttl-requests" {
             let raw = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other("missing value for --cache-ttl-requests"))?;
+                .ok_or_else(|| io::Error::other("missing value for --cache-ttl-requests"))?;
             let ttl_requests: u64 = raw.parse()?;
             cache_ttl_requests = ttl_requests.max(1);
             idx += 2;
         } else if arg == "--slo-profile-path" {
             let raw = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other("missing value for --slo-profile-path"))?;
+                .ok_or_else(|| io::Error::other("missing value for --slo-profile-path"))?;
             slo_profile_path = Some(raw.to_string());
             idx += 2;
         } else if arg == "--admin-token" {
             let raw = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other("missing value for --admin-token"))?;
+                .ok_or_else(|| io::Error::other("missing value for --admin-token"))?;
             admin_token = Some(raw.to_string());
             idx += 2;
         } else if arg == "--slo-audit-path" {
             let raw = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other("missing value for --slo-audit-path"))?;
+                .ok_or_else(|| io::Error::other("missing value for --slo-audit-path"))?;
             slo_audit_path = Some(raw.to_string());
             idx += 2;
         } else if arg == "--slo-audit-max-bytes" {
             let raw = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other("missing value for --slo-audit-max-bytes"))?;
+                .ok_or_else(|| io::Error::other("missing value for --slo-audit-max-bytes"))?;
             let max_bytes: u64 = raw.parse()?;
             slo_audit_max_bytes = Some(max_bytes.max(1));
             idx += 2;
@@ -805,19 +626,17 @@ pub(crate) fn parse_serve_metrics_options(
             threshold_args.push(arg.to_string());
             let value = args
                 .get(idx + 1)
-                .ok_or_else(|| std::io::Error::other(format!("missing value for {arg}")))?;
+                .ok_or_else(|| io::Error::other(format!("missing value for {arg}")))?;
             threshold_args.push(value.to_string());
             idx += 2;
         } else if addr == "127.0.0.1:9464" {
             addr = arg.to_string();
             idx += 1;
         } else {
-            return Err(
-                std::io::Error::other(format!("unexpected positional argument: {arg}")).into(),
-            );
+            return Err(io::Error::other(format!("unexpected positional argument: {arg}")).into());
         }
     }
-    Ok((
+    Ok(ServeMetricsConfig {
         addr,
         once,
         cache_ttl_requests,
@@ -827,14 +646,38 @@ pub(crate) fn parse_serve_metrics_options(
         slo_audit_path,
         disable_auto_rollback,
         slo_audit_max_bytes,
-    ))
+    })
 }
 
 fn collect_health_snapshot(thresholds: &SloThresholds) -> Result<HealthSnapshot, DynError> {
+    let (runtime_report, concurrent_report) = collect_reports(thresholds)?;
+    Ok(build_health_snapshot(
+        thresholds,
+        &runtime_report,
+        &concurrent_report,
+    ))
+}
+
+fn collect_reports(
+    _thresholds: &SloThresholds,
+) -> Result<
+    (
+        orchestrator::OperationalReport,
+        orchestrator::ConcurrentOperationalReport,
+    ),
+    DynError,
+> {
     let (mut pipeline, runtime_report) = run_runtime_persistence_checks_with_report()?;
     run_training_and_cas_checks(&mut pipeline)?;
     let concurrent_report = run_concurrent_pipeline_checks_with_report()?;
+    Ok((runtime_report, concurrent_report))
+}
 
+fn build_health_snapshot(
+    thresholds: &SloThresholds,
+    runtime_report: &orchestrator::OperationalReport,
+    concurrent_report: &orchestrator::ConcurrentOperationalReport,
+) -> HealthSnapshot {
     let runtime_violations = runtime_report.slo_violations(
         thresholds.runtime_min_successes,
         thresholds.runtime_max_rejections,
@@ -848,7 +691,7 @@ fn collect_health_snapshot(thresholds: &SloThresholds) -> Result<HealthSnapshot,
         thresholds.concurrent_max_parse_failures,
     );
 
-    Ok((
+    (
         if runtime_violations.is_empty() {
             "OK".to_string()
         } else {
@@ -861,7 +704,7 @@ fn collect_health_snapshot(thresholds: &SloThresholds) -> Result<HealthSnapshot,
             "FAIL".to_string()
         },
         concurrent_violations,
-    ))
+    )
 }
 
 fn health_snapshot_json(
@@ -870,13 +713,13 @@ fn health_snapshot_json(
     concurrent_status: &str,
     concurrent_violations: &[String],
 ) -> Result<String, DynError> {
-    let mut payload: std::collections::BTreeMap<&str, String> = std::collections::BTreeMap::new();
+    let mut payload: collections::BTreeMap<&str, String> = collections::BTreeMap::new();
     payload.insert("runtime_status", runtime_status.to_string());
     payload.insert("runtime_violations", runtime_violations.join(" | "));
     payload.insert("concurrent_status", concurrent_status.to_string());
     payload.insert("concurrent_violations", concurrent_violations.join(" | "));
     common_json::json::to_json_string_pretty(&payload)
-        .map_err(|err| std::io::Error::other(format!("health serialization failed: {err}")).into())
+        .map_err(|err| io::Error::other(format!("health serialization failed: {err}")).into())
 }
 
 fn get_cached_metrics(
@@ -953,9 +796,9 @@ fn append_slo_audit_line(
     reason: &str,
     audit_max_bytes: Option<u64>,
 ) -> Result<(), DynError> {
-    let audit_guard = audit_io_lock()
+    let _audit_guard = audit_io_lock()
         .lock()
-        .map_err(|_| std::io::Error::other("audit lock poisoned"))?;
+        .map_err(|_| io::Error::other("audit lock poisoned"))?;
     let line = format_slo_audit_entry_json(seq, from_profile, to_profile, result, reason);
     if let Some(max_bytes) = audit_max_bytes {
         rotate_audit_file_if_needed(path, max_bytes, line.len() as u64 + 1)?;
@@ -963,7 +806,6 @@ fn append_slo_audit_line(
     let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     file.write_all(line.as_bytes())?;
     file.write_all(b"\n")?;
-    drop(audit_guard);
     Ok(())
 }
 
@@ -971,10 +813,10 @@ pub(crate) fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, 
     if limit == 0 {
         return Ok("[]".to_string());
     }
-    let audit_guard = audit_io_lock()
+    let _audit_guard = audit_io_lock()
         .lock()
-        .map_err(|_| std::io::Error::other("audit lock poisoned"))?;
-    let result = match File::open(path) {
+        .map_err(|_| io::Error::other("audit lock poisoned"))?;
+    match File::open(path) {
         Ok(file) => {
             let mut tail: VecDeque<String> = VecDeque::with_capacity(limit.min(1024));
             for line in BufReader::new(file).lines() {
@@ -990,11 +832,9 @@ pub(crate) fn read_admin_audit_json(path: &str, limit: usize) -> Result<String, 
             let body = tail.into_iter().collect::<Vec<_>>().join(",");
             Ok(format!("[{body}]"))
         }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok("[]".to_string()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok("[]".to_string()),
         Err(err) => Err(err.into()),
-    };
-    drop(audit_guard);
-    result
+    }
 }
 
 pub(crate) fn rotate_audit_file_if_needed(
@@ -1004,7 +844,7 @@ pub(crate) fn rotate_audit_file_if_needed(
 ) -> Result<(), DynError> {
     let current_size = match fs::metadata(path) {
         Ok(metadata) => metadata.len(),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => 0,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => 0,
         Err(err) => return Err(err.into()),
     };
     if current_size.saturating_add(incoming_bytes) <= max_bytes {
@@ -1014,12 +854,12 @@ pub(crate) fn rotate_audit_file_if_needed(
     let rotated_path = format!("{path}.1");
     match fs::remove_file(&rotated_path) {
         Ok(_) => {}
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
         Err(err) => return Err(err.into()),
     }
     match fs::rename(path, rotated_path) {
         Ok(_) => Ok(()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
         Err(err) => Err(err.into()),
     }
 }
@@ -1078,7 +918,7 @@ fn load_persisted_profile(path: &str) -> Result<Option<String>, DynError> {
                 Ok(Some(trimmed.to_string()))
             }
         }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(err) => Err(err.into()),
     }
 }
@@ -1086,4 +926,257 @@ fn load_persisted_profile(path: &str) -> Result<Option<String>, DynError> {
 fn persist_profile(path: &str, profile: &str) -> Result<(), DynError> {
     fs::write(path, profile.as_bytes())?;
     Ok(())
+}
+
+fn parse_arg_or_default<T>(args: &[String], index: usize, default: T) -> T
+where
+    T: std::str::FromStr,
+{
+    args.get(index)
+        .and_then(|arg| arg.parse::<T>().ok())
+        .unwrap_or(default)
+}
+
+fn handle_trainer_event(pipeline: &mut MoePipeline, args: &[String], event: &str) {
+    match event {
+        "lease" => {
+            let now_epoch_seconds = parse_arg_or_default(args, 1, DEFAULT_EPOCH_SECONDS);
+            let leased = if args.get(2).is_some() {
+                let min_retry_delay_seconds = parse_arg_or_default(args, 2, DEFAULT_EPOCH_SECONDS);
+                pipeline
+                    .lease_next_trainer_trigger_event(now_epoch_seconds, min_retry_delay_seconds)
+            } else {
+                pipeline.lease_next_trainer_trigger_event_with_policy(now_epoch_seconds)
+            };
+            log_trainer_event_result("lease", leased.is_some());
+        }
+        "fail" => {
+            let event_id = ProtocolId::default();
+            let failed_at_epoch_seconds = parse_arg_or_default(args, 2, DEFAULT_EPOCH_SECONDS);
+            let marked = pipeline
+                .mark_trainer_trigger_event_delivery_failed(event_id, failed_at_epoch_seconds);
+            log_trainer_event_result("fail", marked);
+        }
+        _ => tracing::error!("Unknown trainer event: {}", event),
+    }
+}
+
+const DEFAULT_EPOCH_SECONDS: u64 = 0;
+
+fn log_trainer_event_result(event: &str, result: bool) {
+    tracing::info!("{} result: {}", event, result);
+}
+
+fn handle_metrics_request(
+    thresholds: &SloThresholds,
+    ttl_requests: u64,
+    request_index: u64,
+    cache: &mut Option<(u64, String)>,
+) -> HttpResponse {
+    match get_cached_metrics(thresholds, ttl_requests, request_index, cache) {
+        Ok(metrics) => HttpResponse {
+            status_line: "HTTP/1.1 200 OK",
+            content_type: "text/plain; version=0.0.4",
+            body: metrics,
+        },
+        Err(err) => HttpResponse {
+            status_line: "HTTP/1.1 500 Internal Server Error",
+            content_type: "text/plain",
+            body: format!("metrics generation failed: {err}"),
+        },
+    }
+}
+
+fn handle_healthz_request(
+    thresholds: &SloThresholds,
+    ttl_requests: u64,
+    request_index: u64,
+    cache: &mut Option<(u64, HealthSnapshot)>,
+) -> HttpResponse {
+    match get_cached_health(thresholds, ttl_requests, request_index, cache) {
+        Ok((runtime_status, runtime_violations, concurrent_status, concurrent_violations)) => {
+            let status_line = if runtime_status == "OK" && concurrent_status == "OK" {
+                "HTTP/1.1 200 OK"
+            } else {
+                "HTTP/1.1 503 Service Unavailable"
+            };
+            match health_snapshot_json(
+                &runtime_status,
+                &runtime_violations,
+                &concurrent_status,
+                &concurrent_violations,
+            ) {
+                Ok(payload) => HttpResponse {
+                    status_line,
+                    content_type: "application/json",
+                    body: payload,
+                },
+                Err(err) => HttpResponse {
+                    status_line: "HTTP/1.1 500 Internal Server Error",
+                    content_type: "text/plain",
+                    body: format!("health serialization failed: {err}"),
+                },
+            }
+        }
+        Err(err) => HttpResponse {
+            status_line: "HTTP/1.1 500 Internal Server Error",
+            content_type: "text/plain",
+            body: format!("health generation failed: {err}"),
+        },
+    }
+}
+
+fn handle_readyz_request(
+    thresholds: &SloThresholds,
+    ttl_requests: u64,
+    request_index: u64,
+    cache: &mut Option<(u64, HealthSnapshot)>,
+) -> HttpResponse {
+    match get_cached_health(thresholds, ttl_requests, request_index, cache) {
+        Ok((runtime_status, runtime_violations, concurrent_status, concurrent_violations)) => {
+            if runtime_status == "OK"
+                && concurrent_status == "OK"
+                && runtime_violations.is_empty()
+                && concurrent_violations.is_empty()
+            {
+                HttpResponse {
+                    status_line: "HTTP/1.1 200 OK",
+                    content_type: "text/plain",
+                    body: "ready".to_string(),
+                }
+            } else {
+                HttpResponse {
+                    status_line: "HTTP/1.1 503 Service Unavailable",
+                    content_type: "text/plain",
+                    body: "not ready".to_string(),
+                }
+            }
+        }
+        Err(err) => HttpResponse {
+            status_line: "HTTP/1.1 500 Internal Server Error",
+            content_type: "text/plain",
+            body: format!("readiness evaluation failed: {err}"),
+        },
+    }
+}
+
+fn handle_admin_audit_request(
+    request_line: &str,
+    admin_token: Option<&str>,
+    slo_audit_path: Option<&str>,
+) -> Result<HttpResponse, DynError> {
+    if !is_authorized_admin_request(request_line, admin_token) {
+        return Ok(HttpResponse {
+            status_line: "HTTP/1.1 401 Unauthorized",
+            content_type: "text/plain",
+            body: "missing or invalid X-Admin-Token".to_string(),
+        });
+    }
+    let Some(path) = slo_audit_path else {
+        return Ok(HttpResponse {
+            status_line: "HTTP/1.1 400 Bad Request",
+            content_type: "text/plain",
+            body: "slo audit is disabled (configure --slo-audit-path)".to_string(),
+        });
+    };
+    let limit = parse_admin_audit_limit_from_request_line(request_line)
+        .unwrap_or(DEFAULT_ADMIN_AUDIT_LIMIT)
+        .min(MAX_ADMIN_AUDIT_LIMIT);
+    Ok(match read_admin_audit_json(path, limit) {
+        Ok(payload) => HttpResponse {
+            status_line: "HTTP/1.1 200 OK",
+            content_type: "application/json",
+            body: payload,
+        },
+        Err(err) => HttpResponse {
+            status_line: "HTTP/1.1 500 Internal Server Error",
+            content_type: "text/plain",
+            body: format!("audit read failed: {err}"),
+        },
+    })
+}
+
+fn handle_admin_profile_request(
+    request_line: &str,
+    thresholds: &mut SloThresholds,
+    config: &ServeMetricsConfig,
+    served_requests: u64,
+    cached_metrics: &mut Option<(u64, String)>,
+    cached_health: &mut Option<(u64, HealthSnapshot)>,
+) -> Result<HttpResponse, DynError> {
+    if !is_authorized_admin_request(request_line, config.admin_token.as_deref()) {
+        return Ok(HttpResponse {
+            status_line: "HTTP/1.1 401 Unauthorized",
+            content_type: "text/plain",
+            body: "missing or invalid X-Admin-Token".to_string(),
+        });
+    }
+    let Some(profile) = parse_admin_profile_from_request_line(request_line) else {
+        return Ok(HttpResponse {
+            status_line: "HTTP/1.1 400 Bad Request",
+            content_type: "text/plain",
+            body: "missing profile query param (expected ?profile=strict|balanced|exploratory)"
+                .to_string(),
+        });
+    };
+    let previous_profile = thresholds.profile_name().to_string();
+    let updated = match SloThresholds::parse_args(&["--profile".to_string(), profile.to_string()]) {
+        Ok(updated) => updated,
+        Err(err) => {
+            return Ok(HttpResponse {
+                status_line: "HTTP/1.1 400 Bad Request",
+                content_type: "text/plain",
+                body: format!("invalid profile update: {err}"),
+            });
+        }
+    };
+    let switch_allowed = if config.disable_auto_rollback {
+        true
+    } else {
+        profile_switch_guard_passes(&updated)?
+    };
+    if !switch_allowed {
+        if let Some(path) = config.slo_audit_path.as_deref() {
+            append_slo_audit_line(
+                path,
+                served_requests + 1,
+                &previous_profile,
+                profile,
+                "rejected",
+                "candidate profile failed readiness gate",
+                config.slo_audit_max_bytes,
+            )?;
+        }
+        return Ok(HttpResponse {
+            status_line: "HTTP/1.1 409 Conflict",
+            content_type: "text/plain",
+            body: format!(
+                "profile switch blocked by auto-rollback guard: {} -> {}",
+                previous_profile, profile
+            ),
+        });
+    }
+
+    *thresholds = updated;
+    *cached_metrics = None;
+    *cached_health = None;
+    if let Some(path) = config.slo_profile_path.as_deref() {
+        persist_profile(path, thresholds.profile_name())?;
+    }
+    if let Some(path) = config.slo_audit_path.as_deref() {
+        append_slo_audit_line(
+            path,
+            served_requests + 1,
+            &previous_profile,
+            thresholds.profile_name(),
+            "applied",
+            "profile switch accepted",
+            config.slo_audit_max_bytes,
+        )?;
+    }
+    Ok(HttpResponse {
+        status_line: "HTTP/1.1 200 OK",
+        content_type: "text/plain",
+        body: format!("active profile set to {}", thresholds.profile_name()),
+    })
 }

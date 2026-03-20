@@ -1,10 +1,12 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/retrieval_result.rs
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetrievalResult {
-    pub chunk_id: String,
+    pub chunk_id: ProtocolId,
     pub content: String,
     pub relevance_score: f64,
     pub source: String,
@@ -13,13 +15,13 @@ pub struct RetrievalResult {
 
 impl RetrievalResult {
     pub fn new(
-        chunk_id: impl Into<String>,
+        chunk_id: ProtocolId,
         content: impl Into<String>,
         relevance_score: f64,
         source: impl Into<String>,
     ) -> Self {
         Self {
-            chunk_id: chunk_id.into(),
+            chunk_id,
             content: content.into(),
             relevance_score,
             source: source.into(),

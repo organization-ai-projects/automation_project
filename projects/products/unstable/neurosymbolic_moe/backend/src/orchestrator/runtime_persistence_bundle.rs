@@ -5,11 +5,13 @@ use crate::memory_engine::MemoryEntry;
 use crate::orchestrator::checksum_writer::{
     append_segment_delimiter, fnv1a64_init, fnv1a64_update,
 };
+use crate::orchestrator::version::Version;
 use crate::orchestrator::{
     AutoImprovementPolicy, AutoImprovementStatus, GovernanceAuditEntry,
     GovernancePersistenceBundle, GovernanceStateSnapshot, ModelRegistry, RuntimeBundleComponents,
     TrainerTriggerEvent,
 };
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -29,7 +31,7 @@ pub struct RuntimePersistenceBundle {
     #[serde(default)]
     pub dataset_entries: Vec<DatasetEntry>,
     #[serde(default)]
-    pub dataset_corrections: HashMap<String, Vec<Correction>>,
+    pub dataset_corrections: HashMap<ProtocolId, Vec<Correction>>,
     #[serde(default)]
     pub auto_improvement_policy: Option<AutoImprovementPolicy>,
     #[serde(default)]
@@ -41,7 +43,7 @@ pub struct RuntimePersistenceBundle {
     #[serde(default)]
     pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
     #[serde(default)]
-    pub trainer_trigger_leased_event_ids: Vec<u64>,
+    pub trainer_trigger_leased_event_ids: Vec<ProtocolId>,
 }
 
 impl RuntimePersistenceBundle {
@@ -88,7 +90,7 @@ impl RuntimePersistenceBundle {
         recompute_runtime_checksum_from_components(
             self.schema_version,
             self.governance.state.schema_version,
-            self.governance.state.state_version,
+            self.governance.state.version_number.clone(),
             &self.governance.state.state_checksum,
             &self.governance.audit_entries,
             &self.governance.snapshots,
@@ -111,7 +113,7 @@ impl RuntimePersistenceBundle {
 pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T, U>(
     schema_version: u32,
     governance_state_schema_version: u32,
-    governance_state_version: u64,
+    governance_state_version: Version,
     governance_state_checksum: &str,
     governance_audit_entries: &[GovernanceAuditEntry],
     governance_snapshots: &[GovernanceStateSnapshot],
@@ -119,7 +121,7 @@ pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T, U>
     long_term_memory_entries: L,
     buffer_manager: &BufferManager,
     dataset_entries: &[DatasetEntry],
-    dataset_corrections: &HashMap<String, Vec<Correction>>,
+    dataset_corrections: &HashMap<ProtocolId, Vec<Correction>>,
     auto_improvement_policy: Option<&AutoImprovementPolicy>,
     auto_improvement_status: &AutoImprovementStatus,
     model_registry: &ModelRegistry,
@@ -131,7 +133,7 @@ where
     S: IntoIterator<Item = &'a MemoryEntry>,
     L: IntoIterator<Item = &'b MemoryEntry>,
     T: IntoIterator<Item = &'c TrainerTriggerEvent>,
-    U: IntoIterator<Item = &'c u64>,
+    U: IntoIterator<Item = &'c ProtocolId>,
 {
     let short_fp = memory_entries_fingerprint(short_term_memory_entries);
     let long_fp = memory_entries_fingerprint(long_term_memory_entries);
@@ -206,7 +208,9 @@ where
             entry.content,
             tags,
             entry.created_at,
-            entry.expires_at,
+            entry
+                .expires_at
+                .map_or("None".to_string(), |v| format!("{:?}", v)),
             entry.relevance,
             entry.memory_type
         ) {}
@@ -239,19 +243,19 @@ fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
 fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
     let sessions_buffer = buffer_manager.sessions();
     let mut sessions = sessions_buffer.list_sessions();
-    sessions.sort_unstable();
+    sessions.sort_unstable_by(|a, b| a.to_string().cmp(&b.to_string()));
     let mut fingerprint = String::new();
     for session in sessions {
         if !fingerprint.is_empty() {
             fingerprint.push(';');
         }
-        if let Ok(()) = write!(fingerprint, "{}:", session) {}
-        let values = sessions_buffer.values_ref(session);
+        if let Ok(()) = write!(fingerprint, "{}:", session.to_string()) {}
+        let values = sessions_buffer.values_ref(&session);
         for (value_idx, value) in values.iter().enumerate() {
             if value_idx > 0 {
                 fingerprint.push('|');
             }
-            fingerprint.push_str(value);
+            fingerprint.push_str(&value.to_string());
         }
     }
     fingerprint
@@ -259,7 +263,7 @@ fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
 
 fn governance_fingerprint(
     state_schema_version: u32,
-    state_version: u64,
+    state_version: Version,
     state_checksum: &str,
     audit_entries: &[GovernanceAuditEntry],
     snapshots: &[GovernanceStateSnapshot],
@@ -296,10 +300,10 @@ fn governance_fingerprint(
 
 fn dataset_fingerprint(
     entries: &[DatasetEntry],
-    corrections: &HashMap<String, Vec<Correction>>,
+    corrections: &HashMap<ProtocolId, Vec<Correction>>,
 ) -> String {
     let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
-    ordered_entries.sort_by(|a, b| a.id.cmp(&b.id));
+    ordered_entries.sort_by(|a, b| a.id.to_hex().cmp(&b.id.to_hex()));
     let mut fingerprint = String::new();
     let mut first_segment = true;
     for entry in ordered_entries {
@@ -308,8 +312,8 @@ fn dataset_fingerprint(
             fingerprint,
             "{}|{}|{}|{}|{:?}|{:?}|{}|{:?}",
             entry.id,
-            entry.task_id.as_str(),
-            entry.expert_id.as_str(),
+            entry.task_id,
+            entry.expert_id,
             entry.input,
             entry.outcome,
             entry.score,
@@ -318,8 +322,8 @@ fn dataset_fingerprint(
         ) {}
     }
 
-    let mut ordered_keys: Vec<&str> = corrections.keys().map(String::as_str).collect();
-    ordered_keys.sort_unstable();
+    let mut ordered_keys: Vec<&ProtocolId> = corrections.keys().collect();
+    ordered_keys.sort_by(|a, b| a.to_hex().cmp(&b.to_hex()));
     for key in ordered_keys {
         if let Some(values) = corrections.get(key) {
             for correction in values {
@@ -362,23 +366,23 @@ fn auto_improvement_fingerprint(
     };
     let status_part = format!(
         "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}",
-        status.runs_total,
-        status.bootstrap_entries_total,
+        status.global_counters.runs_total,
+        status.global_counters.bootstrap_entries_total,
         status.last_bundle_checksum,
         status.last_included_entries,
         status.last_train_samples,
         status.last_validation_samples,
-        status.skipped_min_dataset_entries_total,
-        status.skipped_min_success_ratio_total,
-        status.skipped_min_average_score_total,
-        status.skipped_human_review_required_total,
-        status.skipped_duplicate_bundle_total,
-        status.build_failures_total,
+        status.skip_counters.min_dataset_entries_total,
+        status.skip_counters.min_success_ratio_total,
+        status.skip_counters.min_average_score_total,
+        status.skip_counters.human_review_required_total,
+        status.skip_counters.duplicate_bundle_total,
+        status.global_counters.build_failures_total,
         status.last_skip_reason,
-        status.trainer_trigger_delivery_attempts_total,
-        status.trainer_trigger_delivery_failures_total,
-        status.trainer_trigger_acknowledged_total,
-        status.trainer_trigger_dead_letter_total
+        status.delivery_stats.delivery_attempts_total,
+        status.delivery_stats.delivery_failures_total,
+        status.delivery_stats.acknowledged_total,
+        status.delivery_stats.dead_letter_total
     );
     format!("{policy_part}::{status_part}")
 }
@@ -388,14 +392,14 @@ fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
     if let Ok(()) = write!(
         fingerprint,
         "active={:?}|next={}",
-        registry.active_version, registry.next_version
+        registry.active_model_version, registry.next_model_version
     ) {}
     for entry in &registry.entries {
         fingerprint.push_str("::");
         if let Ok(()) = write!(
             fingerprint,
             "{}|{}|{}|{}|{}|{}|{}",
-            entry.version,
+            entry.model_version,
             entry.training_bundle_checksum,
             entry.included_entries,
             entry.train_samples,
@@ -434,15 +438,15 @@ where
 
 fn trainer_trigger_leased_event_ids_fingerprint<'a, I>(ids: I) -> String
 where
-    I: IntoIterator<Item = &'a u64>,
+    I: IntoIterator<Item = &'a ProtocolId>,
 {
-    let mut ordered_ids: Vec<u64> = ids.into_iter().copied().collect();
-    ordered_ids.sort_unstable();
+    let mut ordered_ids: Vec<&ProtocolId> = ids.into_iter().collect();
+    ordered_ids.sort_unstable_by(|a, b| a.to_string().cmp(&b.to_string()));
     let mut fingerprint = String::new();
     let mut first_segment = true;
     for id in &ordered_ids {
         append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
-        if let Ok(()) = write!(fingerprint, "{id}") {}
+        if let Ok(()) = write!(fingerprint, "{:?}", id) {}
     }
     fingerprint
 }

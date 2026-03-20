@@ -6,7 +6,7 @@ use crate::memory_engine::MemoryEntry;
 use crate::moe_core::{AggregatedOutput, Expert, MoeError, Task};
 use crate::orchestrator::{
     ConcurrentLockMetrics, ConcurrentOperationalReport, GovernanceAuditTrail,
-    GovernanceImportDecision, ImportTelemetry, MoePipeline, MoePipelineBuilder,
+    GovernanceImportDecision, ImportTelemetry, MoePipeline, MoePipelineBuilder, Version,
 };
 
 const READ_LOCK_KIND: &str = "read";
@@ -188,13 +188,13 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_runtime_bundle_json_with_checksum(
         &self,
-        expected_current_version: u64,
+        expected_current_version: &Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
         self.with_runtime_write(|pipeline| {
             pipeline.compare_and_import_runtime_bundle_json_with_checksum(
-                expected_current_version,
+                expected_current_version.clone(),
                 expected_current_checksum,
                 payload,
             )
@@ -218,7 +218,7 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_runtime_bundle_json(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         self.with_runtime_write(|pipeline| {
@@ -228,7 +228,7 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_governance_bundle_json_with_checksum(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
@@ -243,7 +243,7 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_governance_state_json_with_checksum(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
@@ -273,7 +273,7 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_governance_bundle_json(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         self.with_runtime_write(|pipeline| {
@@ -298,7 +298,7 @@ impl ConcurrentMoePipeline {
 
     pub fn compare_and_import_governance_state_json(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         self.with_runtime_write(|pipeline| {

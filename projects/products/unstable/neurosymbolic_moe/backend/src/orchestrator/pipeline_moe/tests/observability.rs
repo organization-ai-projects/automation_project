@@ -1,4 +1,4 @@
-//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/tests/observability.rs
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/tests/observability.rs
 use crate::orchestrator::{MoePipelineBuilder, OperationalReport};
 
 #[test]
@@ -7,7 +7,7 @@ fn observability_module_exports_operational_report_json() {
     let report = pipeline.export_operational_report();
     assert_eq!(
         report.governance_current_version,
-        pipeline.export_governance_state().state_version
+        pipeline.export_governance_state().version_number
     );
 
     let report_json = pipeline

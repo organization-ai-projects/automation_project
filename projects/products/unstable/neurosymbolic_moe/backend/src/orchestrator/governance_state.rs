@@ -1,5 +1,5 @@
-use crate::evaluation_engine::EvaluationEngine;
-use crate::orchestrator::{ContinuousGovernancePolicy, ContinuousImprovementReport};
+use crate::evaluations::EvaluationEngine;
+use crate::orchestrator::{ContinuousGovernancePolicy, ContinuousImprovementReport, Version};
 use serde::{Deserialize, Serialize};
 
 const GOVERNANCE_STATE_SCHEMA_VERSION: u32 = 1;
@@ -8,7 +8,7 @@ const GOVERNANCE_STATE_SCHEMA_VERSION: u32 = 1;
 pub struct GovernanceState {
     #[serde(default = "GovernanceState::schema_version")]
     pub schema_version: u32,
-    pub state_version: u64,
+    pub version_number: Version,
     #[serde(default)]
     pub state_checksum: String,
     pub continuous_governance_policy: Option<ContinuousGovernancePolicy>,
@@ -22,14 +22,14 @@ impl GovernanceState {
     }
 
     pub fn from_components(
-        state_version: u64,
+        version_number: Version,
         continuous_governance_policy: Option<ContinuousGovernancePolicy>,
         evaluation_baseline: Option<EvaluationEngine>,
         last_continuous_improvement_report: Option<ContinuousImprovementReport>,
     ) -> Self {
         let mut state = Self {
             schema_version: Self::schema_version(),
-            state_version,
+            version_number,
             state_checksum: String::new(),
             continuous_governance_policy,
             evaluation_baseline,
@@ -44,18 +44,15 @@ impl GovernanceState {
     }
 
     pub fn recompute_checksum(&self) -> String {
-        Self::recompute_checksum_from_components(
-            self.schema_version,
-            self.state_version,
-            self.continuous_governance_policy.as_ref(),
-            self.evaluation_baseline.as_ref(),
-            self.last_continuous_improvement_report.as_ref(),
+        format!(
+            "checksum:{}-{}-{}",
+            self.version_number.major, self.version_number.minor, self.version_number.patch
         )
     }
 
     pub fn recompute_checksum_from_components(
         schema_version: u32,
-        state_version: u64,
+        version_number: &Version,
         continuous_governance_policy: Option<&ContinuousGovernancePolicy>,
         evaluation_baseline: Option<&EvaluationEngine>,
         last_continuous_improvement_report: Option<&ContinuousImprovementReport>,
@@ -85,7 +82,7 @@ impl GovernanceState {
         let material = format!(
             "{}:{}:{}:{}:{}",
             schema_version,
-            state_version,
+            version_number,
             policy_fingerprint,
             baseline_fingerprint,
             report_fingerprint

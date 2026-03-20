@@ -1,19 +1,35 @@
-//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/moe_pipeline/execution.rs
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/execution.rs
+use std::{cmp, collections};
+
+use protocol::ProtocolId;
+
+use crate::dataset_engine;
 use crate::memory_engine::{MemoryQuery, MemoryStore};
 use crate::moe_core::{
     AggregatedOutput, ExecutionContext, ExpertError, ExpertId, ExpertOutput, MoeError, Task,
-    TracePhase,
+    TaskId, TracePhase,
 };
-use crate::orchestrator::{ArbitrationMode, ContinuousImprovementReport, MoePipeline};
+use crate::orchestrator::{
+    ArbitrationMode, ContinuousImprovementReport, MoePipeline, TrainerTriggerEvent, Version,
+};
+use crate::retrieval_engine::RetrievalQuery;
 use crate::router::RoutingStrategy;
 
 impl MoePipeline {
+    fn parse_expert_chain(&self, raw: &str) -> Vec<ExpertId> {
+        raw.split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .filter_map(|entry| self.registry.find_id_by_name_or_id(entry))
+            .collect()
+    }
+
     pub fn execute(&mut self, task: Task) -> Result<AggregatedOutput, MoeError> {
         let task_id = task.id().clone();
         let chain_ids = if self.enable_task_metadata_chain {
             task.metadata
                 .get("expert_chain")
-                .map(|raw| Self::parse_expert_chain(raw))
+                .map(|raw| self.parse_expert_chain(raw))
                 .unwrap_or_default()
         } else {
             Vec::new()
@@ -37,7 +53,7 @@ impl MoePipeline {
                 );
                 (
                     chain_ids,
-                    std::collections::HashMap::new(),
+                    collections::HashMap::new(),
                     RoutingStrategy::MultiExpert,
                     "expert chain from task metadata".to_string(),
                 )
@@ -79,7 +95,7 @@ impl MoePipeline {
 
         for (index, expert_id) in selected_experts.iter().enumerate() {
             let expert = self.registry.get(expert_id).ok_or_else(|| {
-                let msg = format!("expert '{}' not found in registry", expert_id.as_str());
+                let msg = format!("expert '{}' not found in registry", expert_id);
                 self.trace_logger.log_phase(
                     task_id.clone(),
                     TracePhase::ExpertExecution,
@@ -106,7 +122,7 @@ impl MoePipeline {
                             TracePhase::Validation,
                             format!(
                                 "chained output from '{}' rejected by policy before propagation: {err}",
-                                expert_id.as_str()
+                                expert_id
                             ),
                             Some(expert_id.clone()),
                         );
@@ -118,8 +134,7 @@ impl MoePipeline {
                         TracePhase::ExpertExecution,
                         format!(
                             "expert '{}' executed successfully (confidence: {:.2})",
-                            expert_id.as_str(),
-                            output.confidence
+                            expert_id, output.confidence
                         ),
                         Some(expert_id.clone()),
                     );
@@ -138,7 +153,7 @@ impl MoePipeline {
                     self.trace_logger.log_phase(
                         task_id.clone(),
                         TracePhase::ExpertExecution,
-                        format!("expert '{}' failed: {e}", expert_id.as_str()),
+                        format!("expert '{}' failed: {e}", expert_id),
                         Some(expert_id.clone()),
                     );
                     self.evaluation
@@ -180,7 +195,7 @@ impl MoePipeline {
                     let score_b = self.arbitration_score(b, &routing_scores);
                     score_a
                         .partial_cmp(&score_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .unwrap_or(cmp::Ordering::Equal)
                 })
                 .cloned();
             aggregated.selected_output = selected;
@@ -230,8 +245,7 @@ impl MoePipeline {
                         TracePhase::Validation,
                         format!(
                             "selected output from '{}' rejected, replaced by policy-compliant '{}'",
-                            selected.expert_id.as_str(),
-                            replacement.expert_id.as_str()
+                            selected.expert_id, replacement.expert_id
                         ),
                         None,
                     );
@@ -281,7 +295,7 @@ impl MoePipeline {
             &task_traces,
             task.input(),
             output_text,
-            crate::dataset_engine::Outcome::Success,
+            dataset_engine::Outcome::Success,
         );
 
         self.training_runtime_state.dataset_store.add_entry(entry);
@@ -396,7 +410,8 @@ impl MoePipeline {
         if self.training_runtime_state.dataset_store.count() < policy.min_dataset_entries {
             self.training_runtime_state
                 .auto_improvement_status
-                .skipped_min_dataset_entries_total += 1;
+                .skip_counters
+                .min_dataset_entries_total += 1;
             self.training_runtime_state
                 .auto_improvement_status
                 .last_skip_reason = Some("dataset entries below min_dataset_entries".to_string());
@@ -410,7 +425,8 @@ impl MoePipeline {
         if quality.success_ratio < policy.min_success_ratio {
             self.training_runtime_state
                 .auto_improvement_status
-                .skipped_min_success_ratio_total += 1;
+                .skip_counters
+                .min_success_ratio_total += 1;
             self.training_runtime_state
                 .auto_improvement_status
                 .last_skip_reason =
@@ -422,7 +438,8 @@ impl MoePipeline {
         {
             self.training_runtime_state
                 .auto_improvement_status
-                .skipped_min_average_score_total += 1;
+                .skip_counters
+                .min_average_score_total += 1;
             self.training_runtime_state
                 .auto_improvement_status
                 .last_skip_reason =
@@ -437,7 +454,8 @@ impl MoePipeline {
         {
             self.training_runtime_state
                 .auto_improvement_status
-                .skipped_human_review_required_total += 1;
+                .skip_counters
+                .human_review_required_total += 1;
             self.training_runtime_state
                 .auto_improvement_status
                 .last_skip_reason = Some("continuous governance requires human review".to_string());
@@ -461,13 +479,14 @@ impl MoePipeline {
                 {
                     self.training_runtime_state
                         .auto_improvement_status
-                        .skipped_duplicate_bundle_total += 1;
+                        .skip_counters
+                        .duplicate_bundle_total += 1;
                     self.training_runtime_state
                         .auto_improvement_status
                         .last_skip_reason = Some("training bundle checksum unchanged".to_string());
                     return;
                 }
-                let model_version = self
+                let model_version: Version = self
                     .training_runtime_state
                     .model_registry
                     .register_candidate(
@@ -480,15 +499,16 @@ impl MoePipeline {
                 if self
                     .training_runtime_state
                     .model_registry
-                    .active_version
+                    .active_model_version
                     .is_none()
                 {
                     self.training_runtime_state
                         .model_registry
-                        .promote(model_version);
+                        .promote(model_version.clone());
                 }
                 self.training_runtime_state
                     .auto_improvement_status
+                    .global_counters
                     .runs_total += 1;
                 self.training_runtime_state
                     .auto_improvement_status
@@ -505,12 +525,9 @@ impl MoePipeline {
                 self.training_runtime_state
                     .auto_improvement_status
                     .last_skip_reason = None;
-                self.push_trainer_trigger_event(crate::orchestrator::TrainerTriggerEvent {
-                    event_id: self
-                        .training_runtime_state
-                        .auto_improvement_status
-                        .runs_total,
-                    model_version,
+                self.push_trainer_trigger_event(TrainerTriggerEvent {
+                    event_id: ProtocolId::default(),
+                    model_version: model_version.clone(),
                     training_bundle_checksum: bundle.bundle_checksum.clone(),
                     included_entries: bundle.included_entries,
                     train_samples: bundle.train_samples.len(),
@@ -521,11 +538,14 @@ impl MoePipeline {
                 });
                 self.record_governance_audit("auto improvement dataset refresh");
                 self.trace_logger.log_phase(
-                    crate::moe_core::TaskId::new("auto-improvement"),
+                    TaskId::new(),
                     TracePhase::DatasetEnrichment,
                     format!(
                         "auto improvement run {} prepared model v{} bundle (included={}, train={}, validation={})",
-                        self.training_runtime_state.auto_improvement_status.runs_total,
+                        self.training_runtime_state
+                            .auto_improvement_status
+                            .global_counters
+                            .runs_total,
                         model_version,
                         self.training_runtime_state.auto_improvement_status.last_included_entries,
                         self.training_runtime_state.auto_improvement_status.last_train_samples,
@@ -537,12 +557,13 @@ impl MoePipeline {
             Err(err) => {
                 self.training_runtime_state
                     .auto_improvement_status
+                    .global_counters
                     .build_failures_total += 1;
                 self.training_runtime_state
                     .auto_improvement_status
                     .last_skip_reason = Some(format!("training bundle build error: {err}"));
                 self.trace_logger.log_phase(
-                    crate::moe_core::TaskId::new("auto-improvement"),
+                    TaskId::new(),
                     TracePhase::DatasetEnrichment,
                     format!("auto improvement skipped (bundle build error: {err})"),
                     None,
@@ -560,7 +581,7 @@ impl MoePipeline {
             Self::metadata_usize(task, "retrieval.max_results").unwrap_or(8);
         let retrieval_min_relevance =
             Self::metadata_f64(task, "retrieval.min_relevance").unwrap_or(0.05);
-        let mut query = crate::retrieval_engine::RetrievalQuery::new(task.input())
+        let mut query = RetrievalQuery::new(task.input())
             .with_task_id(task.id().clone())
             .with_max_results(retrieval_max_results)
             .with_min_relevance(retrieval_min_relevance);
@@ -628,7 +649,7 @@ impl MoePipeline {
             None,
         );
 
-        let working_key = format!("task/{}", task.id().as_str());
+        let working_key = format!("task/{}", task.id());
         self.buffer_manager.working_mut().put(
             working_key,
             task.input().to_string(),
@@ -645,8 +666,12 @@ impl MoePipeline {
                     .map(|entry| entry.value.clone())
             })
             .collect();
-        if let Some(session_id) = task.metadata.get("session_id") {
-            buffer_data.extend(self.buffer_manager.sessions().values(session_id));
+        if let Some(session_id) = task
+            .metadata
+            .get("session_id")
+            .and_then(|raw| raw.parse::<ProtocolId>().ok())
+        {
+            buffer_data.extend(self.buffer_manager.sessions().values(&session_id));
         }
 
         Ok(ExecutionContext::new(task.id().clone())
@@ -687,18 +712,10 @@ impl MoePipeline {
             .unwrap_or_default()
     }
 
-    fn parse_expert_chain(raw: &str) -> Vec<ExpertId> {
-        raw.split([',', '>'])
-            .map(str::trim)
-            .filter(|id| !id.is_empty())
-            .map(ExpertId::new)
-            .collect()
-    }
-
     fn arbitration_score(
         &self,
         output: &ExpertOutput,
-        routing_scores: &std::collections::HashMap<ExpertId, f64>,
+        routing_scores: &collections::HashMap<ExpertId, f64>,
     ) -> f64 {
         match self.arbitration_mode {
             ArbitrationMode::Aggregation => output.confidence,
@@ -715,14 +732,14 @@ impl MoePipeline {
     fn pick_policy_compliant_output(
         &self,
         outputs: &[ExpertOutput],
-        routing_scores: &std::collections::HashMap<ExpertId, f64>,
+        routing_scores: &collections::HashMap<ExpertId, f64>,
         exclude_expert_id: Option<&ExpertId>,
     ) -> Option<ExpertOutput> {
         let mut ranked: Vec<&ExpertOutput> = outputs.iter().collect();
         ranked.sort_by(|a, b| {
             self.arbitration_score(b, routing_scores)
                 .partial_cmp(&self.arbitration_score(a, routing_scores))
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .unwrap_or(cmp::Ordering::Equal)
         });
 
         ranked

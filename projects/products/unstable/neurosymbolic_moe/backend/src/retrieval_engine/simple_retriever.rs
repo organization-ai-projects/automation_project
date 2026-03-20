@@ -1,10 +1,16 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/simple_retriever.rs
+use std::{cmp, collections};
+
 use serde::{Deserialize, Serialize};
 
-use crate::moe_core::MoeError;
+use crate::{
+    moe_core::MoeError,
+    retrieval_engine::{
+        retrieval_query::RetrievalQuery, retrieval_result::RetrievalResult, retriever::Retriever,
+    },
+};
 
 use super::chunk::Chunk;
-use super::retrieval_trait::{RetrievalQuery, RetrievalResult, Retriever};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleRetriever {
@@ -47,7 +53,7 @@ impl SimpleRetriever {
         (covered as f64 / content_lower.len() as f64).min(1.0)
     }
 
-    fn matches_filters(chunk: &Chunk, filters: &std::collections::HashMap<String, String>) -> bool {
+    fn matches_filters(chunk: &Chunk, filters: &collections::HashMap<String, String>) -> bool {
         filters
             .iter()
             .all(|(k, v)| chunk.metadata.get(k).is_some_and(|val| val == v))
@@ -85,7 +91,7 @@ impl Retriever for SimpleRetriever {
         results.sort_by(|a, b| {
             b.relevance_score
                 .partial_cmp(&a.relevance_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .unwrap_or(cmp::Ordering::Equal)
         });
 
         results.truncate(query.max_results);

@@ -1,41 +1,50 @@
 use crate::buffer_manager::SessionBuffer;
+use protocol::ProtocolId;
+
+fn protocol_id(_byte: u8) -> ProtocolId {
+    ProtocolId::default()
+}
 
 #[test]
 fn create_put_get_and_remove_session() {
     let mut buffer = SessionBuffer::new();
-    buffer.create_session("s1");
-    buffer.put("s1", "k1", "v1");
+    let session_id = protocol_id(1);
+    buffer.create_session(&session_id);
+    buffer.put(&session_id, "k1", "v1");
 
     let entry = buffer
-        .get("s1", "k1")
+        .get(&session_id, "k1")
         .expect("entry should be present in created session");
     assert_eq!(entry.value, "v1");
-    assert_eq!(entry.session_id.as_deref(), Some("s1"));
+    assert_eq!(entry.session_id.as_deref(), Some(session_id.to_string().as_str()));
     assert_eq!(buffer.session_count(), 1);
-    assert!(buffer.remove_session("s1"));
+    assert!(buffer.remove_session(&session_id));
     assert_eq!(buffer.session_count(), 0);
 }
 
 #[test]
 fn list_sessions_returns_existing_ids() {
     let mut buffer = SessionBuffer::new();
-    buffer.create_session("a");
-    buffer.create_session("b");
+    let session_a = protocol_id(1);
+    let session_b = protocol_id(2);
+    buffer.create_session(&session_a);
+    buffer.create_session(&session_b);
     let sessions = buffer.list_sessions();
     assert_eq!(sessions.len(), 2);
-    assert!(sessions.contains(&"a"));
-    assert!(sessions.contains(&"b"));
+    assert!(sessions.contains(&session_a));
+    assert!(sessions.contains(&session_b));
 }
 
 #[test]
 fn values_ref_returns_sorted_values_without_allocating_owned_strings() {
     let mut buffer = SessionBuffer::new();
-    buffer.create_session("s1");
-    buffer.put("s1", "b", "value-b");
-    buffer.put("s1", "a", "value-a");
+    let session_id = protocol_id(1);
+    buffer.create_session(&session_id);
+    buffer.put(&session_id, "b", "value-b");
+    buffer.put(&session_id, "a", "value-a");
 
-    let refs = buffer.values_ref("s1");
+    let refs = buffer.values_ref(&session_id);
     assert_eq!(refs, vec!["value-a", "value-b"]);
-    let owned = buffer.values("s1");
+    let owned = buffer.values(&session_id);
     assert_eq!(owned, vec!["value-a".to_string(), "value-b".to_string()]);
 }

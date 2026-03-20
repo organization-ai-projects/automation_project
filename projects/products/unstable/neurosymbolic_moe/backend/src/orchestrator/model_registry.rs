@@ -1,12 +1,14 @@
+use common_time::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::orchestrator::ModelRegistryEntry;
+use crate::orchestrator::version::Version;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ModelRegistry {
     pub entries: Vec<ModelRegistryEntry>,
-    pub active_version: Option<u64>,
-    pub next_version: u64,
+    pub active_model_version: Option<Version>,
+    pub next_model_version: Version,
 }
 
 impl ModelRegistry {
@@ -16,12 +18,12 @@ impl ModelRegistry {
         included_entries: usize,
         train_samples: usize,
         validation_samples: usize,
-        generated_at: u64,
-    ) -> u64 {
-        let version = self.next_version.max(1);
-        self.next_version = version.saturating_add(1);
+        generated_at: Timestamp,
+    ) -> Version {
+        let model_version = self.next_model_version.clone();
+        self.next_model_version.increment_patch();
         self.entries.push(ModelRegistryEntry {
-            version,
+            model_version: model_version.clone(),
             training_bundle_checksum,
             included_entries,
             train_samples,
@@ -29,28 +31,28 @@ impl ModelRegistry {
             generated_at,
             promoted: false,
         });
-        version
+        model_version
     }
 
-    pub fn promote(&mut self, version: u64) -> bool {
-        let mut found = false;
-        for entry in &mut self.entries {
-            if entry.version == version {
-                entry.promoted = true;
-                found = true;
-            }
+    pub fn promote(&mut self, model_version: Version) -> bool {
+        if let Some(entry) = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.model_version == model_version)
+        {
+            entry.promoted = true;
+            self.active_model_version = Some(model_version);
+            true
+        } else {
+            false
         }
-        if found {
-            self.active_version = Some(version);
-        }
-        found
     }
 
     pub fn entry_count(&self) -> usize {
         self.entries.len()
     }
 
-    pub fn latest_version(&self) -> Option<u64> {
-        self.entries.last().map(|entry| entry.version)
+    pub fn latest_model_version(&self) -> Option<Version> {
+        self.entries.last().map(|entry| entry.model_version.clone())
     }
 }

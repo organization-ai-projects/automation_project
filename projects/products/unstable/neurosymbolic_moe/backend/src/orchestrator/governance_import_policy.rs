@@ -1,10 +1,11 @@
+use crate::orchestrator::Version;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GovernanceImportPolicy {
     pub allow_schema_change: bool,
     pub allow_version_regression: bool,
-    pub max_version_regression: Option<u64>,
+    pub max_version_regression: Option<Version>,
     pub require_policy_match: bool,
 }
 

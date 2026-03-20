@@ -1,4 +1,5 @@
-use crate::orchestrator::MoePipelineBuilder;
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/tests/governance_runtime.rs
+use crate::orchestrator::{self, MoePipelineBuilder};
 
 #[test]
 fn governance_runtime_module_rejects_tampered_runtime_bundle_checksum() {
@@ -6,7 +7,7 @@ fn governance_runtime_module_rejects_tampered_runtime_bundle_checksum() {
     let payload = pipeline
         .export_runtime_bundle_json()
         .expect("runtime bundle should serialize");
-    let mut bundle: crate::orchestrator::RuntimePersistenceBundle =
+    let mut bundle: orchestrator::RuntimePersistenceBundle =
         common_json::json::from_json_str(&payload).expect("bundle json should deserialize");
     bundle.runtime_checksum = "tampered-checksum".to_string();
     let tampered_payload = common_json::json::to_json_string_pretty(&bundle)

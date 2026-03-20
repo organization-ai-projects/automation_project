@@ -1,11 +1,12 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/router/tests/heuristic_router.rs
 use std::collections::HashMap;
 
-use crate::expert_registry::ExpertRegistry;
+use crate::expert_registries::ExpertRegistry;
 use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, Task, TaskType,
 };
+use crate::orchestrator::Version;
 use crate::router::{HeuristicRouter, Router};
 
 struct TestExpert {
@@ -16,9 +17,9 @@ impl TestExpert {
     fn new(id: &str, capabilities: Vec<ExpertCapability>) -> Self {
         Self {
             meta: ExpertMetadata {
-                id: ExpertId::new(id),
+                id: ExpertId::new(),
                 name: id.to_string(),
-                version: "1.0.0".to_string(),
+                version: Version::new(1, 0, 0),
                 capabilities,
                 status: ExpertStatus::Active,
                 expert_type: ExpertType::Deterministic,
@@ -68,22 +69,18 @@ fn routes_to_correct_expert_by_capability() {
     assert!(register_result.is_ok());
 
     let router = HeuristicRouter::new(3);
-    let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+    let task = Task::new(TaskType::CodeGeneration, "write code");
     let decision = router.route(&task, &registry);
     assert!(decision.is_ok());
     let decision = decision.expect("route must succeed");
-    assert!(
-        decision
-            .selected_experts
-            .contains(&ExpertId::new("codegen"))
-    );
+    assert!(decision.selected_experts.contains(&ExpertId::new()));
 }
 
 #[test]
 fn no_matching_expert_returns_error() {
     let registry = ExpertRegistry::new();
     let router = HeuristicRouter::new(3);
-    let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+    let task = Task::new(TaskType::CodeGeneration, "write code");
     let result = router.route(&task, &registry);
     assert!(result.is_err());
 }
@@ -99,7 +96,7 @@ fn respects_max_experts_limit() {
         assert!(register_result.is_ok());
     }
     let router = HeuristicRouter::new(2);
-    let task = Task::new("t1", TaskType::CodeGeneration, "write code");
+    let task = Task::new(TaskType::CodeGeneration, "write code");
     let decision = router.route(&task, &registry);
     assert!(decision.is_ok());
     let decision = decision.expect("route must succeed");

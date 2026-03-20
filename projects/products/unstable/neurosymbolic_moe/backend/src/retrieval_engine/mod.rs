@@ -5,16 +5,17 @@ mod chunking_strategy;
 mod context_assembler;
 mod retrieval_query;
 mod retrieval_result;
-mod retrieval_trait;
 mod retriever;
 mod simple_retriever;
 
 #[cfg(test)]
 mod tests;
 
-pub use chunk::Chunk;
-pub use chunker::Chunker;
-pub use chunking_strategy::ChunkingStrategy;
-pub use context_assembler::ContextAssembler;
-pub use retrieval_trait::{RetrievalQuery, RetrievalResult, Retriever};
-pub use simple_retriever::SimpleRetriever;
+pub(crate) use chunk::Chunk;
+pub(crate) use chunker::Chunker;
+pub(crate) use chunking_strategy::ChunkingStrategy;
+pub(crate) use context_assembler::ContextAssembler;
+pub(crate) use retrieval_query::RetrievalQuery;
+pub(crate) use retrieval_result::RetrievalResult;
+pub(crate) use retriever::Retriever;
+pub(crate) use simple_retriever::SimpleRetriever;

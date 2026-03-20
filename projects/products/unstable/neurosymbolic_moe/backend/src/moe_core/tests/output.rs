@@ -1,9 +1,15 @@
-use crate::moe_core::{AggregatedOutput, ExpertId, ExpertOutput};
+//! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/output.rs
+use crate::moe_core::{self, AggregatedOutput, ExpertOutput};
+use protocol::ProtocolId;
 use std::collections::HashMap;
 
-fn make_output(id: &str, content: &str, confidence: f64) -> ExpertOutput {
+fn expert_id(_byte: u8) -> moe_core::ExpertId {
+    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+}
+
+fn make_output(id: u8, content: &str, confidence: f64) -> ExpertOutput {
     ExpertOutput {
-        expert_id: ExpertId::new(id),
+        expert_id: expert_id(id),
         content: content.to_string(),
         confidence,
         metadata: HashMap::new(),
@@ -13,15 +19,15 @@ fn make_output(id: &str, content: &str, confidence: f64) -> ExpertOutput {
 
 #[test]
 fn expert_output_creation() {
-    let out = make_output("e1", "hello", 0.9);
-    assert_eq!(out.expert_id.as_str(), "e1");
+    let out = make_output(1, "hello", 0.9);
+    assert_eq!(out.expert_id, expert_id(1));
     assert_eq!(out.content, "hello");
     assert!((out.confidence - 0.9).abs() < f64::EPSILON);
 }
 
 #[test]
 fn aggregated_output_creation() {
-    let out = make_output("e1", "hello", 0.9);
+    let out = make_output(1, "hello", 0.9);
     let agg = AggregatedOutput {
         outputs: vec![out.clone()],
         selected_output: Some(out),

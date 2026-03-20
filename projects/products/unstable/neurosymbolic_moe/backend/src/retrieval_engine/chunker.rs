@@ -1,3 +1,5 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/chunker.rs
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 
 use super::chunk::Chunk;
@@ -26,14 +28,14 @@ impl Chunker {
         let chars: Vec<char> = text.chars().collect();
         let mut offset = 0;
 
-        for (i, window) in chars.chunks(size).enumerate() {
+        for window in chars.chunks(size) {
             let content: String = window.iter().collect();
             let byte_start = offset;
             let byte_end = offset + content.len();
             offset = byte_end;
 
             chunks.push(Chunk::new(
-                format!("{source}-chunk-{i}"),
+                ProtocolId::default(),
                 content,
                 source,
                 byte_start,
@@ -66,7 +68,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                format!("{source}-para-{i}"),
+                ProtocolId::default(),
                 trimmed,
                 source,
                 start,
@@ -86,7 +88,7 @@ impl Chunker {
         let mut chunks = Vec::new();
         let mut search_from = 0;
 
-        for (i, sentence) in text.split_inclusive(['.', '!', '?']).enumerate() {
+        for sentence in text.split_inclusive(['.', '!', '?']) {
             let trimmed = sentence.trim();
             if trimmed.is_empty() {
                 search_from += sentence.len();
@@ -100,7 +102,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                format!("{source}-sent-{i}"),
+                ProtocolId::default(),
                 trimmed,
                 source,
                 start,

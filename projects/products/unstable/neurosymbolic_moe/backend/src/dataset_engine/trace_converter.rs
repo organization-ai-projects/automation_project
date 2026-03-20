@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::moe_core::{ExpertId, TaskId, TraceRecord};
 
 use super::{DatasetEntry, Outcome};
+use protocol::ProtocolId;
 
 #[derive(Debug, Clone)]
 pub struct TraceConverter;
@@ -22,12 +23,12 @@ impl TraceConverter {
         let task_id = traces
             .first()
             .map(|t| t.task_id.clone())
-            .unwrap_or_else(|| TaskId::new("unknown"));
+            .unwrap_or_else(|| TaskId::new());
 
         let expert_id = traces
             .iter()
             .find_map(|t| t.expert_id.clone())
-            .unwrap_or_else(|| ExpertId::new("unknown"));
+            .unwrap_or_else(|| ExpertId::new());
 
         let timestamp = traces.iter().map(|t| t.timestamp).max().unwrap_or(0);
 
@@ -43,7 +44,7 @@ impl TraceConverter {
         let tags = self.extract_tags(traces);
 
         DatasetEntry {
-            id: format!("ds-{}-{}", task_id.as_str(), timestamp),
+            id: ProtocolId::default(),
             task_id,
             expert_id,
             input: input.to_string(),

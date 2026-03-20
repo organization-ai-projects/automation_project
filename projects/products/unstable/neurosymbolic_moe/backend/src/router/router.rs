@@ -1,5 +1,5 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/router/router.rs
-use crate::expert_registry::ExpertRegistry;
+use crate::expert_registries::ExpertRegistry;
 use crate::moe_core::{MoeError, Task};
 
 use super::routing_decision::RoutingDecision;

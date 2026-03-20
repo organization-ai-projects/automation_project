@@ -16,35 +16,35 @@ pub(in crate::orchestrator) struct TrainingRuntimeState {
 
 impl TrainingRuntimeState {
     pub fn validate_invariants(&self) -> Result<(), MoeError> {
-        if let Some(active_version) = self.model_registry.active_version
+        if let Some(ref active_model_version) = self.model_registry.active_model_version
             && !self
                 .model_registry
                 .entries
                 .iter()
-                .any(|entry| entry.version == active_version)
+                .any(|entry| entry.model_version == *active_model_version)
         {
             return Err(MoeError::PolicyRejected(format!(
                 "training invariant failed: active model version {} is missing from registry",
-                active_version
+                active_model_version
             )));
         }
 
-        if let Some(latest_version) = self.model_registry.latest_version()
-            && self.model_registry.next_version <= latest_version
+        if let Some(latest_model_version) = self.model_registry.latest_model_version()
+            && self.model_registry.next_model_version <= latest_model_version
         {
             return Err(MoeError::PolicyRejected(format!(
                 "training invariant failed: next model version {} is not above latest {}",
-                self.model_registry.next_version, latest_version
+                self.model_registry.next_model_version, latest_model_version
             )));
         }
 
-        if self.auto_improvement_status.last_bundle_checksum.is_some()
-            && self.auto_improvement_status.runs_total == 0
+        if let Some(ref last_bundle_checksum) = self.auto_improvement_status.last_bundle_checksum
+            && self.auto_improvement_status.global_counters.runs_total == 0
         {
-            return Err(MoeError::PolicyRejected(
-                "training invariant failed: last bundle checksum set while runs_total is zero"
-                    .to_string(),
-            ));
+            return Err(MoeError::PolicyRejected(format!(
+                "training invariant failed: last bundle checksum ({}) set while runs_total is zero",
+                last_bundle_checksum
+            )));
         }
 
         Ok(())

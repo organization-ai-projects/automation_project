@@ -1,5 +1,5 @@
 use crate::dataset_engine::DatasetQualityReport;
-use crate::evaluation_engine::EvaluationGovernanceReport;
+use crate::evaluations::EvaluationGovernanceReport;
 use crate::orchestrator::ContinuousImprovementReport;
 
 #[test]

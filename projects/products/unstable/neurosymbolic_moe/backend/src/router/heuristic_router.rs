@@ -1,7 +1,7 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/router/heuristic_router.rs
 use std::collections::HashMap;
 
-use crate::expert_registry::ExpertRegistry;
+use crate::expert_registries::ExpertRegistry;
 use crate::moe_core::{ExpertCapability, ExpertId, MoeError, Task, TaskType};
 
 use super::router_port::Router;
@@ -61,8 +61,7 @@ impl Router for HeuristicRouter {
         if scores.is_empty() {
             return Err(MoeError::NoExpertFound(format!(
                 "no expert found for task '{}' of type {:?}",
-                task.id.as_str(),
-                task.task_type
+                task.id, task.task_type
             )));
         }
 
@@ -82,7 +81,7 @@ impl Router for HeuristicRouter {
 
         let explanation = format!(
             "Routed task '{}' ({:?}) to {} expert(s) via {:?} strategy using {} matching",
-            task.id.as_str(),
+            task.id,
             task.task_type,
             selected_experts.len(),
             strategy,

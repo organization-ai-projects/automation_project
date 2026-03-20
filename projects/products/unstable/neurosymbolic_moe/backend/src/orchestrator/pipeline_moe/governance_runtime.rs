@@ -1,8 +1,16 @@
+use std::collections;
+
 use crate::memory_engine::MemoryEntry;
 use crate::moe_core::MoeError;
+use crate::orchestrator::pipeline_moe::{
+    MAX_GOVERNANCE_BUNDLE_JSON_BYTES, MAX_GOVERNANCE_STATE_JSON_BYTES,
+    MAX_RUNTIME_BUNDLE_JSON_BYTES, MAX_RUNTIME_BUNDLE_SESSION_COUNT,
+    MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL, MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES,
+    MAX_RUNTIME_BUNDLE_WORKING_ENTRIES,
+};
 use crate::orchestrator::{
     GovernanceAuditEntry, GovernanceImportDecision, GovernancePersistenceBundle, GovernanceState,
-    GovernanceStateSnapshot, MoePipeline, RuntimePersistenceBundle,
+    GovernanceStateSnapshot, MoePipeline, RuntimePersistenceBundle, Version,
 };
 
 impl MoePipeline {
@@ -121,47 +129,44 @@ impl MoePipeline {
 
         let total_memory_entries =
             bundle.short_term_memory_entries.len() + bundle.long_term_memory_entries.len();
-        if total_memory_entries > super::MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES {
+        if total_memory_entries > MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle rejected: too many memory entries ({} > {})",
-                total_memory_entries,
-                super::MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES
+                total_memory_entries, MAX_RUNTIME_BUNDLE_TOTAL_MEMORY_ENTRIES
             )));
         }
 
         let working_entries = bundle.buffer_manager.working().count();
-        if working_entries > super::MAX_RUNTIME_BUNDLE_WORKING_ENTRIES {
+        if working_entries > MAX_RUNTIME_BUNDLE_WORKING_ENTRIES {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle rejected: too many working buffer entries ({} > {})",
-                working_entries,
-                super::MAX_RUNTIME_BUNDLE_WORKING_ENTRIES
+                working_entries, MAX_RUNTIME_BUNDLE_WORKING_ENTRIES
             )));
         }
 
         let sessions = bundle.buffer_manager.sessions().list_sessions();
-        if sessions.len() > super::MAX_RUNTIME_BUNDLE_SESSION_COUNT {
+        if sessions.len() > MAX_RUNTIME_BUNDLE_SESSION_COUNT {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle rejected: too many sessions ({} > {})",
                 sessions.len(),
-                super::MAX_RUNTIME_BUNDLE_SESSION_COUNT
+                MAX_RUNTIME_BUNDLE_SESSION_COUNT
             )));
         }
         let total_session_values: usize = sessions
             .iter()
             .map(|session| bundle.buffer_manager.sessions().values(session).len())
             .sum();
-        if total_session_values > super::MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL {
+        if total_session_values > MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime bundle rejected: too many session buffer values ({} > {})",
-                total_session_values,
-                super::MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL
+                total_session_values, MAX_RUNTIME_BUNDLE_SESSION_VALUES_TOTAL
             )));
         }
 
         Ok(())
     }
     pub(crate) fn duplicate_memory_ids(entries: &[MemoryEntry]) -> Vec<String> {
-        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        let mut seen: collections::HashSet<&str> = collections::HashSet::new();
         let mut duplicates: Vec<String> = entries
             .iter()
             .map(|entry| entry.id.as_str())
@@ -237,11 +242,11 @@ impl MoePipeline {
     pub(crate) fn parse_governance_bundle_json_payload(
         payload: &str,
     ) -> Result<GovernancePersistenceBundle, MoeError> {
-        if payload.len() > super::MAX_GOVERNANCE_BUNDLE_JSON_BYTES {
+        if payload.len() > MAX_GOVERNANCE_BUNDLE_JSON_BYTES {
             return Err(MoeError::PolicyRejected(format!(
                 "governance persistence bundle payload too large ({} bytes > {} bytes)",
                 payload.len(),
-                super::MAX_GOVERNANCE_BUNDLE_JSON_BYTES
+                MAX_GOVERNANCE_BUNDLE_JSON_BYTES
             )));
         }
         common_json::json::from_json_str(payload).map_err(|err| {
@@ -253,11 +258,11 @@ impl MoePipeline {
     pub(crate) fn parse_governance_state_json_payload(
         payload: &str,
     ) -> Result<GovernanceState, MoeError> {
-        if payload.len() > super::MAX_GOVERNANCE_STATE_JSON_BYTES {
+        if payload.len() > MAX_GOVERNANCE_STATE_JSON_BYTES {
             return Err(MoeError::PolicyRejected(format!(
                 "governance state payload too large ({} bytes > {} bytes)",
                 payload.len(),
-                super::MAX_GOVERNANCE_STATE_JSON_BYTES
+                MAX_GOVERNANCE_STATE_JSON_BYTES
             )));
         }
         let mut state: GovernanceState =
@@ -270,11 +275,11 @@ impl MoePipeline {
     pub(crate) fn parse_runtime_bundle_json_payload(
         payload: &str,
     ) -> Result<RuntimePersistenceBundle, MoeError> {
-        if payload.len() > super::MAX_RUNTIME_BUNDLE_JSON_BYTES {
+        if payload.len() > MAX_RUNTIME_BUNDLE_JSON_BYTES {
             return Err(MoeError::PolicyRejected(format!(
                 "runtime persistence bundle payload too large ({} bytes > {} bytes)",
                 payload.len(),
-                super::MAX_RUNTIME_BUNDLE_JSON_BYTES
+                MAX_RUNTIME_BUNDLE_JSON_BYTES
             )));
         }
         let mut bundle: RuntimePersistenceBundle = common_json::json::from_json_str(payload)
@@ -288,7 +293,7 @@ impl MoePipeline {
     }
     pub(crate) fn assert_expected_governance_state(
         &self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: Option<&str>,
     ) -> Result<(), MoeError> {
         if self.governance_runtime_state.governance_state_version != expected_current_version {
@@ -334,7 +339,7 @@ impl MoePipeline {
         }
 
         if let Some(last_audit) = bundle.audit_entries.last() {
-            if last_audit.version != bundle.state.state_version {
+            if last_audit.version != bundle.state.version_number {
                 return Err(MoeError::PolicyRejected(
                     "governance bundle rejected: latest audit version does not match state version"
                         .to_string(),
@@ -351,7 +356,7 @@ impl MoePipeline {
         if bundle
             .snapshots
             .iter()
-            .any(|snapshot| snapshot.version != snapshot.state.state_version)
+            .any(|snapshot| snapshot.version != snapshot.state.version_number)
         {
             return Err(MoeError::PolicyRejected(
                 "governance bundle rejected: snapshot version does not match embedded state version"
@@ -360,7 +365,7 @@ impl MoePipeline {
         }
 
         if let Some(last_snapshot) = bundle.snapshots.last() {
-            if last_snapshot.version != bundle.state.state_version {
+            if last_snapshot.version != bundle.state.version_number {
                 return Err(MoeError::PolicyRejected(
                     "governance bundle rejected: latest snapshot version does not match state version"
                         .to_string(),
@@ -384,16 +389,21 @@ impl MoePipeline {
             ));
         }
 
-        let snapshot_checksums_by_version: std::collections::HashMap<u64, &str> = bundle
+        let snapshot_checksums_by_version: collections::HashMap<Version, &str> = bundle
             .snapshots
             .iter()
-            .map(|snapshot| (snapshot.version, snapshot.state.state_checksum.as_str()))
+            .map(|snapshot| {
+                (
+                    snapshot.version.clone(),
+                    snapshot.state.state_checksum.as_str(),
+                )
+            })
             .collect();
 
-        let audit_versions: std::collections::HashSet<u64> = bundle
+        let audit_versions: collections::HashSet<Version> = bundle
             .audit_entries
             .iter()
-            .map(|entry| entry.version)
+            .map(|entry| entry.version.clone())
             .collect();
         if bundle
             .snapshots
@@ -420,16 +430,18 @@ impl MoePipeline {
         Ok(())
     }
     pub(crate) fn record_governance_audit(&mut self, reason: &str) {
-        self.governance_runtime_state.governance_state_version = self
-            .governance_runtime_state
+        self.governance_runtime_state
             .governance_state_version
-            .saturating_add(1);
+            .increment_patch();
         let state = self.export_governance_state();
         let checksum = state.state_checksum.clone();
         self.governance_runtime_state
             .governance_audit_entries
             .push(GovernanceAuditEntry {
-                version: self.governance_runtime_state.governance_state_version,
+                version: self
+                    .governance_runtime_state
+                    .governance_state_version
+                    .clone(),
                 checksum,
                 reason: reason.to_string(),
             });
@@ -446,7 +458,10 @@ impl MoePipeline {
         self.governance_runtime_state
             .governance_state_snapshots
             .push(GovernanceStateSnapshot {
-                version: self.governance_runtime_state.governance_state_version,
+                version: self
+                    .governance_runtime_state
+                    .governance_state_version
+                    .clone(),
                 reason: reason.to_string(),
                 state,
             });
@@ -486,16 +501,16 @@ impl MoePipeline {
             .governance_runtime_state
             .governance_import_policy
             .allow_version_regression
-            && diff.version_delta < 0
+            && diff.version_delta.is_regression()
         {
             reasons.push("version regression is not allowed".to_string());
         }
-        if let Some(max) = self
+        if let Some(max) = &self
             .governance_runtime_state
             .governance_import_policy
             .max_version_regression
-            && diff.version_delta < 0
-            && (-diff.version_delta as u64) > max
+            && diff.version_delta.is_regression()
+            && diff.version_delta.exceeds_limit(max)
         {
             reasons.push("version regression exceeds configured maximum".to_string());
         }
@@ -530,11 +545,11 @@ impl MoePipeline {
             return;
         }
 
-        let audit_versions: std::collections::HashSet<u64> = self
+        let audit_versions: std::collections::HashSet<Version> = self
             .governance_runtime_state
             .governance_audit_entries
             .iter()
-            .map(|entry| entry.version)
+            .map(|entry| entry.version.clone())
             .collect();
         self.governance_runtime_state
             .governance_state_snapshots

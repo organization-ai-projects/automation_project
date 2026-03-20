@@ -1,3 +1,4 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/tests/persistence.rs
 use crate::orchestrator::MoePipelineBuilder;
 
 #[test]

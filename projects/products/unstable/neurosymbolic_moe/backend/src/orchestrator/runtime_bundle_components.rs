@@ -1,4 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/runtime_bundle_components.rs
+use protocol::ProtocolId;
+
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{Correction, DatasetEntry};
 use crate::memory_engine::MemoryEntry;
@@ -15,11 +17,11 @@ pub struct RuntimeBundleComponents {
     pub long_term_memory_entries: Vec<MemoryEntry>,
     pub buffer_manager: BufferManager,
     pub dataset_entries: Vec<DatasetEntry>,
-    pub dataset_corrections: HashMap<String, Vec<Correction>>,
+    pub dataset_corrections: HashMap<ProtocolId, Vec<Correction>>,
     pub auto_improvement_policy: Option<AutoImprovementPolicy>,
     pub auto_improvement_status: AutoImprovementStatus,
     pub model_registry: ModelRegistry,
     pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
     pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
-    pub trainer_trigger_leased_event_ids: Vec<u64>,
+    pub trainer_trigger_leased_event_ids: Vec<ProtocolId>,
 }

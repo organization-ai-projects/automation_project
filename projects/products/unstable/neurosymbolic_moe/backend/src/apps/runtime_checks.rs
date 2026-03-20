@@ -1,6 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/apps/runtime_checks.rs
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
+
 use crate::{
     aggregator::AggregationStrategy,
     apps::DynError,
@@ -27,7 +29,7 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
     let import_policy = GovernanceImportPolicy {
         allow_schema_change: false,
         allow_version_regression: false,
-        max_version_regression: Some(0),
+        max_version_regression: Some(orchestrator::Version::new(0, 0, 0)),
         require_policy_match: false,
     };
     let mut runtime_pipeline: MoePipeline = MoePipelineBuilder::new()
@@ -44,9 +46,10 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
         .with_max_governance_state_snapshots(8)
         .with_max_traces(256)
         .build();
-    runtime_pipeline.register_expert(Box::new(EchoExpert::new(
+    let expert_id = ProtocolId::default();
+    runtime_pipeline.register_expert(Box::new(EchoExpert::new_with_id(
+        expert_id,
         "runtime_wired",
-        "RuntimeWired",
         vec![ExpertCapability::CodeGeneration],
     )))?;
     runtime_pipeline.remember_short_term(MemoryEntry {
@@ -69,9 +72,10 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
         relevance: 0.7,
         metadata: HashMap::new(),
     })?;
-    runtime_pipeline.put_session_buffer("impl-session", "note", "persist");
-    let runtime_task = Task::new("impl-runtime-task", TaskType::CodeGeneration, "clean")
-        .with_metadata("session_id", "impl-session")
+    let session_id = ProtocolId::default();
+    runtime_pipeline.put_session_buffer(&session_id, "note", "persist");
+    let runtime_task = Task::new_with_id(session_id, TaskType::CodeGeneration, "clean")
+        .with_metadata("session_id", session_id.to_string())
         .with_metadata("expert_chain", "runtime_wired");
     let runtime_execution = runtime_pipeline.execute(runtime_task)?;
     runtime_pipeline.capture_evaluation_baseline();
@@ -116,7 +120,7 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
     let trail = restore_pipeline.governance_audit_trail();
     let snapshots = restore_pipeline.governance_state_snapshots().len();
     if let Some(last) = trail.entries.last() {
-        restore_pipeline.rollback_governance_state_to_version(last.version)?;
+        restore_pipeline.rollback_governance_state_to_version(last.version.clone())?;
     }
     tracing::info!(
         "Runtime persistence wiring: outputs={} baseline={} report={} human_approved={} state_valid={} state_allowed={} bundle_allowed={} runtime_allowed={} drift={} trail={} snapshots={} import_state_ok={} import_bundle_ok={} import_runtime_ok={} import_json_parse_failures={} operational_report_bytes={} slo_status={} slo_violations={} prometheus_bytes={}",

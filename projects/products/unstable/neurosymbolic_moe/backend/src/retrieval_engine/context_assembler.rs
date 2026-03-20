@@ -1,8 +1,8 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/context_assembler.rs
 use serde::{Deserialize, Serialize};
+use std::cmp;
 
-use crate::moe_core::Task;
-
-use super::retrieval_trait::RetrievalResult;
+use crate::{moe_core::Task, retrieval_engine::retrieval_result::RetrievalResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextAssembler {
@@ -21,7 +21,7 @@ impl ContextAssembler {
         ranked.sort_by(|a, b| {
             b.relevance_score
                 .partial_cmp(&a.relevance_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .unwrap_or(cmp::Ordering::Equal)
         });
 
         let mut assembled = Vec::new();
@@ -45,7 +45,7 @@ impl ContextAssembler {
 
     /// Task-aware assembly that prepends task context and input information.
     pub fn assemble_for_task(&self, results: &[RetrievalResult], task: &Task) -> Vec<String> {
-        let header = format!("[task:{}] {}", task.id().as_str(), task.input());
+        let header = format!("[task:{}] {}", task.id(), task.input());
         let header_len = header.len();
 
         if header_len >= self.max_context_length {

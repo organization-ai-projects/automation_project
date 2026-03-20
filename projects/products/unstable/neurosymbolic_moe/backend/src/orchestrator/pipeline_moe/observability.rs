@@ -56,34 +56,41 @@ impl MoePipeline {
             runtime_last_import_dead_letter_events_after_import: runtime_import_report
                 .map(|report| report.dead_letter_events_after_import)
                 .unwrap_or(0),
-            auto_improvement_runs_total: self.auto_improvement_status().runs_total,
+            auto_improvement_runs_total: self.auto_improvement_status().global_counters.runs_total,
             auto_improvement_bootstrap_entries_total: self
                 .auto_improvement_status()
+                .global_counters
                 .bootstrap_entries_total,
             auto_improvement_last_included_entries: self
                 .auto_improvement_status()
                 .last_included_entries,
             auto_improvement_skipped_min_dataset_entries_total: self
                 .auto_improvement_status()
-                .skipped_min_dataset_entries_total,
+                .skip_counters
+                .min_dataset_entries_total,
             auto_improvement_skipped_min_success_ratio_total: self
                 .auto_improvement_status()
-                .skipped_min_success_ratio_total,
+                .skip_counters
+                .min_success_ratio_total,
             auto_improvement_skipped_min_average_score_total: self
                 .auto_improvement_status()
-                .skipped_min_average_score_total,
+                .skip_counters
+                .min_average_score_total,
             auto_improvement_skipped_human_review_required_total: self
                 .auto_improvement_status()
-                .skipped_human_review_required_total,
+                .skip_counters
+                .human_review_required_total,
             auto_improvement_skipped_duplicate_bundle_total: self
                 .auto_improvement_status()
-                .skipped_duplicate_bundle_total,
+                .skip_counters
+                .duplicate_bundle_total,
             auto_improvement_build_failures_total: self
                 .auto_improvement_status()
+                .global_counters
                 .build_failures_total,
             model_registry_entries: model_registry.entry_count(),
-            model_registry_active_version: model_registry.active_version.unwrap_or(0),
-            model_registry_latest_version: model_registry.latest_version().unwrap_or(0),
+            model_registry_active_version: model_registry.active_model_version.clone(),
+            model_registry_latest_version: model_registry.latest_model_version(),
             trainer_trigger_events_pending: self.trainer_trigger_events_pending(),
             trainer_trigger_events_leased: self.trainer_trigger_queue.leased_count(),
             trainer_trigger_events_dead_letter: self.trainer_trigger_dead_letter_events_total(),
@@ -104,16 +111,20 @@ impl MoePipeline {
                 .newest_dead_letter_generated_at(),
             trainer_trigger_delivery_attempts_total: self
                 .auto_improvement_status()
-                .trainer_trigger_delivery_attempts_total,
+                .delivery_stats
+                .delivery_attempts_total,
             trainer_trigger_delivery_failures_total: self
                 .auto_improvement_status()
-                .trainer_trigger_delivery_failures_total,
+                .delivery_stats
+                .delivery_failures_total,
             trainer_trigger_acknowledged_total: self
                 .auto_improvement_status()
-                .trainer_trigger_acknowledged_total,
+                .delivery_stats
+                .acknowledged_total,
             trainer_trigger_dead_letter_total: self
                 .auto_improvement_status()
-                .trainer_trigger_dead_letter_total,
+                .delivery_stats
+                .dead_letter_total,
         }
     }
 

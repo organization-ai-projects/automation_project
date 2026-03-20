@@ -4,18 +4,22 @@ mod app;
 mod apps;
 mod buffer_manager;
 mod dataset_engine;
+mod delivery_stats;
 mod echo_expert;
-mod evaluation_engine;
-mod expert_registry;
+mod evaluations;
+mod expert_registries;
 mod feedback_engine;
 mod fingerprint;
+mod global_counters;
 mod memory_engine;
 mod moe_core;
 mod orchestrator;
-mod policy_guard;
+mod policies_guard;
 mod retrieval_engine;
 mod router;
-mod trace_logger;
+mod skip_counters;
+mod specialized_expert;
+mod trace_logging;
 
 #[cfg(test)]
 mod tests;

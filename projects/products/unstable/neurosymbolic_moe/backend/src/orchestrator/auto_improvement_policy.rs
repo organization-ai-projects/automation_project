@@ -1,4 +1,6 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/auto_improvement_policy.rs
 use crate::dataset_engine::DatasetTrainingBuildOptions;
+use common_time::Timestamp;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,7 +10,7 @@ pub struct AutoImprovementPolicy {
     pub min_average_score: Option<f64>,
     pub training_build_options: DatasetTrainingBuildOptions,
     #[serde(default = "default_trainer_trigger_min_retry_delay_seconds")]
-    pub trainer_trigger_min_retry_delay_seconds: u64,
+    pub trainer_trigger_min_retry_delay_seconds: Timestamp,
     #[serde(default = "default_trainer_trigger_max_delivery_attempts_before_dead_letter")]
     pub trainer_trigger_max_delivery_attempts_before_dead_letter: u32,
 }
@@ -39,7 +41,7 @@ impl AutoImprovementPolicy {
 
     pub fn with_trainer_trigger_min_retry_delay_seconds(
         mut self,
-        trainer_trigger_min_retry_delay_seconds: u64,
+        trainer_trigger_min_retry_delay_seconds: Timestamp,
     ) -> Self {
         self.trainer_trigger_min_retry_delay_seconds = trainer_trigger_min_retry_delay_seconds;
         self
@@ -74,7 +76,7 @@ impl Default for AutoImprovementPolicy {
     }
 }
 
-fn default_trainer_trigger_min_retry_delay_seconds() -> u64 {
+fn default_trainer_trigger_min_retry_delay_seconds() -> Timestamp {
     30
 }
 

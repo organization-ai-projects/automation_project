@@ -5,20 +5,22 @@ use super::pipeline_moe::TrainingRuntimeState;
 use crate::aggregator::{AggregationStrategy, OutputAggregator};
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{DatasetStore, TraceConverter};
-use crate::evaluation_engine::EvaluationEngine;
-use crate::expert_registry::ExpertRegistry;
+use crate::evaluations::EvaluationEngine;
+use crate::expert_registries::ExpertRegistry;
 use crate::feedback_engine::FeedbackStore;
 use crate::memory_engine::{LongTermMemory, ShortTermMemory};
 use crate::orchestrator::ImportTelemetry;
+use crate::orchestrator::Version;
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementPolicy, AutoImprovementStatus, ContinuousGovernancePolicy,
     GovernanceImportPolicy, ModelRegistry,
 };
-use crate::policy_guard::PolicyGuard;
-use crate::retrieval_engine::{ContextAssembler, Retriever, SimpleRetriever};
+use crate::policies_guard::PolicyGuard;
+use crate::retrieval_engine::Retriever;
+use crate::retrieval_engine::{ContextAssembler, SimpleRetriever};
 use crate::router::{HeuristicRouter, Router};
-use crate::trace_logger::TraceLogger;
+use crate::trace_logging::TraceLogger;
 
 pub struct MoePipelineBuilder {
     router: Option<Box<dyn Router>>,
@@ -163,7 +165,7 @@ impl MoePipelineBuilder {
                 governance_import_policy: self.governance_import_policy,
                 evaluation_baseline: None,
                 last_continuous_improvement_report: None,
-                governance_state_version: 0,
+                governance_state_version: Version::default(),
                 governance_audit_entries: Vec::new(),
                 max_governance_audit_entries: self.max_governance_audit_entries,
                 governance_state_snapshots: Vec::new(),

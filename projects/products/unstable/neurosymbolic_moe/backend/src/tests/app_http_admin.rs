@@ -1,9 +1,12 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/tests/app_http_admin.rs
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread;
 use std::time::Duration;
+use std::{env, process, thread};
+
+use crate::app;
 
 #[test]
 #[ignore = "requires local TCP socket binding"]
@@ -17,8 +20,7 @@ fn serve_metrics_admin_profile_rejects_missing_token() {
         "--disable-auto-rollback".to_string(),
     ];
 
-    let server =
-        thread::spawn(move || crate::app::cmd_serve_metrics(&args).map_err(|e| e.to_string()));
+    let server = thread::spawn(move || app::cmd_serve_metrics(&args).map_err(|e| e.to_string()));
     let response = send_http_request(
         &addr,
         "POST /admin/slo-profile?profile=strict HTTP/1.1\r\nHost: local\r\nConnection: close\r\n\r\n",
@@ -45,7 +47,7 @@ fn serve_metrics_admin_audit_endpoint_returns_applied_switch() {
         "--disable-auto-rollback".to_string(),
     ];
     let post_server =
-        thread::spawn(move || crate::app::cmd_serve_metrics(&post_args).map_err(|e| e.to_string()));
+        thread::spawn(move || app::cmd_serve_metrics(&post_args).map_err(|e| e.to_string()));
     let post_response = send_http_request(
         &post_addr,
         "POST /admin/slo-profile?profile=strict HTTP/1.1\r\nHost: local\r\nX-Admin-Token: secret-token\r\nConnection: close\r\n\r\n",
@@ -64,7 +66,7 @@ fn serve_metrics_admin_audit_endpoint_returns_applied_switch() {
         audit_path_text.clone(),
     ];
     let get_server =
-        thread::spawn(move || crate::app::cmd_serve_metrics(&get_args).map_err(|e| e.to_string()));
+        thread::spawn(move || app::cmd_serve_metrics(&get_args).map_err(|e| e.to_string()));
     let get_response = send_http_request(
         &get_addr,
         "GET /admin/slo-audit?limit=10 HTTP/1.1\r\nHost: local\r\nX-Admin-Token: secret-token\r\nConnection: close\r\n\r\n",
@@ -120,9 +122,9 @@ fn connect_with_retry(addr: &str, max_attempts: u32, delay: Duration) -> Result<
 fn unique_test_file_path(prefix: &str) -> PathBuf {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let suffix = COUNTER.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    env::temp_dir().join(format!(
         "neurosymbolic_moe_{prefix}_{}_{}.jsonl",
-        std::process::id(),
+        process::id(),
         suffix
     ))
 }

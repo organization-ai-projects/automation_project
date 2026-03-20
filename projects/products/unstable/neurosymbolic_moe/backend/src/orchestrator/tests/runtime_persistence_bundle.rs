@@ -3,9 +3,10 @@ use crate::memory_engine::{MemoryEntry, MemoryType};
 use crate::moe_core::MoeError;
 use crate::orchestrator::{
     GovernanceImportPolicy, GovernancePersistenceBundle, MoePipelineBuilder,
-    RuntimePersistenceBundle, TrainerTriggerEvent,
+    RuntimePersistenceBundle, TrainerTriggerEvent, Version,
 };
 use crate::{buffer_manager::BufferManager, memory_engine::MemoryEntry as RuntimeMemoryEntry};
+use protocol::ProtocolId;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -80,7 +81,7 @@ fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
         ))
         .expect("long memory write should succeed");
     source.put_session_buffer(
-        "session-incident-42",
+        &ProtocolId::default(),
         "conversation.summary",
         "user requested runtime persistence replay validation",
     );
@@ -115,11 +116,11 @@ fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
         restored
             .buffer_manager
             .sessions()
-            .values("session-incident-42"),
+            .values(&ProtocolId::default()),
         bundle
             .buffer_manager
             .sessions()
-            .values("session-incident-42")
+            .values(&ProtocolId::default())
     );
 }
 
@@ -127,8 +128,8 @@ fn runtime_bundle_roundtrip_restores_state_memory_and_buffers() {
 fn runtime_bundle_roundtrip_restores_trainer_trigger_dead_letters() {
     let mut source = MoePipelineBuilder::new().build();
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 99,
-        model_version: 3,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(2, 0, 0),
         training_bundle_checksum: "bundle-dead-letter-99".to_string(),
         included_entries: 120,
         train_samples: 96,
@@ -166,8 +167,8 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_dead_letters() {
 fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
     let mut source = MoePipelineBuilder::new().build();
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 111,
-        model_version: 4,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(4, 0, 0),
         training_bundle_checksum: "bundle-leased-111".to_string(),
         included_entries: 88,
         train_samples: 70,
@@ -179,11 +180,14 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
     let leased = source
         .lease_next_trainer_trigger_event_with_policy(u64::MAX - 10)
         .expect("event should lease before export");
-    assert_eq!(leased.event_id, 111);
+    assert_eq!(leased.event_id, ProtocolId::default());
 
     let bundle = source.export_runtime_bundle();
     assert_eq!(bundle.trainer_trigger_events.len(), 1);
-    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![111]);
+    assert_eq!(
+        bundle.trainer_trigger_leased_event_ids,
+        vec![ProtocolId::default()]
+    );
 
     let mut target = MoePipelineBuilder::new().build();
     target
@@ -195,7 +199,10 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
     assert_eq!(report.trainer_trigger_events_leased, 1);
 
     let restored_bundle = target.export_runtime_bundle();
-    assert_eq!(restored_bundle.trainer_trigger_leased_event_ids, vec![111]);
+    assert_eq!(
+        restored_bundle.trainer_trigger_leased_event_ids,
+        vec![ProtocolId::default()]
+    );
     assert_eq!(
         restored_bundle.recompute_checksum(),
         bundle.recompute_checksum()
@@ -206,8 +213,8 @@ fn runtime_bundle_roundtrip_restores_trainer_trigger_leases() {
 fn runtime_checksum_recompute_is_order_independent_for_leased_event_ids() {
     let mut source = MoePipelineBuilder::new().build();
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 501,
-        model_version: 7,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(7, 0, 0),
         training_bundle_checksum: "bundle-leased-501".to_string(),
         included_entries: 64,
         train_samples: 51,
@@ -217,8 +224,8 @@ fn runtime_checksum_recompute_is_order_independent_for_leased_event_ids() {
         last_attempted_at: None,
     });
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 502,
-        model_version: 7,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(7, 0, 0),
         training_bundle_checksum: "bundle-leased-502".to_string(),
         included_entries: 65,
         train_samples: 52,
@@ -235,7 +242,10 @@ fn runtime_checksum_recompute_is_order_independent_for_leased_event_ids() {
         .expect("second event should lease");
 
     let mut bundle = source.export_runtime_bundle();
-    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![501, 502]);
+    assert_eq!(
+        bundle.trainer_trigger_leased_event_ids,
+        vec![ProtocolId::default(), ProtocolId::default()]
+    );
     let expected_checksum = bundle.recompute_checksum();
 
     bundle.trainer_trigger_leased_event_ids.reverse();
@@ -250,8 +260,8 @@ fn runtime_checksum_recompute_is_order_independent_for_leased_event_ids() {
 fn runtime_bundle_import_releases_expired_trainer_trigger_leases() {
     let mut source = MoePipelineBuilder::new().build();
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 222,
-        model_version: 5,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(5, 0, 0),
         training_bundle_checksum: "bundle-leased-expired-222".to_string(),
         included_entries: 90,
         train_samples: 72,
@@ -263,10 +273,13 @@ fn runtime_bundle_import_releases_expired_trainer_trigger_leases() {
     let leased = source
         .lease_next_trainer_trigger_event_with_policy(1)
         .expect("event should lease before export");
-    assert_eq!(leased.event_id, 222);
+    assert_eq!(leased.event_id, ProtocolId::default());
 
     let bundle = source.export_runtime_bundle();
-    assert_eq!(bundle.trainer_trigger_leased_event_ids, vec![222]);
+    assert_eq!(
+        bundle.trainer_trigger_leased_event_ids,
+        vec![ProtocolId::default()]
+    );
 
     let mut target = MoePipelineBuilder::new().build();
     target
@@ -367,7 +380,7 @@ fn try_import_runtime_bundle_json_roundtrip_succeeds() {
         ))
         .expect("short memory write should succeed");
     source.put_session_buffer(
-        "session-runtime-json",
+        &ProtocolId::default(),
         "analysis.note",
         "roundtrip import should keep this value",
     );
@@ -387,7 +400,7 @@ fn try_import_runtime_bundle_json_roundtrip_succeeds() {
         restored
             .buffer_manager
             .sessions()
-            .values("session-runtime-json"),
+            .values(&ProtocolId::default()),
         vec!["roundtrip import should keep this value".to_string()]
     );
 }
@@ -446,7 +459,7 @@ fn import_runtime_bundle_json_accepts_legacy_payload_without_schema_or_checksum(
         ))
         .expect("short memory write should succeed");
     source.put_session_buffer(
-        "session-legacy-import",
+        &ProtocolId::default(),
         "conversation.note",
         "legacy payload should still be importable",
     );
@@ -471,7 +484,7 @@ fn import_runtime_bundle_json_accepts_legacy_payload_without_schema_or_checksum(
         restored
             .buffer_manager
             .sessions()
-            .values("session-legacy-import"),
+            .values(&ProtocolId::default()),
         vec!["legacy payload should still be importable".to_string()]
     );
 }
@@ -495,9 +508,9 @@ fn runtime_bundle_roundtrip_with_high_volume_preserves_counts() {
             ))
             .expect("long memory write should succeed");
         source.put_session_buffer(
-            "session-bulk-load",
-            format!("checkpoint.{idx}"),
-            format!("state snapshot marker {idx}"),
+            &ProtocolId::default(),
+            &format!("checkpoint.{idx}"),
+            &format!("state snapshot marker {idx}"),
         );
     }
 
@@ -514,7 +527,7 @@ fn runtime_bundle_roundtrip_with_high_volume_preserves_counts() {
         restored
             .buffer_manager
             .sessions()
-            .values("session-bulk-load")
+            .values(&ProtocolId::default())
             .len(),
         128
     );
@@ -560,8 +573,8 @@ fn import_runtime_bundle_failure_rolls_back_runtime_state_and_runtime_import_obs
         ))
         .expect("short memory write should succeed");
     source.trainer_trigger_queue.push(TrainerTriggerEvent {
-        event_id: 333,
-        model_version: 9,
+        event_id: ProtocolId::default(),
+        model_version: Version::new(1, 0, 0),
         training_bundle_checksum: "bundle-rollback-333".to_string(),
         included_entries: 32,
         train_samples: 26,
@@ -585,7 +598,7 @@ fn import_runtime_bundle_failure_rolls_back_runtime_state_and_runtime_import_obs
         .clone();
 
     let mut invalid_bundle = baseline_bundle.clone();
-    invalid_bundle.trainer_trigger_leased_event_ids = vec![999_999];
+    invalid_bundle.trainer_trigger_leased_event_ids = vec![ProtocolId::default()];
     invalid_bundle.runtime_checksum = invalid_bundle.recompute_checksum();
 
     let err = target
@@ -681,7 +694,7 @@ fn compare_and_import_runtime_bundle_rejects_version_mismatch() {
 
     let mut target = MoePipelineBuilder::new().build();
     let err = target
-        .compare_and_import_runtime_bundle(1, bundle)
+        .compare_and_import_runtime_bundle(Version::new(1, 0, 0), bundle)
         .expect_err("version mismatch must be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("compare-and-import rejected"));
@@ -701,7 +714,7 @@ fn compare_and_import_runtime_bundle_succeeds_on_matching_version() {
 
     let mut target = MoePipelineBuilder::new().build();
     target
-        .compare_and_import_runtime_bundle(0, bundle)
+        .compare_and_import_runtime_bundle(Version::new(1, 0, 0), bundle)
         .expect("matching version should allow compare-and-import");
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
@@ -721,7 +734,7 @@ fn compare_and_import_runtime_bundle_with_checksum_rejects_checksum_mismatch() {
 
     let mut target = MoePipelineBuilder::new().build();
     let err = target
-        .compare_and_import_runtime_bundle_with_checksum(0, "deadbeef", bundle)
+        .compare_and_import_runtime_bundle_with_checksum(Version::new(1, 0, 0), "deadbeef", bundle)
         .expect_err("checksum mismatch must be rejected");
     assert!(matches!(err, MoeError::PolicyRejected(_)));
     assert!(err.to_string().contains("expected governance checksum"));
@@ -742,7 +755,11 @@ fn compare_and_import_runtime_bundle_with_checksum_succeeds_on_match() {
     let mut target = MoePipelineBuilder::new().build();
     let expected_checksum = target.export_governance_state().state_checksum;
     target
-        .compare_and_import_runtime_bundle_with_checksum(0, &expected_checksum, bundle)
+        .compare_and_import_runtime_bundle_with_checksum(
+            Version::new(1, 0, 0),
+            &expected_checksum,
+            bundle,
+        )
         .expect("matching checksum should allow compare-and-import");
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
@@ -764,7 +781,7 @@ fn compare_and_import_runtime_bundle_json_succeeds_on_matching_version() {
 
     let mut target = MoePipelineBuilder::new().build();
     target
-        .compare_and_import_runtime_bundle_json(0, &payload)
+        .compare_and_import_runtime_bundle_json(Version::new(1, 0, 0), &payload)
         .expect("matching version should allow compare-and-import json");
     let restored = target.export_runtime_bundle();
     assert!(restored.verify_checksum());
@@ -790,7 +807,7 @@ fn runtime_bundle_checksum_perf_smoke_large_payload() {
             ))
             .expect("long memory write should succeed");
         source.put_session_buffer(
-            "session-perf-smoke",
+            &ProtocolId::default(),
             format!("checkpoint.{idx}"),
             format!("perf snapshot {idx}"),
         );
@@ -856,7 +873,7 @@ fn import_runtime_bundle_json_rejects_corruption_matrix_with_stale_checksum() {
         ))
         .expect("long memory write should succeed");
     source.put_session_buffer(
-        "session-corruption-matrix",
+        &ProtocolId::default(),
         "checkpoint",
         "baseline session payload",
     );
@@ -874,7 +891,7 @@ fn import_runtime_bundle_json_rejects_corruption_matrix_with_stale_checksum() {
 
     let mut session_mutated = base_bundle.clone();
     session_mutated.buffer_manager.sessions_mut().put(
-        "session-corruption-matrix",
+        &ProtocolId::default(),
         "checkpoint.extra",
         "tampered extra checkpoint",
     );

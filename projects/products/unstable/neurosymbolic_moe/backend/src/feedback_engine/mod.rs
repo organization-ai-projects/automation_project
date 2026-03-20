@@ -1,10 +1,11 @@
-pub mod feedback;
-pub mod feedback_entry;
-pub mod feedback_store;
-pub mod feedback_type;
+//! projects/products/unstable/neurosymbolic_moe/backend/src/feedback_engine/mod.rs
+mod feedback_entry;
+mod feedback_store;
+mod feedback_type;
+
 #[cfg(test)]
 mod tests;
 
-pub use feedback_entry::FeedbackEntry;
-pub use feedback_store::FeedbackStore;
-pub use feedback_type::FeedbackType;
+pub(crate) use feedback_entry::FeedbackEntry;
+pub(crate) use feedback_store::FeedbackStore;
+pub(crate) use feedback_type::FeedbackType;

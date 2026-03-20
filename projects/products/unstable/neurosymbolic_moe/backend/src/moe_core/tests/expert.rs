@@ -1,21 +1,30 @@
-use crate::moe_core::{ExpertCapability, ExpertId, ExpertMetadata, ExpertStatus, ExpertType};
+//! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/expert.rs
+use crate::{
+    moe_core::{self, ExpertCapability, ExpertMetadata, ExpertStatus, ExpertType},
+    orchestrator::Version,
+};
+use protocol::ProtocolId;
+
+fn expert_id(_byte: u8) -> moe_core::ExpertId {
+    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+}
 
 #[test]
 fn expert_id_and_metadata_creation() {
-    let id = ExpertId::new("expert-1");
+    let id = expert_id(1);
     let metadata = ExpertMetadata {
         id: id.clone(),
         name: "Expert One".to_string(),
-        version: "1.0.0".to_string(),
+        version: Version::new(1, 0, 0),
         capabilities: vec![ExpertCapability::Routing, ExpertCapability::Retrieval],
         status: ExpertStatus::Active,
         expert_type: ExpertType::Hybrid,
     };
 
-    assert_eq!(id.as_str(), "expert-1");
-    assert_eq!(metadata.id.as_str(), "expert-1");
+    assert_eq!(id, expert_id(1));
+    assert_eq!(metadata.id, expert_id(1));
     assert_eq!(metadata.name, "Expert One");
-    assert_eq!(metadata.version, "1.0.0");
+    assert_eq!(metadata.version, Version::new(1, 0, 0));
     assert!(matches!(metadata.status, ExpertStatus::Active));
     assert!(matches!(metadata.expert_type, ExpertType::Hybrid));
     assert_eq!(metadata.capabilities.len(), 2);

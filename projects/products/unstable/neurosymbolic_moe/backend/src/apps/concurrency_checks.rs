@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
+
 use crate::{
     apps::DynError,
     echo_expert::EchoExpert,
@@ -14,12 +16,14 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
     run_concurrent_pipeline_checks_with_report().map(|_| ())
 }
 
-pub(crate) fn run_concurrent_pipeline_checks_with_report()
--> Result<ConcurrentOperationalReport, DynError> {
+pub(crate) fn run_concurrent_pipeline_checks_with_report(
+) -> Result<ConcurrentOperationalReport, DynError> {
     let concurrent_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
-    concurrent_pipeline.register_expert(Box::new(EchoExpert::new(
+    let expert_id = ProtocolId::default();
+    let task_id = ProtocolId::default();
+    concurrent_pipeline.register_expert(Box::new(EchoExpert::new_with_id(
+        expert_id,
         "concurrent_runtime",
-        "ConcurrentRuntime",
         vec![ExpertCapability::CodeGeneration],
     )))?;
     concurrent_pipeline.remember_short_term(MemoryEntry {
@@ -42,8 +46,8 @@ pub(crate) fn run_concurrent_pipeline_checks_with_report()
         relevance: 0.85,
         metadata: HashMap::new(),
     })?;
-    let concurrent_result = concurrent_pipeline.execute(Task::new(
-        "impl-concurrent-task",
+    let concurrent_result = concurrent_pipeline.execute(Task::new_with_id(
+        task_id,
         TaskType::CodeGeneration,
         "concurrent payload",
     ))?;
@@ -72,11 +76,11 @@ pub(crate) fn run_concurrent_pipeline_checks_with_report()
     ) = export_concurrent_payloads(&concurrent_pipeline)?;
     let concurrent_guard = concurrent_pipeline.governance_audit_trail()?;
     concurrent_pipeline.compare_and_import_runtime_bundle_json(
-        concurrent_guard.current_version,
+        concurrent_guard.current_version.clone(),
         &concurrent_runtime_payload,
     )?;
     concurrent_pipeline.compare_and_import_governance_bundle_json(
-        concurrent_guard.current_version,
+        concurrent_guard.current_version.clone(),
         &concurrent_governance_bundle_payload,
     )?;
     concurrent_pipeline.compare_and_import_governance_state_json(
@@ -87,12 +91,12 @@ pub(crate) fn run_concurrent_pipeline_checks_with_report()
     let concurrent_guard = concurrent_pipeline.governance_audit_trail()?;
     let concurrent_checksum = governance_checksum_for_concurrent_pipeline(&concurrent_pipeline)?;
     concurrent_pipeline.compare_and_import_runtime_bundle_json_with_checksum(
-        concurrent_guard.current_version,
+        &concurrent_guard.current_version,
         &concurrent_checksum,
         &concurrent_runtime_payload,
     )?;
     concurrent_pipeline.compare_and_import_governance_bundle_json_with_checksum(
-        concurrent_guard.current_version,
+        concurrent_guard.current_version.clone(),
         &concurrent_checksum,
         &concurrent_governance_bundle_payload,
     )?;

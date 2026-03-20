@@ -1,5 +1,5 @@
 use crate::dataset_engine::DatasetQualityReport;
-use crate::evaluation_engine::{EvaluationGovernanceReport, ExpertRegression, RoutingRegression};
+use crate::evaluations::{EvaluationGovernanceReport, ExpertRegression, RoutingRegression};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,10 +19,7 @@ impl ContinuousImprovementReport {
             .map(|r| {
                 format!(
                     "{}:{:.6}:{:.6}:{:.6}",
-                    r.expert_id.as_str(),
-                    r.previous_success_rate,
-                    r.current_success_rate,
-                    r.delta
+                    r.expert_id, r.previous_success_rate, r.current_success_rate, r.delta
                 )
             })
             .collect::<Vec<_>>();
@@ -43,15 +40,14 @@ impl ContinuousImprovementReport {
             .governance
             .underperforming_experts
             .iter()
-            .map(|id| id.as_str().to_string())
             .collect::<Vec<_>>();
         underperforming.sort();
 
         let governance = format!(
-            "{:.6}:{:.6}:{}:{}:{}",
+            "{:.6}:{:.6}:{:?}:{}:{}",
             self.governance.min_expert_success_rate,
             self.governance.min_routing_accuracy,
-            underperforming.join(","),
+            underperforming,
             self.governance.routing_accuracy_below_threshold,
             self.governance.ready_for_promotion
         );

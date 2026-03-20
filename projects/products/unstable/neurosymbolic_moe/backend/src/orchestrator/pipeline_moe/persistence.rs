@@ -1,10 +1,12 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/persistence.rs
-use crate::evaluation_engine::EvaluationEngine;
+use crate::evaluations::EvaluationEngine;
 use crate::moe_core::{self, MoeError};
+use crate::orchestrator::pipeline_moe::TrainerTriggerQueueState;
 use crate::orchestrator::{
     ContinuousImprovementReport, GovernanceAuditTrail, GovernanceImportDecision,
     GovernancePersistenceBundle, GovernanceState, GovernanceStateDiff, GovernanceStateSnapshot,
-    MoePipeline, RuntimeBundleComponents, RuntimeImportReport, RuntimePersistenceBundle,
+    MoePipeline, RuntimeBundleComponents, RuntimeImportReport, RuntimePersistenceBundle, Version,
+    VersionDelta,
 };
 use common_time::current_timestamp_ms;
 
@@ -14,7 +16,7 @@ impl MoePipeline {
         if !state.verify_checksum() {
             self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
-                moe_core::TaskId::new("governance-import"),
+                moe_core::TaskId::new(),
                 moe_core::TracePhase::Validation,
                 "governance state checksum mismatch during import".to_string(),
                 None,
@@ -26,7 +28,7 @@ impl MoePipeline {
         if !decision.allowed {
             self.import_telemetry.record_governance_state_rejection();
             self.trace_logger.log_phase(
-                moe_core::TaskId::new("governance-import"),
+                moe_core::TaskId::new(),
                 moe_core::TracePhase::Validation,
                 format!(
                     "governance import rejected: {}",
@@ -42,7 +44,7 @@ impl MoePipeline {
         self.governance_runtime_state.evaluation_baseline = state.evaluation_baseline;
         self.governance_runtime_state
             .last_continuous_improvement_report = state.last_continuous_improvement_report;
-        self.governance_runtime_state.governance_state_version = state.state_version;
+        self.governance_runtime_state.governance_state_version = state.version_number;
         self.record_governance_audit("governance state imported");
         self.import_telemetry.record_governance_state_success();
     }
@@ -114,7 +116,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -123,7 +125,7 @@ impl MoePipeline {
             return Ok(());
         }
         self.import_journal
-            .record_successful_import(payload_fingerprint.clone()); // Clone to avoid move
+            .record_successful_import(payload_fingerprint.clone());
         let state = match Self::parse_governance_state_json_payload(payload) {
             Ok(state) => state,
             Err(err) => {
@@ -165,7 +167,7 @@ impl MoePipeline {
         self.governance_runtime_state
             .last_continuous_improvement_report =
             bundle.state.last_continuous_improvement_report.clone();
-        self.governance_runtime_state.governance_state_version = bundle.state.state_version;
+        self.governance_runtime_state.governance_state_version = bundle.state.version_number;
 
         self.governance_runtime_state.governance_audit_entries = bundle.audit_entries;
         if self.governance_runtime_state.governance_audit_entries.len()
@@ -203,7 +205,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_bundle(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         bundle: GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
         self.assert_expected_governance_state(expected_current_version, None)?;
@@ -212,7 +214,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_bundle_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         bundle: GovernancePersistenceBundle,
     ) -> Result<(), MoeError> {
@@ -224,7 +226,7 @@ impl MoePipeline {
     }
 
     pub fn import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -233,7 +235,7 @@ impl MoePipeline {
             return Ok(());
         }
         self.import_journal
-            .record_successful_import(payload_fingerprint.clone()); // Clone to avoid move
+            .record_successful_import(payload_fingerprint.clone());
         let bundle = match Self::parse_governance_bundle_json_payload(payload) {
             Ok(bundle) => bundle,
             Err(err) => {
@@ -260,7 +262,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_bundle_json(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         Self::parse_and_apply_governance_bundle_json(payload, |bundle| {
@@ -270,7 +272,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_bundle_json_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
@@ -303,8 +305,10 @@ impl MoePipeline {
             .governance_runtime_state
             .last_continuous_improvement_report
             .clone();
-        let backup_governance_state_version =
-            self.governance_runtime_state.governance_state_version;
+        let backup_governance_state_version = self
+            .governance_runtime_state
+            .governance_state_version
+            .clone();
         let backup_governance_audit_entries = self
             .governance_runtime_state
             .governance_audit_entries
@@ -357,7 +361,7 @@ impl MoePipeline {
             self.training_runtime_state.auto_improvement_policy = auto_improvement_policy;
             self.training_runtime_state.auto_improvement_status = auto_improvement_status;
             self.training_runtime_state.model_registry = model_registry;
-            self.trainer_trigger_queue = super::TrainerTriggerQueueState::with_runtime_state(
+            self.trainer_trigger_queue = TrainerTriggerQueueState::with_runtime_state(
                 self.trainer_trigger_queue.max_events(),
                 self.trainer_trigger_queue.max_dead_letter_events(),
                 trainer_trigger_events,
@@ -430,7 +434,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_runtime_bundle(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         bundle: RuntimePersistenceBundle,
     ) -> Result<(), MoeError> {
         self.assert_expected_governance_state(expected_current_version, None)?;
@@ -439,7 +443,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_runtime_bundle_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         bundle: RuntimePersistenceBundle,
     ) -> Result<(), MoeError> {
@@ -451,7 +455,7 @@ impl MoePipeline {
     }
 
     pub fn import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -485,7 +489,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_runtime_bundle_json(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         Self::parse_and_apply_runtime_bundle_json(payload, |bundle| {
@@ -495,7 +499,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_runtime_bundle_json_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
@@ -518,7 +522,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_runtime_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -566,7 +570,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_bundle_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -622,7 +626,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_state(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         state: GovernanceState,
     ) -> Result<(), MoeError> {
         self.assert_expected_governance_state(expected_current_version, None)?;
@@ -631,7 +635,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_state_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         state: GovernanceState,
     ) -> Result<(), MoeError> {
@@ -662,7 +666,7 @@ impl MoePipeline {
     }
 
     pub fn try_import_governance_state_json(&mut self, payload: &str) -> Result<(), MoeError> {
-        let payload_fingerprint = payload.to_string(); // Define locally
+        let payload_fingerprint = payload.to_string();
         if self
             .import_journal
             .has_successful_payload_fingerprint(&payload_fingerprint)
@@ -692,7 +696,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_state_json(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         payload: &str,
     ) -> Result<(), MoeError> {
         Self::parse_and_apply_governance_state_json(payload, |state| {
@@ -702,7 +706,7 @@ impl MoePipeline {
 
     pub fn compare_and_import_governance_state_json_with_checksum(
         &mut self,
-        expected_current_version: u64,
+        expected_current_version: Version,
         expected_current_checksum: &str,
         payload: &str,
     ) -> Result<(), MoeError> {
@@ -717,7 +721,10 @@ impl MoePipeline {
 
     pub fn governance_audit_trail(&self) -> GovernanceAuditTrail {
         GovernanceAuditTrail {
-            current_version: self.governance_runtime_state.governance_state_version,
+            current_version: self
+                .governance_runtime_state
+                .governance_state_version
+                .clone(),
             current_checksum: self
                 .governance_runtime_state
                 .governance_audit_entries
@@ -734,7 +741,10 @@ impl MoePipeline {
         &self.governance_runtime_state.governance_state_snapshots
     }
 
-    pub fn rollback_governance_state_to_version(&mut self, version: u64) -> Result<(), MoeError> {
+    pub fn rollback_governance_state_to_version(
+        &mut self,
+        version: Version,
+    ) -> Result<(), MoeError> {
         let snapshot = self
             .governance_runtime_state
             .governance_state_snapshots
@@ -758,9 +768,13 @@ impl MoePipeline {
             .governance_runtime_state
             .governance_audit_entries
             .last()
-            .map(|entry| entry.version)
-            .unwrap_or(self.governance_runtime_state.governance_state_version)
-            .max(snapshot.state.state_version);
+            .map(|entry| entry.version.clone())
+            .unwrap_or(
+                self.governance_runtime_state
+                    .governance_state_version
+                    .clone(),
+            )
+            .max(snapshot.state.version_number);
         self.record_governance_audit(&format!("governance rollback to version {}", version));
         self.validate_runtime_invariants()?;
         Ok(())
@@ -769,9 +783,9 @@ impl MoePipeline {
     pub fn diff_governance_state(&self, target: &GovernanceState) -> GovernanceStateDiff {
         let source = self.export_governance_state();
 
-        let source_version = source.state_version;
-        let target_version = target.state_version;
-        let version_delta = target_version as i64 - source_version as i64;
+        let source_version = source.version_number;
+        let target_version = target.version_number.clone();
+        let version_delta = VersionDelta::between(&source_version, &target_version);
 
         let source_policy_fp = source
             .continuous_governance_policy
@@ -837,7 +851,7 @@ impl MoePipeline {
             || policy_changed
             || baseline_changed
             || report_changed
-            || version_delta != 0;
+            || !version_delta.is_zero();
 
         GovernanceStateDiff {
             source_version,

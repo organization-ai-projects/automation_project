@@ -4,4 +4,4 @@ mod app_cli;
 mod app_http_admin;
 mod auto_improvement;
 mod echo_expert;
-mod runtime_acceptance;
+mod specialized_expert;

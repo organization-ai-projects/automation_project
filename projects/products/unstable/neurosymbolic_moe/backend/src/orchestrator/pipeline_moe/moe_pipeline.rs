@@ -1,12 +1,14 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/moe_pipeline.rs
+use protocol::ProtocolId;
+
 use crate::aggregator::OutputAggregator;
 use crate::buffer_manager::BufferManager;
 use crate::dataset_engine::{
     self, DatasetStore, DatasetTrainingBuildOptions, DatasetTrainingBundle,
     DatasetTrainingProvenance, DatasetTrainingShard,
 };
-use crate::evaluation_engine::EvaluationEngine;
-use crate::expert_registry::ExpertRegistry;
+use crate::evaluations::EvaluationEngine;
+use crate::expert_registries::ExpertRegistry;
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
 use crate::memory_engine::{LongTermMemory, MemoryEntry, MemoryStore, ShortTermMemory};
 use crate::moe_core::{self, Expert, MoeError};
@@ -16,10 +18,10 @@ use crate::orchestrator::{
     RuntimeImportReport, TrainerTriggerEvent, runtime_persistence_bundle,
 };
 use crate::orchestrator::{ContinuousImprovementReport, RuntimePersistenceBundle};
-use crate::policy_guard::{Policy, PolicyGuard};
+use crate::policies_guard::{Policy, PolicyGuard};
 use crate::retrieval_engine::{ContextAssembler, Retriever};
 use crate::router::Router;
-use crate::trace_logger::TraceLogger;
+use crate::trace_logging::TraceLogger;
 use std::collections::VecDeque;
 
 use super::{GovernanceRuntimeState, TrainerTriggerQueueState, TrainingRuntimeState};
@@ -90,7 +92,7 @@ impl MoePipeline {
 
     pub fn put_session_buffer(
         &mut self,
-        session_id: &str,
+        session_id: &ProtocolId,
         key: impl Into<String>,
         value: impl Into<String>,
     ) {
@@ -273,7 +275,9 @@ impl MoePipeline {
         runtime_persistence_bundle::recompute_runtime_checksum_from_components(
             RuntimePersistenceBundle::schema_version(),
             GovernanceState::schema_version(),
-            self.governance_runtime_state.governance_state_version,
+            self.governance_runtime_state
+                .governance_state_version
+                .clone(),
             &self.governance_state_checksum(),
             &self.governance_runtime_state.governance_audit_entries,
             &self.governance_runtime_state.governance_state_snapshots,
@@ -287,14 +291,17 @@ impl MoePipeline {
             &self.training_runtime_state.model_registry,
             self.trainer_trigger_queue.events().iter(),
             self.trainer_trigger_queue.dead_letter_events().iter(),
-            self.trainer_trigger_queue.leased_event_ids_sorted().iter(),
+            self.trainer_trigger_queue
+                .leased_event_ids_sorted()
+                .iter()
+                .collect::<Vec<_>>(),
         )
     }
 
     fn governance_state_checksum(&self) -> String {
         GovernanceState::recompute_checksum_from_components(
             GovernanceState::schema_version(),
-            self.governance_runtime_state.governance_state_version,
+            &self.governance_runtime_state.governance_state_version,
             self.governance_runtime_state
                 .continuous_governance_policy
                 .as_ref(),
@@ -310,7 +317,10 @@ impl MoePipeline {
     ) -> DatasetTrainingProvenance {
         DatasetTrainingProvenance {
             generator: "neurosymbolic_moe_backend.orchestrator".to_string(),
-            governance_state_version: self.governance_runtime_state.governance_state_version,
+            governance_state_version: self
+                .governance_runtime_state
+                .governance_state_version
+                .clone(),
             governance_state_checksum: self.governance_state_checksum(),
             runtime_bundle_checksum: self.runtime_bundle_checksum(),
             dataset_entry_count: self.training_runtime_state.dataset_store.count(),
@@ -375,32 +385,38 @@ impl MoePipeline {
         if new_dead_letters > 0 {
             self.training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_dead_letter_total = self
+                .delivery_stats
+                .dead_letter_total = self
                 .training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_dead_letter_total
+                .delivery_stats
+                .dead_letter_total
                 .saturating_add(new_dead_letters);
         }
         if leased.is_some() {
             self.training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_delivery_attempts_total = self
+                .delivery_stats
+                .delivery_attempts_total = self
                 .training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_delivery_attempts_total
+                .delivery_stats
+                .delivery_attempts_total
                 .saturating_add(1);
         }
         leased
     }
 
-    pub fn acknowledge_trainer_trigger_event(&mut self, event_id: u64) -> bool {
-        if self.trainer_trigger_queue.acknowledge(event_id) {
+    pub fn acknowledge_trainer_trigger_event(&mut self, event_id: ProtocolId) -> bool {
+        if self.trainer_trigger_queue.acknowledge(&event_id) {
             self.training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_acknowledged_total = self
+                .delivery_stats
+                .acknowledged_total = self
                 .training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_acknowledged_total
+                .delivery_stats
+                .acknowledged_total
                 .saturating_add(1);
             true
         } else {
@@ -410,19 +426,21 @@ impl MoePipeline {
 
     pub fn mark_trainer_trigger_event_delivery_failed(
         &mut self,
-        event_id: u64,
+        event_id: ProtocolId,
         failed_at_epoch_seconds: u64,
     ) -> bool {
         if self
             .trainer_trigger_queue
-            .mark_delivery_failed(event_id, failed_at_epoch_seconds)
+            .mark_delivery_failed(&event_id, failed_at_epoch_seconds)
         {
             self.training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_delivery_failures_total = self
+                .delivery_stats
+                .delivery_failures_total = self
                 .training_runtime_state
                 .auto_improvement_status
-                .trainer_trigger_delivery_failures_total
+                .delivery_stats
+                .delivery_failures_total
                 .saturating_add(1);
             true
         } else {
@@ -455,15 +473,15 @@ impl MoePipeline {
             .iter()
             .chain(candidate.validation_samples.iter())
         {
-            let id = format!("bootstrap:{}", sample.entry_id);
+            let id = ProtocolId::default();
             let was_existing = self.training_runtime_state.dataset_store.has_entry_id(&id);
 
             self.training_runtime_state
                 .dataset_store
                 .upsert_entry(dataset_engine::DatasetEntry {
                     id,
-                    task_id: moe_core::TaskId::new(&sample.task_id),
-                    expert_id: moe_core::ExpertId::new(&sample.expert_id),
+                    task_id: moe_core::TaskId::new(),
+                    expert_id: moe_core::ExpertId::new(),
                     input: sample.input.clone(),
                     output: sample.target_output.clone(),
                     outcome: dataset_engine::Outcome::Success,
@@ -485,9 +503,11 @@ impl MoePipeline {
 
         self.training_runtime_state
             .auto_improvement_status
+            .global_counters
             .bootstrap_entries_total = self
             .training_runtime_state
             .auto_improvement_status
+            .global_counters
             .bootstrap_entries_total
             .saturating_add(seeded);
         self.record_governance_audit("initial dataset bootstrap applied");
@@ -540,7 +560,9 @@ impl MoePipeline {
 
     pub fn export_governance_state(&self) -> GovernanceState {
         GovernanceState::from_components(
-            self.governance_runtime_state.governance_state_version,
+            self.governance_runtime_state
+                .governance_state_version
+                .clone(),
             self.governance_runtime_state
                 .continuous_governance_policy
                 .clone(),

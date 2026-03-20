@@ -1,6 +1,8 @@
-use crate::moe_core::{ExpertId, TaskId};
-
-use super::feedback::{FeedbackEntry, FeedbackType};
+//! projects/products/unstable/neurosymbolic_moe/backend/src/feedback_engine/feedback_store.rs
+use crate::{
+    feedback_engine::{FeedbackEntry, FeedbackType},
+    moe_core::{ExpertId, TaskId},
+};
 
 #[derive(Debug, Clone)]
 pub struct FeedbackStore {

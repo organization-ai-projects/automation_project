@@ -5,6 +5,5 @@ mod chunking_strategy;
 mod context_assembler;
 mod retrieval_query;
 mod retrieval_result;
-mod retrieval_trait;
 mod retriever;
 mod simple_retriever;

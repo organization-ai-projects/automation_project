@@ -1,6 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/dataset_engine/dataset_store.rs
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
+
 use crate::moe_core::MoeError;
 use crate::moe_core::{ExpertId, TaskId};
 
@@ -13,7 +15,7 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct DatasetStore {
     entries: Vec<DatasetEntry>,
-    corrections: HashMap<String, Vec<Correction>>,
+    corrections: HashMap<ProtocolId, Vec<Correction>>,
 }
 
 impl DatasetStore {
@@ -72,7 +74,7 @@ impl DatasetStore {
             .collect()
     }
 
-    pub fn get_corrections(&self, entry_id: &str) -> Option<&Vec<Correction>> {
+    pub fn get_corrections(&self, entry_id: &ProtocolId) -> Option<&Vec<Correction>> {
         self.corrections.get(entry_id)
     }
 
@@ -84,18 +86,18 @@ impl DatasetStore {
         &self.entries
     }
 
-    pub fn corrections_cloned(&self) -> HashMap<String, Vec<Correction>> {
+    pub fn corrections_cloned(&self) -> HashMap<ProtocolId, Vec<Correction>> {
         self.corrections.clone()
     }
 
-    pub fn corrections(&self) -> &HashMap<String, Vec<Correction>> {
+    pub fn corrections(&self) -> &HashMap<ProtocolId, Vec<Correction>> {
         &self.corrections
     }
 
     pub fn replace_all(
         &mut self,
         entries: Vec<DatasetEntry>,
-        corrections: HashMap<String, Vec<Correction>>,
+        corrections: HashMap<ProtocolId, Vec<Correction>>,
     ) {
         self.entries = entries;
         self.corrections = corrections;
@@ -105,8 +107,8 @@ impl DatasetStore {
         self.entries.len()
     }
 
-    pub fn has_entry_id(&self, entry_id: &str) -> bool {
-        self.entries.iter().any(|entry| entry.id == entry_id)
+    pub fn has_entry_id(&self, entry_id: &ProtocolId) -> bool {
+        self.entries.iter().any(|entry| &entry.id == entry_id)
     }
 
     pub fn successful_count(&self) -> usize {
@@ -259,8 +261,8 @@ impl DatasetStore {
 
             let sample = DatasetTrainingSample {
                 entry_id: entry.id.clone(),
-                task_id: entry.task_id.as_str().to_string(),
-                expert_id: entry.expert_id.as_str().to_string(),
+                task_id: entry.task_id.clone(),
+                expert_id: entry.expert_id.clone(),
                 input: entry.input.clone(),
                 target_output,
                 source_output: entry.output.clone(),
@@ -543,38 +545,40 @@ impl DatasetStore {
             )));
         }
 
-        let train_duplicates = Self::duplicate_sample_ids(&bundle.train_samples);
+        let train_duplicates: Vec<ProtocolId> = Self::duplicate_sample_ids(&bundle.train_samples);
         if !train_duplicates.is_empty() {
             return Err(MoeError::DatasetError(format!(
-                "training bundle has duplicate train sample ids: {}",
-                train_duplicates.join(", ")
-            )));
-        }
-        let validation_duplicates = Self::duplicate_sample_ids(&bundle.validation_samples);
-        if !validation_duplicates.is_empty() {
-            return Err(MoeError::DatasetError(format!(
-                "training bundle has duplicate validation sample ids: {}",
-                validation_duplicates.join(", ")
+                "training bundle has duplicate train sample ids: {:?}",
+                train_duplicates
             )));
         }
 
-        let train_ids: std::collections::HashSet<&str> = bundle
+        let validation_duplicates: Vec<ProtocolId> =
+            Self::duplicate_sample_ids(&bundle.validation_samples);
+        if !validation_duplicates.is_empty() {
+            return Err(MoeError::DatasetError(format!(
+                "training bundle has duplicate validation sample ids: {:?}",
+                validation_duplicates
+            )));
+        }
+
+        let train_ids: std::collections::HashSet<&ProtocolId> = bundle
             .train_samples
             .iter()
-            .map(|sample| sample.entry_id.as_str())
+            .map(|sample| &sample.entry_id)
             .collect();
-        let mut overlap_ids: Vec<&str> = bundle
+        let mut overlap_ids: Vec<&ProtocolId> = bundle
             .validation_samples
             .iter()
-            .map(|sample| sample.entry_id.as_str())
+            .map(|sample| &sample.entry_id)
             .filter(|id| train_ids.contains(id))
             .collect();
-        overlap_ids.sort_unstable();
+        overlap_ids.sort_by(|a, b| a.as_inner().as_bytes().cmp(b.as_inner().as_bytes()));
         overlap_ids.dedup();
         if !overlap_ids.is_empty() {
             return Err(MoeError::DatasetError(format!(
-                "training bundle has overlapping train/validation sample ids: {}",
-                overlap_ids.join(", ")
+                "training bundle has overlapping train/validation sample ids: {:?}",
+                overlap_ids
             )));
         }
 
@@ -598,15 +602,20 @@ impl DatasetStore {
         Ok(())
     }
 
-    fn duplicate_sample_ids(samples: &[DatasetTrainingSample]) -> Vec<String> {
-        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
-        let mut duplicates: Vec<String> = samples
-            .iter()
-            .map(|sample| sample.entry_id.as_str())
-            .filter(|id| !seen.insert(*id))
-            .map(ToString::to_string)
-            .collect();
-        duplicates.sort();
+    fn duplicate_sample_ids(samples: &[DatasetTrainingSample]) -> Vec<ProtocolId> {
+        let mut seen: std::collections::HashSet<ProtocolId> = std::collections::HashSet::new();
+        let mut duplicates: Vec<ProtocolId> = Vec::new();
+
+        for sample in samples {
+            let entry_id = sample.entry_id.clone();
+            if !seen.insert(entry_id.clone()) {
+                if !duplicates.contains(&entry_id) {
+                    duplicates.push(entry_id);
+                }
+            }
+        }
+
+        duplicates.sort_by(|a, b| a.as_inner().as_bytes().cmp(b.as_inner().as_bytes()));
         duplicates.dedup();
         duplicates
     }

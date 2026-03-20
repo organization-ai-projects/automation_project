@@ -1,21 +1,32 @@
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
+
 use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
     ExpertOutput, ExpertStatus, ExpertType, Task,
 };
+use crate::orchestrator::Version;
 
-pub struct EchoExpert {
+pub(crate) struct EchoExpert {
     metadata: ExpertMetadata,
 }
 
 impl EchoExpert {
-    pub fn new(id: &str, name: &str, capabilities: Vec<ExpertCapability>) -> Self {
+    pub(crate) fn new(name: &str, capabilities: Vec<ExpertCapability>) -> Self {
+        Self::new_with_id(ProtocolId::default(), name, capabilities)
+    }
+
+    pub(crate) fn new_with_id(
+        id: ProtocolId,
+        name: &str,
+        capabilities: Vec<ExpertCapability>,
+    ) -> Self {
         Self {
             metadata: ExpertMetadata {
-                id: ExpertId::new(id),
+                id: ExpertId::from_protocol_id(id),
                 name: name.to_string(),
-                version: "0.1.0".to_string(),
+                version: Version::new(1, 0, 0),
                 capabilities,
                 status: ExpertStatus::Active,
                 expert_type: ExpertType::Deterministic,

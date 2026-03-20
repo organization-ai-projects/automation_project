@@ -1,10 +1,12 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/chunk.rs
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Chunk {
-    pub id: String,
+    pub id: ProtocolId,
     pub content: String,
     pub source: String,
     pub start_offset: usize,
@@ -14,7 +16,7 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<ProtocolId>,
         content: impl Into<String>,
         source: impl Into<String>,
         start_offset: usize,

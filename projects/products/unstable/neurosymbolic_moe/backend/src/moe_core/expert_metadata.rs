@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::orchestrator::Version;
+
 use super::expert_capability::ExpertCapability;
 use super::expert_id::ExpertId;
 use super::expert_status::ExpertStatus;
@@ -9,7 +11,7 @@ use super::expert_type::ExpertType;
 pub struct ExpertMetadata {
     pub id: ExpertId,
     pub name: String,
-    pub version: String,
+    pub version: Version,
     pub capabilities: Vec<ExpertCapability>,
     pub status: ExpertStatus,
     pub expert_type: ExpertType,

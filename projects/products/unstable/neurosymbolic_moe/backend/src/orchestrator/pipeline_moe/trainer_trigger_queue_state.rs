@@ -1,4 +1,7 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/trainer_trigger_queue_state.rs
+use common_time::Timestamp;
+use protocol::ProtocolId;
+
 use crate::moe_core::MoeError;
 use crate::orchestrator::TrainerTriggerEvent;
 use std::collections::{HashSet, VecDeque};
@@ -9,7 +12,7 @@ pub(in crate::orchestrator) struct TrainerTriggerQueueState {
     dead_letter_events: VecDeque<TrainerTriggerEvent>,
     max_events: usize,
     max_dead_letter_events: usize,
-    leased_event_ids: HashSet<u64>,
+    leased_event_ids: HashSet<ProtocolId>,
 }
 
 impl TrainerTriggerQueueState {
@@ -28,7 +31,7 @@ impl TrainerTriggerQueueState {
         max_dead_letter_events: usize,
         events: Vec<TrainerTriggerEvent>,
         dead_letter_events: Vec<TrainerTriggerEvent>,
-        leased_event_ids: Vec<u64>,
+        leased_event_ids: Vec<ProtocolId>,
     ) -> Self {
         let mut queue = Self::new(max_events, max_dead_letter_events);
         for event in events {
@@ -71,18 +74,18 @@ impl TrainerTriggerQueueState {
         self.leased_event_ids.len()
     }
 
-    pub fn leased_event_ids_sorted(&self) -> Vec<u64> {
-        let mut ids: Vec<u64> = self.leased_event_ids.iter().copied().collect();
-        ids.sort_unstable();
+    pub fn leased_event_ids_sorted(&self) -> Vec<ProtocolId> {
+        let mut ids: Vec<ProtocolId> = self.leased_event_ids.iter().copied().collect();
+        ids.sort_by_key(|a| a.to_hex());
         ids
     }
 
     pub fn release_expired_leases(
         &mut self,
-        now_epoch_seconds: u64,
-        min_retry_delay_seconds: u64,
+        now_epoch_seconds: Timestamp,
+        min_retry_delay_seconds: Timestamp,
     ) -> usize {
-        let expired_leases: Vec<u64> = self
+        let expired_leases: Vec<&ProtocolId> = self
             .events
             .iter()
             .filter(|event| self.leased_event_ids.contains(&event.event_id))
@@ -91,7 +94,7 @@ impl TrainerTriggerQueueState {
                     now_epoch_seconds >= last.saturating_add(min_retry_delay_seconds)
                 })
             })
-            .map(|event| event.event_id)
+            .map(|event| &event.event_id)
             .collect();
         for event_id in &expired_leases {
             self.leased_event_ids.remove(event_id);
@@ -107,22 +110,22 @@ impl TrainerTriggerQueueState {
             .unwrap_or(0)
     }
 
-    pub fn oldest_generated_at(&self) -> Option<u64> {
+    pub fn oldest_generated_at(&self) -> Option<Timestamp> {
         self.events.iter().map(|event| event.generated_at).min()
     }
 
-    pub fn newest_generated_at(&self) -> Option<u64> {
+    pub fn newest_generated_at(&self) -> Option<Timestamp> {
         self.events.iter().map(|event| event.generated_at).max()
     }
 
-    pub fn oldest_dead_letter_generated_at(&self) -> Option<u64> {
+    pub fn oldest_dead_letter_generated_at(&self) -> Option<Timestamp> {
         self.dead_letter_events
             .iter()
             .map(|event| event.generated_at)
             .min()
     }
 
-    pub fn newest_dead_letter_generated_at(&self) -> Option<u64> {
+    pub fn newest_dead_letter_generated_at(&self) -> Option<Timestamp> {
         self.dead_letter_events
             .iter()
             .map(|event| event.generated_at)
@@ -137,14 +140,14 @@ impl TrainerTriggerQueueState {
 
     pub fn lease_next(
         &mut self,
-        now_epoch_seconds: u64,
-        min_retry_delay_seconds: u64,
+        now_epoch_seconds: Timestamp,
+        min_retry_delay_seconds: Timestamp,
         max_delivery_attempts_before_dead_letter: u32,
     ) -> Option<TrainerTriggerEvent> {
         let max_attempts = max_delivery_attempts_before_dead_letter.max(1);
         self.release_expired_leases(now_epoch_seconds, min_retry_delay_seconds);
 
-        let dead_letter_ids: Vec<u64> = self
+        let dead_letter_ids: Vec<ProtocolId> = self
             .events
             .iter()
             .filter(|event| !self.leased_event_ids.contains(&event.event_id))
@@ -152,7 +155,7 @@ impl TrainerTriggerQueueState {
             .map(|event| event.event_id)
             .collect();
         for event_id in dead_letter_ids {
-            self.move_to_dead_letter(event_id);
+            self.move_to_dead_letter(&event_id);
         }
 
         let mut leased_idx = None;
@@ -176,34 +179,38 @@ impl TrainerTriggerQueueState {
         Some(event.clone())
     }
 
-    pub fn acknowledge(&mut self, event_id: u64) -> bool {
-        if !self.leased_event_ids.contains(&event_id) {
+    pub fn acknowledge(&mut self, event_id: &ProtocolId) -> bool {
+        if !self.leased_event_ids.contains(event_id) {
             return false;
         }
         if let Some(idx) = self
             .events
             .iter()
-            .position(|event| event.event_id == event_id)
+            .position(|event| &event.event_id == event_id)
         {
             self.events.remove(idx);
-            self.leased_event_ids.remove(&event_id);
+            self.leased_event_ids.remove(event_id);
             true
         } else {
             false
         }
     }
 
-    pub fn mark_delivery_failed(&mut self, event_id: u64, failed_at_epoch_seconds: u64) -> bool {
-        if !self.leased_event_ids.contains(&event_id) {
+    pub fn mark_delivery_failed(
+        &mut self,
+        event_id: &ProtocolId,
+        failed_at_epoch_seconds: Timestamp,
+    ) -> bool {
+        if !self.leased_event_ids.contains(event_id) {
             return false;
         }
         if let Some(event) = self
             .events
             .iter_mut()
-            .find(|event| event.event_id == event_id)
+            .find(|event| &event.event_id == event_id)
         {
             event.last_attempted_at = Some(failed_at_epoch_seconds);
-            self.leased_event_ids.remove(&event_id);
+            self.leased_event_ids.remove(event_id);
             true
         } else {
             false
@@ -241,11 +248,11 @@ impl TrainerTriggerQueueState {
         }
     }
 
-    fn move_to_dead_letter(&mut self, event_id: u64) -> bool {
+    fn move_to_dead_letter(&mut self, event_id: &ProtocolId) -> bool {
         if let Some(idx) = self
             .events
             .iter()
-            .position(|event| event.event_id == event_id)
+            .position(|event| &event.event_id == event_id)
             && let Some(event) = self.events.remove(idx)
         {
             self.leased_event_ids.remove(&event.event_id);

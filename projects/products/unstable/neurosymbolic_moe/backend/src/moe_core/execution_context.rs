@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::task_id::TaskId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ExecutionContext {
     pub task_id: TaskId,
     pub retrieved_context: Vec<String>,

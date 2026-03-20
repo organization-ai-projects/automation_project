@@ -1,13 +1,15 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/tests/auto_improvement.rs
 use std::collections::HashMap;
 
+use protocol::ProtocolId;
+
 use crate::aggregator::AggregationStrategy;
 use crate::dataset_engine::{
     DatasetTrainingBuildOptions, DatasetTrainingBundle, DatasetTrainingProvenance,
     DatasetTrainingSample,
 };
 use crate::echo_expert::EchoExpert;
-use crate::moe_core::{ExpertCapability, Task, TaskPriority, TaskType};
+use crate::moe_core::{ExpertCapability, ExpertId, Task, TaskId, TaskPriority, TaskType};
 use crate::orchestrator::{AutoImprovementPolicy, MoePipelineBuilder};
 use crate::router::HeuristicRouter;
 
@@ -15,9 +17,9 @@ use crate::router::HeuristicRouter;
 fn bootstrap_initial_dataset_from_training_bundle_json_seeds_entries() {
     let mut pipeline = MoePipelineBuilder::new().build();
     let sample = DatasetTrainingSample {
-        entry_id: "seed-1".to_string(),
-        task_id: "task-seed-1".to_string(),
-        expert_id: "expert-seed-1".to_string(),
+        entry_id: ProtocolId::default(),
+        task_id: TaskId::new(),
+        expert_id: ExpertId::new(),
         input: "seed input".to_string(),
         target_output: "seed output".to_string(),
         source_output: "seed source".to_string(),
@@ -56,7 +58,10 @@ fn bootstrap_initial_dataset_from_training_bundle_json_seeds_entries() {
     assert_eq!(second_seed, 0);
     assert_eq!(pipeline.dataset_store().count(), 1);
     assert_eq!(
-        pipeline.auto_improvement_status().bootstrap_entries_total,
+        pipeline
+            .auto_improvement_status()
+            .global_counters
+            .bootstrap_entries_total,
         1
     );
 }
@@ -84,19 +89,24 @@ fn execute_triggers_auto_improvement_when_policy_thresholds_are_met() {
         .build();
     pipeline
         .register_expert(Box::new(EchoExpert::new(
-            "auto-expert",
             "AutoExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
         .expect("register expert");
 
-    let task = Task::new("auto-task-1", TaskType::CodeGeneration, "build feature")
+    let task = Task::new(TaskType::CodeGeneration, "build feature")
         .with_priority(TaskPriority::High)
         .with_context("auto-improvement-test");
     let result = pipeline.execute(task);
 
     assert!(result.is_ok());
-    assert!(pipeline.auto_improvement_status().runs_total >= 1);
+    assert!(
+        pipeline
+            .auto_improvement_status()
+            .global_counters
+            .runs_total
+            >= 1
+    );
     assert!(
         pipeline
             .auto_improvement_status()
@@ -114,7 +124,13 @@ fn auto_improvement_policy_can_be_attached_via_builder() {
     let pipeline = MoePipelineBuilder::new()
         .with_auto_improvement_policy(policy)
         .build();
-    assert_eq!(pipeline.auto_improvement_status().runs_total, 0);
+    assert_eq!(
+        pipeline
+            .auto_improvement_status()
+            .global_counters
+            .runs_total,
+        0
+    );
 }
 
 #[test]
@@ -128,23 +144,18 @@ fn execute_tracks_skip_reason_when_min_dataset_entries_is_not_reached() {
         .build();
     pipeline
         .register_expert(Box::new(EchoExpert::new(
-            "auto-skip-expert",
             "AutoSkipExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
         .expect("register expert");
 
     pipeline
-        .execute(Task::new(
-            "auto-skip-task-1",
-            TaskType::CodeGeneration,
-            "skip me",
-        ))
+        .execute(Task::new(TaskType::CodeGeneration, "skip me"))
         .expect("execution should succeed");
 
     let status = pipeline.auto_improvement_status();
-    assert_eq!(status.runs_total, 0);
-    assert_eq!(status.skipped_min_dataset_entries_total, 1);
+    assert_eq!(status.global_counters.runs_total, 0);
+    assert_eq!(status.skip_counters.min_dataset_entries_total, 1);
     assert_eq!(
         status.last_skip_reason.as_deref(),
         Some("dataset entries below min_dataset_entries")
@@ -174,19 +185,14 @@ fn trainer_trigger_event_queue_supports_pop_and_bounded_drain() {
         .build();
     pipeline
         .register_expert(Box::new(EchoExpert::new(
-            "auto-queue-expert",
             "AutoQueueExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
         .expect("register expert");
 
-    for idx in 0..3 {
+    for _ in 0..3 {
         pipeline
-            .execute(Task::new(
-                format!("auto-queue-task-{idx}"),
-                TaskType::CodeGeneration,
-                "queue run",
-            ))
+            .execute(Task::new(TaskType::CodeGeneration, "queue run"))
             .expect("execution should succeed");
     }
 
@@ -225,17 +231,12 @@ fn trainer_trigger_event_queue_supports_lease_fail_and_ack_flow() {
     pipeline
         .register_expert(Box::new(EchoExpert::new(
             "auto-lease-expert",
-            "AutoLeaseExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
         .expect("register expert");
 
     pipeline
-        .execute(Task::new(
-            "auto-lease-task-1",
-            TaskType::CodeGeneration,
-            "lease run",
-        ))
+        .execute(Task::new(TaskType::CodeGeneration, "lease run"))
         .expect("execution should succeed");
     assert_eq!(pipeline.trainer_trigger_events_pending(), 1);
 
@@ -259,25 +260,29 @@ fn trainer_trigger_event_queue_supports_lease_fail_and_ack_flow() {
     assert_eq!(
         pipeline
             .auto_improvement_status()
-            .trainer_trigger_delivery_attempts_total,
+            .delivery_stats
+            .delivery_attempts_total,
         2
     );
     assert_eq!(
         pipeline
             .auto_improvement_status()
-            .trainer_trigger_delivery_failures_total,
+            .delivery_stats
+            .delivery_failures_total,
         1
     );
     assert_eq!(
         pipeline
             .auto_improvement_status()
-            .trainer_trigger_acknowledged_total,
+            .delivery_stats
+            .acknowledged_total,
         1
     );
     assert_eq!(
         pipeline
             .auto_improvement_status()
-            .trainer_trigger_dead_letter_total,
+            .delivery_stats
+            .dead_letter_total,
         0
     );
 }
@@ -308,17 +313,12 @@ fn trainer_trigger_event_queue_dead_letters_after_max_attempts_policy() {
     pipeline
         .register_expert(Box::new(EchoExpert::new(
             "auto-dead-letter-expert",
-            "AutoDeadLetterExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
         .expect("register expert");
 
     pipeline
-        .execute(Task::new(
-            "auto-dead-letter-task-1",
-            TaskType::CodeGeneration,
-            "dead-letter run",
-        ))
+        .execute(Task::new(TaskType::CodeGeneration, "dead-letter run"))
         .expect("execution should succeed");
 
     let first = pipeline
@@ -341,7 +341,8 @@ fn trainer_trigger_event_queue_dead_letters_after_max_attempts_policy() {
     assert_eq!(
         pipeline
             .auto_improvement_status()
-            .trainer_trigger_dead_letter_total,
+            .delivery_stats
+            .dead_letter_total,
         1
     );
 }

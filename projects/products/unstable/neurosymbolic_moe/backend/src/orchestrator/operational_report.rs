@@ -2,10 +2,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::orchestrator::ImportTelemetry;
+use crate::orchestrator::version::Version;
+use common_time::Timestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OperationalReport {
-    pub governance_current_version: u64,
+    pub governance_current_version: Version,
     pub governance_current_checksum: Option<String>,
     pub governance_audit_entries: usize,
     pub governance_state_snapshots: usize,
@@ -25,7 +27,7 @@ pub struct OperationalReport {
     pub import_journal_successful_imports_total: u64,
     pub import_journal_deduplicated_replays_total: u64,
     pub import_journal_tracked_fingerprints: usize,
-    pub runtime_last_import_at_epoch_seconds: Option<u64>,
+    pub runtime_last_import_at_epoch_seconds: Option<Timestamp>,
     pub runtime_last_import_released_expired_leases: u64,
     pub runtime_last_import_observed_dead_letter_events: u64,
     pub runtime_last_import_pending_events_after_import: usize,
@@ -41,16 +43,16 @@ pub struct OperationalReport {
     pub auto_improvement_skipped_duplicate_bundle_total: u64,
     pub auto_improvement_build_failures_total: u64,
     pub model_registry_entries: usize,
-    pub model_registry_active_version: u64,
-    pub model_registry_latest_version: u64,
+    pub model_registry_active_version: Option<Version>,
+    pub model_registry_latest_version: Option<Version>,
     pub trainer_trigger_events_pending: usize,
     pub trainer_trigger_events_leased: usize,
     pub trainer_trigger_events_dead_letter: usize,
     pub trainer_trigger_max_delivery_attempts_pending: u32,
-    pub trainer_trigger_oldest_generated_at_pending: Option<u64>,
-    pub trainer_trigger_newest_generated_at_pending: Option<u64>,
-    pub trainer_trigger_oldest_generated_at_dead_letter: Option<u64>,
-    pub trainer_trigger_newest_generated_at_dead_letter: Option<u64>,
+    pub trainer_trigger_oldest_generated_at_pending: Option<Timestamp>,
+    pub trainer_trigger_newest_generated_at_pending: Option<Timestamp>,
+    pub trainer_trigger_oldest_generated_at_dead_letter: Option<Timestamp>,
+    pub trainer_trigger_newest_generated_at_dead_letter: Option<Timestamp>,
     pub trainer_trigger_delivery_attempts_total: u64,
     pub trainer_trigger_delivery_failures_total: u64,
     pub trainer_trigger_acknowledged_total: u64,
@@ -161,8 +163,14 @@ impl OperationalReport {
             self.auto_improvement_skipped_duplicate_bundle_total,
             self.auto_improvement_build_failures_total,
             self.model_registry_entries,
-            self.model_registry_active_version,
-            self.model_registry_latest_version,
+            self.model_registry_active_version
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "-".to_string()),
+            self.model_registry_latest_version
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "-".to_string()),
             self.trainer_trigger_events_pending,
             self.trainer_trigger_events_leased,
             self.trainer_trigger_events_dead_letter,
