@@ -380,11 +380,17 @@ fn detect_required_scopes(staged_files: &[String]) -> Result<Vec<String>, String
     Ok(vec![common_path_scope(staged_files)])
 }
 
-fn resolve_scope_from_file_path(root: &Path, file: &str) -> Option<String> {
+pub(crate) fn resolve_scope_from_file_path(root: &Path, file: &str) -> Option<String> {
+    if let Some(crate_dir) = find_crate_dir_for_file(root, file) {
+        return Some(crate_dir);
+    }
     if let Some(scope) = resolve_library_scope(file) {
         return Some(scope);
     }
     if let Some(scope) = resolve_product_scope(root, file) {
+        return Some(scope);
+    }
+    if let Some(scope) = resolve_tools_scope(file) {
         return Some(scope);
     }
     None
@@ -418,6 +424,14 @@ fn resolve_product_scope(root: &Path, file: &str) -> Option<String> {
         }
     }
     Some(base)
+}
+
+fn resolve_tools_scope(file: &str) -> Option<String> {
+    let parts = file.split('/').collect::<Vec<_>>();
+    if parts.len() < 2 || parts[0] != "tools" {
+        return None;
+    }
+    Some(format!("{}/{}", parts[0], parts[1]))
 }
 
 fn common_path_scope(staged_files: &[String]) -> String {
