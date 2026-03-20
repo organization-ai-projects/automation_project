@@ -33,10 +33,10 @@ mod pr_state;
 mod refresh_validation;
 mod render;
 mod resolve_category;
-mod scan;
+pub(crate) mod scan;
 mod sort_bullets;
-mod state;
-mod text_payload;
+pub(crate) mod state;
+pub(crate) mod text_payload;
 mod update_body;
 mod upsert_comment;
 

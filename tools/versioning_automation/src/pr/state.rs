@@ -56,26 +56,23 @@ fn collect_inferred_decisions(
             continue;
         }
 
-        let decision = match record.first.as_str() {
-            "Closes" => "close",
-            "Reopen" => "reopen",
-            _ => continue,
-        };
-
         if explicit_decisions.contains_key(&record.second) {
             continue;
         }
 
-        if let Some(existing) = out.get(&record.second) {
-            if existing != decision {
-                if decision == "reopen" || existing == "reopen" {
-                    out.insert(record.second.clone(), "reopen".to_string());
-                } else {
-                    out.insert(record.second.clone(), "conflict".to_string());
+        match record.first.as_str() {
+            "Closes" => {
+                out.insert(record.second.clone(), "close".to_string());
+            }
+            "Reopen" => {
+                out.insert(record.second.clone(), "reopen".to_string());
+            }
+            "Cancel-Closes" => {
+                if out.get(&record.second).map(String::as_str) == Some("close") {
+                    out.remove(&record.second);
                 }
             }
-        } else {
-            out.insert(record.second.clone(), decision.to_string());
+            _ => {}
         }
     }
 
@@ -83,23 +80,27 @@ fn collect_inferred_decisions(
 }
 
 fn collect_action_records(records: &[DirectiveRecord]) -> Vec<DirectiveRecord> {
-    let mut seen_close_refs: HashSet<String> = HashSet::new();
-    let mut seen_reopen_refs: HashSet<String> = HashSet::new();
     let mut seen_duplicates: HashSet<String> = HashSet::new();
+    let mut ordered_issues: Vec<String> = Vec::new();
+    let mut effective_actions: HashMap<String, String> = HashMap::new();
     let mut out = Vec::new();
 
     for record in records {
         match record.record_type {
-            DirectiveRecordType::Event => {
-                if record.first == "Closes" {
-                    if seen_close_refs.insert(record.second.clone()) {
-                        out.push(record.clone());
+            DirectiveRecordType::Event => match record.first.as_str() {
+                "Closes" | "Reopen" => {
+                    if !ordered_issues.contains(&record.second) {
+                        ordered_issues.push(record.second.clone());
                     }
-                } else if record.first == "Reopen" && seen_reopen_refs.insert(record.second.clone())
-                {
-                    out.push(record.clone());
+                    effective_actions.insert(record.second.clone(), record.first.clone());
                 }
-            }
+                "Cancel-Closes" => {
+                    if effective_actions.get(&record.second).map(String::as_str) == Some("Closes") {
+                        effective_actions.remove(&record.second);
+                    }
+                }
+                _ => {}
+            },
             DirectiveRecordType::Duplicate => {
                 let key = format!("{}|{}", record.first, record.second);
                 if seen_duplicates.insert(key) {
@@ -107,6 +108,16 @@ fn collect_action_records(records: &[DirectiveRecord]) -> Vec<DirectiveRecord> {
                 }
             }
             DirectiveRecordType::Decision => {}
+        }
+    }
+
+    for issue in ordered_issues {
+        if let Some(action) = effective_actions.get(&issue) {
+            out.push(DirectiveRecord {
+                record_type: DirectiveRecordType::Event,
+                first: action.clone(),
+                second: issue,
+            });
         }
     }
 

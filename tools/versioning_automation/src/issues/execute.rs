@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/execute.rs
-use std::collections::{HashMap, HashSet};
+use std::collections::{self, HashMap, HashSet};
 use std::fs;
 
 use regex::Regex;
@@ -16,6 +16,7 @@ use crate::issues::commands::{
     UpdateOptions, UpsertMarkerCommentOptions, ValidateFooterOptions,
 };
 use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
+use crate::issues::issue_sync_plan::{plan_done_in_dev_sync, plan_reopen_sync};
 use crate::issues::render::render_direct_issue_body;
 use crate::issues::required_fields::{
     fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
@@ -23,7 +24,9 @@ use crate::issues::required_fields::{
 };
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
+use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::repo_name::resolve_repo_name;
+use crate::{gh_cli, issues};
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -116,37 +119,11 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 return 0;
             }
 
-            let pr_title = gh_output_or_empty(&[
-                "pr",
-                "view",
-                &pr_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "title",
-                "--jq",
-                ".title // \"\"",
-            ]);
-            let pr_body = gh_output_or_empty(&[
-                "pr",
-                "view",
-                &pr_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "body",
-                "--jq",
-                ".body // \"\"",
-            ]);
-            let pr_commits = gh_output_or_empty(&[
-                "api",
-                &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-                "--paginate",
-                "--jq",
-                ".[].commit.message",
-            ]);
-            let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
-            let closing_issue_numbers = extract_closing_issue_numbers(&payload);
+            let (closing_issue_numbers, _) =
+                match load_effective_issue_action_numbers_for_pr(&pr_number, &repo_name) {
+                    Ok(value) => value,
+                    Err(code) => return code,
+                };
             if closing_issue_numbers.is_empty() {
                 println!("No closing issue refs found for PR #{}.", pr_number);
                 return 0;
@@ -161,33 +138,22 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
-                if state.is_empty() {
-                    println!("Issue #{}: unreadable; skipping.", issue_number);
+                let Some((state, labels_raw)) =
+                    load_issue_sync_snapshot(&repo_name, &issue_number, "skipping")
+                else {
                     continue;
-                }
-                if state != "OPEN" {
+                };
+                let sync_plan =
+                    plan_done_in_dev_sync(&state, has_label_named(&labels_raw, &label_name));
+                if !sync_plan.add_done_in_dev_label {
                     println!(
-                        "Issue #{}: state={}; skipping done-in-dev label.",
+                        "Issue #{}: state={}; no done-in-dev label update needed.",
                         issue_number, state
                     );
                     continue;
                 }
 
-                let has_label = gh_output_or_empty(&[
-                    "issue",
-                    "view",
-                    &issue_number,
-                    "-R",
-                    &repo_name,
-                    "--json",
-                    "labels",
-                    "--jq",
-                    ".labels[].name",
-                ])
-                .lines()
-                .any(|value| value.trim() == label_name);
-                if has_label {
+                if has_label_named(&labels_raw, &label_name) {
                     println!(
                         "Issue #{}: label '{}' already present.",
                         issue_number, label_name
@@ -195,17 +161,14 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                     continue;
                 }
 
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--add-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
+                let status = run_update(UpdateOptions {
+                    issue: issue_number.clone(),
+                    repo: Some(repo_name.clone()),
+                    edit_args: vec![("--add-label".to_string(), label_name.clone())],
                 });
                 if status != 0 {
                     return status;
                 }
-                println!("Issue #{}: added label '{}'.", issue_number, label_name);
             }
             0
         }
@@ -238,17 +201,14 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             .any(|value| value.trim() == label_name);
 
             if has_label {
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--remove-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
+                let status = run_update(UpdateOptions {
+                    issue: issue_number.clone(),
+                    repo: Some(repo_name.clone()),
+                    edit_args: vec![("--remove-label".to_string(), label_name.clone())],
                 });
                 if status != 0 {
                     return status;
                 }
-                println!("Issue #{}: removed label '{}'.", issue_number, label_name);
             } else {
                 println!(
                     "Issue #{}: label '{}' not present.",
@@ -282,43 +242,34 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         "--jq",
         ".state // \"\"",
     ]);
-    if pr_state != "MERGED" {
-        println!("PR #{} is not merged; nothing to do.", pr_number);
+    let pr_base = gh_output_or_empty(&[
+        "pr",
+        "view",
+        &pr_number,
+        "-R",
+        &repo_name,
+        "--json",
+        "baseRefName",
+        "--jq",
+        ".baseRefName // \"\"",
+    ]);
+    if pr_base != "dev" {
+        println!("PR #{} does not target dev; nothing to do.", pr_number);
+        return 0;
+    }
+    if !pr_state_allows_reopen_sync(&pr_state) {
+        println!(
+            "PR #{} state={} is not eligible; nothing to do.",
+            pr_number, pr_state
+        );
         return 0;
     }
 
-    let pr_title = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "title",
-        "--jq",
-        ".title // \"\"",
-    ]);
-    let pr_body = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "body",
-        "--jq",
-        ".body // \"\"",
-    ]);
-    let pr_commits = gh_output_or_empty(&[
-        "api",
-        &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-        "--paginate",
-        "--jq",
-        ".[].commit.message",
-    ]);
-    let payload = format!("{pr_title}\n{pr_body}\n{pr_commits}");
-
-    let reopen_issue_numbers = extract_reopen_issue_numbers(&payload);
+    let (_, reopen_issue_numbers) =
+        match load_effective_issue_action_numbers_for_pr(&pr_number, &repo_name) {
+            Ok(value) => value,
+            Err(code) => return code,
+        };
     if reopen_issue_numbers.is_empty() {
         println!("No reopen issue refs found for PR #{}.", pr_number);
         return 0;
@@ -334,22 +285,21 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let state = gh_issue_state_or_empty(Some(repo_name.as_str()), &issue_number);
-        if state.is_empty() {
-            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
+        let Some((state, labels_raw)) =
+            load_issue_sync_snapshot(&repo_name, &issue_number, "skipping reopen sync")
+        else {
             continue;
-        }
+        };
+        let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
-        if state == "CLOSED" {
-            let status = execute_command(gh_issue_target_command(
-                "reopen",
-                &issue_number,
-                Some(repo_name.as_str()),
-            ));
+        if sync_plan.reopen_issue {
+            let status = run_reopen(IssueTarget {
+                issue: issue_number.clone(),
+                repo: Some(repo_name.clone()),
+            });
             if status != 0 {
                 return status;
             }
-            println!("Issue #{}: reopened from Reopen ref.", issue_number);
         } else {
             println!(
                 "Issue #{}: state={}; no reopen needed.",
@@ -357,39 +307,18 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
             );
         }
 
-        if label_exists {
-            let has_label = gh_output_or_empty(&[
-                "issue",
-                "view",
-                &issue_number,
-                "-R",
-                &repo_name,
-                "--json",
-                "labels",
-                "--jq",
-                ".labels[].name",
-            ])
-            .lines()
-            .any(|value| value.trim() == label_name);
-            if has_label {
-                let status = execute_command({
-                    let mut cmd =
-                        gh_issue_target_command("edit", &issue_number, Some(repo_name.as_str()));
-                    push_arg(&mut cmd, "--remove-label");
-                    push_arg(&mut cmd, &label_name);
-                    cmd
-                });
-                if status != 0 {
-                    return status;
-                }
-                println!(
-                    "Issue #{}: removed label '{}' due to Reopen ref.",
-                    issue_number, label_name
-                );
+        if label_exists && sync_plan.remove_done_in_dev_label {
+            let status = run_update(UpdateOptions {
+                issue: issue_number.clone(),
+                repo: Some(repo_name.clone()),
+                edit_args: vec![("--remove-label".to_string(), label_name.clone())],
+            });
+            if status != 0 {
+                return status;
             }
         }
 
-        let status = run_sync_project_status(crate::issues::commands::SyncProjectStatusOptions {
+        let status = run_sync_project_status(issues::commands::SyncProjectStatusOptions {
             repo: repo_name.clone(),
             issue: issue_number.clone(),
             status: reopen_status.clone(),
@@ -400,6 +329,48 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
     }
 
     0
+}
+
+pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
+    matches!(state, "OPEN" | "MERGED")
+}
+
+fn load_effective_issue_action_numbers_for_pr(
+    pr_number: &str,
+    repo_name: &str,
+) -> Result<(collections::BTreeSet<String>, collections::BTreeSet<String>), i32> {
+    let payload = match load_pr_text_payload(pr_number, repo_name) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Error: unable to read PR #{}.", pr_number);
+            return Err(4);
+        }
+    };
+
+    Ok(extract_effective_action_issue_numbers(&payload))
+}
+
+fn load_issue_sync_snapshot(
+    repo_name: &str,
+    issue_number: &str,
+    unreadable_suffix: &str,
+) -> Option<(String, String)> {
+    let (_, _, state, labels_raw) = gh_issue_autolink_payload(repo_name, issue_number);
+    if state.is_empty() {
+        println!(
+            "Issue #{}: unreadable; {}.",
+            issue_number, unreadable_suffix
+        );
+        return None;
+    }
+    Some((state, labels_raw))
+}
+
+fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
+    labels_raw
+        .split('|')
+        .map(str::trim)
+        .any(|label| label == expected_label)
 }
 
 pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {
@@ -966,7 +937,7 @@ fn auto_link_set_validation_error_state(
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n❌ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -986,7 +957,7 @@ fn auto_link_set_runtime_error_state(
     auto_link_add_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n⚠️ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -1006,7 +977,7 @@ fn auto_link_set_success_state(
     auto_link_remove_label(repo_name, issue_number, required_missing_label);
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body = format!("{marker}\n### Parent Field Autolink Status\n\n✅ {message}\n");
-    run_upsert_marker_comment(crate::issues::commands::UpsertMarkerCommentOptions {
+    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -1639,12 +1610,12 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
         .unwrap_or_default()
         .to_string();
     let issue_ref_in_subject_re = Regex::new(
-        r"(?i)(^|[[:space:]])(closes|part[[:space:]]+of|reopen|reopens|fixes)[[:space:]]+#[0-9]+([[:space:]]|$)",
+        r"(?i)(^|[[:space:]])(cancel[\s_-]*closes|closes|part[[:space:]]+of|reopen|reopens|fixes)[[:space:]]+#[0-9]+([[:space:]]|$)",
     )
     .expect("static regex must compile");
     if issue_ref_in_subject_re.is_match(&subject) {
         eprintln!("❌ Issue references must be in commit footer, not in subject.");
-        eprintln!("   Move 'Closes/Part of/Reopen #...' to footer lines.");
+        eprintln!("   Move 'Closes/Cancel-Closes/Part of/Reopen #...' to footer lines.");
         return RC_SUBJECT_TRAILER;
     }
 
@@ -1660,7 +1631,7 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
     let fixes_only_trailer_re =
         Regex::new(r"(?i)^fixes[[:space:]]+#[0-9]+$").expect("static regex must compile");
     let trailer_line_re =
-        Regex::new(r"(?i)^(closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$")
+        Regex::new(r"(?i)^(cancel[\s_-]*closes|closes|part[[:space:]]+of|reopen|reopens)[[:space:]]+#([0-9]+)$")
             .expect("static regex must compile");
 
     let mut trailers: Vec<String> = Vec::new();
@@ -1682,6 +1653,9 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
                 .unwrap_or_default();
             let issue_number = caps.get(2).map(|m| m.as_str()).unwrap_or_default();
             let canonical = match keyword.as_str() {
+                "cancel-closes" | "cancel closes" | "cancel_closes" => {
+                    format!("Cancel-Closes #{issue_number}")
+                }
                 "closes" => format!("Closes #{issue_number}"),
                 "part of" => format!("Part of #{issue_number}"),
                 "reopen" | "reopens" => format!("Reopen #{issue_number}"),
@@ -1828,8 +1802,9 @@ fn extract_issue_refs_for_footer(text: &str) -> Vec<(String, String)> {
         .filter(|line| !line.trim_start().starts_with('#'))
         .collect::<Vec<_>>()
         .join("\n");
-    let re = Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
-        .expect("static regex must compile");
+    let re =
+        Regex::new(r"(?i)(cancel[\s_-]*closes|closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
+            .expect("static regex must compile");
     let mut seen = HashSet::<String>::new();
     let mut refs: Vec<(String, String)> = Vec::new();
     for caps in re.captures_iter(&filtered) {
@@ -2404,11 +2379,11 @@ pub(crate) fn run_extract_refs(opts: ExtractRefsOptions) -> i32 {
     };
 
     let re = match opts.profile {
-        ExtractRefsProfile::Hook => {
-            Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
-        }
+        ExtractRefsProfile::Hook => Regex::new(
+            r"(?i)(cancel[\s_-]*closes|closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)",
+        ),
         ExtractRefsProfile::Audit => Regex::new(
-            r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
+            r"(?i)(cancel[\s_-]*closes|closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
         ),
     };
     let re = match re {
@@ -2612,7 +2587,7 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
 
 fn execute_command(command: Vec<String>) -> i32 {
     let borrowed = command.iter().map(String::as_str).collect::<Vec<&str>>();
-    match crate::gh_cli::status(&borrowed) {
+    match gh_cli::status(&borrowed) {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("Failed to execute command: {err}");
@@ -2656,7 +2631,7 @@ fn gh_output_or_empty(args: &[&str]) -> String {
 }
 
 fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
-    match crate::gh_cli::output_trim(args) {
+    match gh_cli::output_trim(args) {
         Ok(value) => Ok(value),
         Err(_) if silence_stderr => Ok(String::new()),
         Err(message) => Err(message),
@@ -2671,38 +2646,6 @@ fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
     Regex::new(&pattern)
         .map(|re| re.is_match(body))
         .unwrap_or(false)
-}
-
-fn extract_closing_issue_numbers(text: &str) -> Vec<String> {
-    let re = Regex::new(r"(?i)\b(closes|fixes)\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
-        .expect("static regex must compile");
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut out = Vec::new();
-    for captures in re.captures_iter(text) {
-        let Some(num) = captures.get(2).map(|m| m.as_str().to_string()) else {
-            continue;
-        };
-        if seen.insert(num.clone()) {
-            out.push(num);
-        }
-    }
-    out
-}
-
-fn extract_reopen_issue_numbers(text: &str) -> Vec<String> {
-    let re = Regex::new(r"(?i)\breopen\b\s+(?:rejected\s+)?[^#\s]*#([0-9]+)")
-        .expect("static regex must compile");
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut out = Vec::new();
-    for captures in re.captures_iter(text) {
-        let Some(num) = captures.get(1).map(|m| m.as_str().to_string()) else {
-            continue;
-        };
-        if seen.insert(num.clone()) {
-            out.push(num);
-        }
-    }
-    out
 }
 
 fn print_non_empty_lines(text: &str) {

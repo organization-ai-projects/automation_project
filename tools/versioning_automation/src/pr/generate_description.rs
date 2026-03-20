@@ -7,14 +7,19 @@ use regex::Regex;
 use crate::pr::breaking_detect::text_indicates_breaking;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
+use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commit_info::CommitInfo;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
 use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
+use crate::pr::group_by_category::{parse_records, render_grouped_output};
+use crate::pr::issue_context::load_issue_context_payload;
 use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
+use crate::pr::resolve_category::{issue_category_from_labels, resolve_effective_category};
 use crate::pr::scan::scan_directives;
+use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name_optional;
 
 const E_USAGE: i32 = 2;
@@ -275,7 +280,7 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         .collect::<Vec<String>>()
         .join("\n\n");
 
-    for record in scan_directives(&text, true) {
+    for record in extract_effective_issue_ref_records(&text) {
         if record.first == "Closes" {
             closes.insert(record.second);
         } else if record.first == "Reopen" {
@@ -287,25 +292,58 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
         return "- No issues processed in this PR.".to_string();
     }
 
-    let mut lines = Vec::new();
+    let mut sections = Vec::new();
+
     if !closes.is_empty() {
-        lines.push("#### Unknown".to_string());
-        for key in &closes {
-            lines.push(format!("- Closes {key}"));
-        }
+        sections.push(render_issue_outcome_section(&closes, "Closes", "resolved"));
     }
 
     if !reopens.is_empty() {
-        if !lines.is_empty() {
-            lines.push(String::new());
-        }
-        lines.push("#### Unknown".to_string());
-        for key in &reopens {
-            lines.push(format!("- Reopen {key}"));
-        }
+        sections.push(render_issue_outcome_section(&reopens, "Reopen", "reopen"));
     }
 
-    lines.join("\n")
+    sections.join("\n\n")
+}
+
+fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str, mode: &str) -> String {
+    let records_text = issue_keys
+        .iter()
+        .map(|issue_key| render_issue_outcome_record(issue_key, action))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    let rendered = render_issue_outcome_records(&records_text, mode);
+    if rendered.trim().is_empty() {
+        issue_keys
+            .iter()
+            .map(|issue_key| format!("- {action} {issue_key}"))
+            .collect::<Vec<String>>()
+            .join("\n")
+    } else {
+        rendered
+    }
+}
+
+pub(crate) fn render_issue_outcome_records(records_text: &str, mode: &str) -> String {
+    let mut records = parse_records(records_text);
+    records.sort_by_key(|record| (record.0, record.3));
+    render_grouped_output(&records, mode).trim().to_string()
+}
+
+fn render_issue_outcome_record(issue_key: &str, action: &str) -> String {
+    let category = resolve_issue_outcome_category(issue_key);
+    let issue_number = issue_key.trim_start_matches('#');
+    format!("{issue_number}|{category}|{action}|{issue_key}")
+}
+
+fn resolve_issue_outcome_category(issue_key: &str) -> String {
+    let opts = PrIssueContextOptions {
+        issue_number: issue_key.trim_start_matches('#').to_string(),
+        repo: None,
+    };
+    let (labels_raw, title_category, _) = load_issue_context_payload(&opts);
+    let label_category = issue_category_from_labels(&labels_raw);
+    resolve_effective_category(label_category, &title_category, "Unknown")
 }
 
 fn render_key_changes(commits: &[CommitInfo]) -> String {

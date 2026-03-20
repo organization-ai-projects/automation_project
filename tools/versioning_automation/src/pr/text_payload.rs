@@ -1,5 +1,14 @@
+//! tools/versioning_automation/src/pr/text_payload.rs
+use std::collections::BTreeSet;
+
+use regex::Regex;
+
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
+use crate::pr::domain::directives::directive_record::DirectiveRecord;
+use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::gh_cli::gh_output_trim_end_newline;
+use crate::pr::scan::scan_directives;
+use crate::pr::state::build_state;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
@@ -8,45 +17,147 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
         return 0;
     };
 
+    let payload = load_pr_text_payload(&opts.pr_number, &repo_name).unwrap_or_default();
+    print!("{payload}");
+    0
+}
+
+pub(crate) fn load_pr_text_payload(pr_number: &str, repo_name: &str) -> Result<String, String> {
     let title = gh_output_trim_end_newline(
         "pr",
         &[
             "view",
-            &opts.pr_number,
+            pr_number,
             "-R",
-            &repo_name,
+            repo_name,
             "--json",
             "title",
             "--jq",
             ".title // \"\"",
         ],
     )
-    .unwrap_or_default();
+    .map_err(|err| err.to_string())?;
     let body = gh_output_trim_end_newline(
         "pr",
         &[
             "view",
-            &opts.pr_number,
+            pr_number,
             "-R",
-            &repo_name,
+            repo_name,
             "--json",
             "body",
             "--jq",
             ".body // \"\"",
         ],
     )
-    .unwrap_or_default();
+    .map_err(|err| err.to_string())?;
     let commits = gh_output_trim_end_newline(
         "api",
         &[
-            &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
+            &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
             "--paginate",
             "--jq",
             ".[].commit.message",
         ],
     )
-    .unwrap_or_default();
+    .map_err(|err| err.to_string())?;
 
-    print!("{title}\n{body}\n{commits}");
-    0
+    Ok(format!("{title}\n{body}\n{commits}"))
+}
+
+pub(crate) fn extract_effective_action_issue_numbers(
+    payload: &str,
+) -> (BTreeSet<String>, BTreeSet<String>) {
+    let (closes, reopens, _) = extract_effective_issue_ref_sets(payload);
+    (closes, reopens)
+}
+
+pub(crate) fn extract_effective_issue_ref_records(payload: &str) -> Vec<DirectiveRecord> {
+    let (closes, reopens, part_of) = extract_effective_issue_ref_sets(payload);
+    let mut out = Vec::new();
+
+    for issue in part_of {
+        out.push(issue_ref_record("Part of", &issue));
+    }
+    for issue in closes {
+        out.push(issue_ref_record("Closes", &issue));
+    }
+    for issue in reopens {
+        out.push(issue_ref_record("Reopen", &issue));
+    }
+
+    out
+}
+
+pub(crate) fn extract_effective_issue_ref_sets(
+    payload: &str,
+) -> (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>) {
+    let mut closes = BTreeSet::new();
+    let mut reopens = BTreeSet::new();
+    let mut part_of = BTreeSet::new();
+    let legacy_re =
+        Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)").expect("valid regex");
+
+    for record in scan_directives(payload, false) {
+        if record.first == "Part of" {
+            let issue_number = record.second.trim_start_matches('#').to_string();
+            if !issue_number.is_empty() {
+                part_of.insert(issue_number);
+            }
+        }
+    }
+
+    for cap in legacy_re.captures_iter(payload) {
+        let keyword = cap
+            .get(1)
+            .map(|m| m.as_str().to_lowercase())
+            .unwrap_or_default();
+        let issue_number = cap
+            .get(2)
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_default();
+        if issue_number.is_empty() {
+            continue;
+        }
+        match keyword.as_str() {
+            "fixes" | "resolves" => {
+                closes.insert(issue_number);
+            }
+            "reopens" => {
+                reopens.insert(issue_number);
+            }
+            "related to" => {
+                part_of.insert(issue_number);
+            }
+            _ => {}
+        }
+    }
+
+    for record in build_state(payload).action_records {
+        let issue_number = record.second.trim_start_matches('#').to_string();
+        if issue_number.is_empty() {
+            continue;
+        }
+        match record.first.as_str() {
+            "Closes" => {
+                closes.insert(issue_number.clone());
+                reopens.remove(&issue_number);
+            }
+            "Reopen" => {
+                reopens.insert(issue_number.clone());
+                closes.remove(&issue_number);
+            }
+            _ => {}
+        }
+    }
+
+    (closes, reopens, part_of)
+}
+
+fn issue_ref_record(action: &str, issue_number: &str) -> DirectiveRecord {
+    DirectiveRecord {
+        record_type: DirectiveRecordType::Event,
+        first: action.to_string(),
+        second: format!("#{issue_number}"),
+    }
 }

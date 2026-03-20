@@ -1,6 +1,6 @@
 use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
 
-const CATEGORIES: [&str; 9] = [
+pub(crate) const CATEGORIES: [&str; 9] = [
     "Security",
     "Features",
     "Bug Fixes",
@@ -27,9 +27,9 @@ pub(crate) fn run_group_by_category(opts: PrGroupByCategoryOptions) -> i32 {
     0
 }
 
-type GroupByCategory = (u32, String, Vec<String>, usize);
+pub(crate) type GroupByCategory = (u32, String, Vec<String>, usize);
 
-fn parse_records(text: &str) -> Vec<GroupByCategory> {
+pub(crate) fn parse_records(text: &str) -> Vec<GroupByCategory> {
     let mut out = Vec::new();
     for (index, line) in text.lines().enumerate() {
         let trimmed = line.trim();
@@ -51,7 +51,7 @@ fn parse_records(text: &str) -> Vec<GroupByCategory> {
     out
 }
 
-fn render_grouped_output(records: &[GroupByCategory], mode: &str) -> String {
+pub(crate) fn render_grouped_output(records: &[GroupByCategory], mode: &str) -> String {
     let mut out = String::new();
     for category in CATEGORIES {
         let matching = records

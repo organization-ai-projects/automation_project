@@ -1,5 +1,6 @@
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
-use crate::issues::execute::{run_create, run_non_compliance_reason};
+use crate::issues::execute::{pr_state_allows_reopen_sync, run_create, run_non_compliance_reason};
+use crate::pr::text_payload::extract_effective_action_issue_numbers;
 
 #[test]
 fn execute_create_dry_run_still_works_after_refactor() {
@@ -45,4 +46,47 @@ fn execute_non_compliance_reason_runs() {
         labels_raw: "issue-required-missing".to_string(),
     });
     assert_eq!(code, 0);
+}
+
+#[test]
+fn extract_closing_issue_numbers_ignores_cancelled_closes() {
+    let (closes, _) =
+        extract_effective_action_issue_numbers("Closes #12\nCancel-Closes #12\nCloses #13");
+    assert_eq!(
+        closes.into_iter().collect::<Vec<_>>(),
+        vec!["13".to_string()]
+    );
+}
+
+#[test]
+fn extract_reopen_issue_numbers_keeps_effective_reopen() {
+    let (_, reopens) =
+        extract_effective_action_issue_numbers("Closes #12\nCancel-Closes #12\nReopen #12");
+    assert_eq!(
+        reopens.into_iter().collect::<Vec<_>>(),
+        vec!["12".to_string()]
+    );
+}
+
+#[test]
+fn extract_reopen_issue_numbers_ignores_reopen_when_later_close_wins() {
+    let (_, reopens) = extract_effective_action_issue_numbers("Reopen #12\nCloses #12");
+    assert!(reopens.is_empty());
+}
+
+#[test]
+fn extract_closing_issue_numbers_keeps_later_close_after_reopen() {
+    let (closes, _) = extract_effective_action_issue_numbers("Reopen #12\nCloses #12");
+    assert_eq!(
+        closes.into_iter().collect::<Vec<_>>(),
+        vec!["12".to_string()]
+    );
+}
+
+#[test]
+fn reopen_sync_allows_open_and_merged_pr_states() {
+    assert!(pr_state_allows_reopen_sync("OPEN"));
+    assert!(pr_state_allows_reopen_sync("MERGED"));
+    assert!(!pr_state_allows_reopen_sync("CLOSED"));
+    assert!(!pr_state_allows_reopen_sync(""));
 }

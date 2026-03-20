@@ -46,7 +46,7 @@ pub(crate) fn scan_directives(text: &str, unique: bool) -> Vec<DirectiveRecord> 
     }
 
     let event_re = Regex::new(
-        r"(?i)\b(closes|fixes|reopen|reopens|part[[:space:]]+of)\b\s+(rejected\s+)?[^#\s]*#([0-9]+)",
+        r"(?i)\b(cancel[\s_-]*closes|closes|fixes|reopen|reopens|part[[:space:]]+of)\b\s+(rejected\s+)?[^#\s]*#([0-9]+)",
     )
     .expect("valid regex");
     for caps in event_re.captures_iter(text) {
@@ -61,6 +61,8 @@ pub(crate) fn scan_directives(text: &str, unique: bool) -> Vec<DirectiveRecord> 
             }
         } else if token == "part of" {
             "Part of".to_string()
+        } else if token.starts_with("cancel") {
+            "Cancel-Closes".to_string()
         } else {
             "Reopen".to_string()
         };

@@ -27,3 +27,4 @@ mod resolve_category;
 mod scan;
 mod sort_bullets;
 mod state;
+mod text_payload;

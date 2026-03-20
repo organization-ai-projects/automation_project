@@ -20,6 +20,7 @@ use crate::automation::{
     audit_issue_status, changed_crates, check_dependencies, check_merge_conflicts, hook_checks,
     install_hooks, pre_add_review, ui_build,
 };
+use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{gh_cli, git_cli};
 
@@ -378,11 +379,17 @@ fn detect_required_scopes(staged_files: &[String]) -> Result<Vec<String>, String
     Ok(vec![common_path_scope(staged_files)])
 }
 
-fn resolve_scope_from_file_path(root: &Path, file: &str) -> Option<String> {
+pub(crate) fn resolve_scope_from_file_path(root: &Path, file: &str) -> Option<String> {
+    if let Some(crate_dir) = find_crate_dir_for_file(root, file) {
+        return Some(crate_dir);
+    }
     if let Some(scope) = resolve_library_scope(file) {
         return Some(scope);
     }
     if let Some(scope) = resolve_product_scope(root, file) {
+        return Some(scope);
+    }
+    if let Some(scope) = resolve_tools_scope(file) {
         return Some(scope);
     }
     None
@@ -416,6 +423,14 @@ fn resolve_product_scope(root: &Path, file: &str) -> Option<String> {
         }
     }
     Some(base)
+}
+
+fn resolve_tools_scope(file: &str) -> Option<String> {
+    let parts = file.split('/').collect::<Vec<_>>();
+    if parts.len() < 2 || parts[0] != "tools" {
+        return None;
+    }
+    Some(format!("{}/{}", parts[0], parts[1]))
 }
 
 fn common_path_scope(staged_files: &[String]) -> String {
@@ -955,46 +970,26 @@ fn remote_policy_warn_only() -> bool {
 }
 
 fn extract_issue_refs_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
-    let re = Regex::new(
-        r"(?i)(closes|fixes|resolves|part\s+of|related\s+to|reopen|reopens)\s+#([0-9]+)",
-    )
-    .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
-    let mut out = Vec::new();
-    for cap in re.captures_iter(text) {
-        let action = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if !issue.is_empty() {
-            out.push((action, issue));
-        }
-    }
-    Ok(out)
+    extract_issue_refs_hook_detailed(text)
 }
 
 fn extract_issue_refs_hook_detailed(text: &str) -> Result<Vec<(String, String)>, String> {
-    let re = Regex::new(r"(?i)(closes|fixes|part\s+of|reopen|reopens)\s+#([0-9]+)")
-        .map_err(|e| format!("Failed to compile refs regex: {e}"))?;
-    let mut out = Vec::new();
     let mut seen = BTreeSet::new();
-    for cap in re.captures_iter(text) {
-        let action = cap
-            .get(1)
-            .map(|m| m.as_str().to_lowercase())
-            .unwrap_or_default();
-        let issue = cap
-            .get(2)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_default();
-        if !issue.is_empty() {
-            let key = format!("{action}|{issue}");
-            if seen.insert(key) {
-                out.push((action, issue));
-            }
+    let mut out = Vec::new();
+    for record in extract_effective_issue_ref_records(text) {
+        let action = match record.first.as_str() {
+            "Part of" => "part of".to_string(),
+            "Closes" => "closes".to_string(),
+            "Reopen" => "reopen".to_string(),
+            _ => continue,
+        };
+        let issue = record.second.trim_start_matches('#').to_string();
+        if issue.is_empty() {
+            continue;
+        }
+        let key = format!("{action}|{issue}");
+        if seen.insert(key) {
+            out.push((action, issue));
         }
     }
     Ok(out)

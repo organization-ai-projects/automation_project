@@ -30,6 +30,12 @@ pub(crate) fn build_conflict_report(text: &str, source_branch_count: u32) -> Con
                     reopen_requested.insert(record.second.clone());
                     inferred_decision.insert(record.second, "reopen".to_string());
                 }
+                "Cancel-Closes" => {
+                    closing_requested.remove(&record.second);
+                    if inferred_decision.get(&record.second).map(String::as_str) == Some("close") {
+                        inferred_decision.remove(&record.second);
+                    }
+                }
                 _ => {}
             },
             DirectiveRecordType::Decision => {

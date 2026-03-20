@@ -52,7 +52,7 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
     )
     .unwrap_or_default();
     let source_branch_count = detect_source_branch_count(&commit_messages);
-    let directive_payload = format!("{commit_messages}\n{original_body}");
+    let directive_payload = build_directive_payload(&original_body, &commit_messages);
 
     let report = build_conflict_report(&directive_payload, source_branch_count);
     let resolved_count = report.resolved.len();
@@ -122,6 +122,10 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         opts.pr_number
     );
     0
+}
+
+pub(crate) fn build_directive_payload(body: &str, commit_messages: &str) -> String {
+    format!("{body}\n{commit_messages}")
 }
 
 fn detect_source_branch_count(commit_messages: &str) -> u32 {

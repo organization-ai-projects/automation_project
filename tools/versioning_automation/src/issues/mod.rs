@@ -4,6 +4,7 @@ mod dispatch;
 mod execute;
 mod issue_comment_payload;
 mod issue_comments;
+mod issue_sync_plan;
 mod parse;
 mod render;
 mod required_fields;
