@@ -61,3 +61,15 @@ fn extract_reopen_issue_numbers_keeps_effective_reopen() {
     let out = extract_reopen_issue_numbers("Closes #12\nCancel-Closes #12\nReopen #12");
     assert_eq!(out, vec!["12".to_string()]);
 }
+
+#[test]
+fn extract_reopen_issue_numbers_ignores_reopen_when_later_close_wins() {
+    let out = extract_reopen_issue_numbers("Reopen #12\nCloses #12");
+    assert!(out.is_empty());
+}
+
+#[test]
+fn extract_closing_issue_numbers_keeps_later_close_after_reopen() {
+    let out = extract_closing_issue_numbers("Reopen #12\nCloses #12");
+    assert_eq!(out, vec!["12".to_string()]);
+}
