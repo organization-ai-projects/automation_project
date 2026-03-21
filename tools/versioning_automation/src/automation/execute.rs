@@ -1247,10 +1247,7 @@ pub(crate) fn repo_root() -> Result<PathBuf, String> {
 
 pub(crate) fn find_crate_dir_for_file(repo_root: &Path, file: &str) -> Option<String> {
     let mut cursor = repo_root.join(file);
-    if !cursor.exists() {
-        return None;
-    }
-    if cursor.is_file() {
+    if cursor.extension().is_some() || !cursor.is_dir() {
         cursor = cursor.parent()?.to_path_buf();
     }
 
