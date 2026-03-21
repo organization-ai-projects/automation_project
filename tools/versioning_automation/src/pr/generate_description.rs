@@ -9,9 +9,10 @@ use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionO
 use crate::pr::commit_info::CommitInfo;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
-use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
+use crate::pr::gh_cli::gh_output_trim;
 use crate::pr::group_by_category::CATEGORIES;
 use crate::pr::render::print_usage;
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::pr_run_snapshot::load_pr_run_snapshot;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{git_cli, pr};
@@ -648,10 +649,10 @@ fn replace_top_level_section(body: &str, marker: &str, replacement: &str) -> Str
 }
 
 fn gh_read_pr_body(pr_number: &str) -> Result<String, String> {
-    gh_output_trim_end_newline(
-        "pr",
-        &["view", pr_number, "--json", "body", "-q", ".body // \"\""],
-    )
+    let Some(repo) = resolve_repo_name_optional(None) else {
+        return Err("Error: unable to determine repository.".to_string());
+    };
+    load_pr_remote_snapshot(pr_number, &repo).map(|snapshot| snapshot.body)
 }
 
 fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
