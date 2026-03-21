@@ -60,6 +60,16 @@ pub(crate) fn status_owned(args: &[String]) -> Result<(), String> {
     status(&borrowed_args)
 }
 
+pub(crate) fn status_code_owned(args: Vec<String>) -> i32 {
+    match status_owned(&args) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("Failed to execute command: {err}");
+            1
+        }
+    }
+}
+
 fn output_with_transform(args: &[&str], transform: fn(&str) -> String) -> Result<String, String> {
     let output = command(args).output().map_err(|err| err.to_string())?;
     if output.status.success() {

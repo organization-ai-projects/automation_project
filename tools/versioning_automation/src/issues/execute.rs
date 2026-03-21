@@ -5,10 +5,14 @@ use std::fs;
 use regex::Regex;
 use serde::Deserialize;
 
+use crate::gh_cli::{
+    output_trim_or_empty as gh_output_or_empty, status_code_owned as execute_command,
+};
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::issue_remote_snapshot::{
     IssueRemoteSnapshot, issue_labels_raw, load_issue_remote_snapshot,
 };
+use crate::issues;
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
@@ -33,7 +37,6 @@ use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
-use crate::{gh_cli, issues};
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -2392,16 +2395,6 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
     0
 }
 
-fn execute_command(command: Vec<String>) -> i32 {
-    match gh_cli::status_owned(&command) {
-        Ok(()) => 0,
-        Err(err) => {
-            eprintln!("Failed to execute command: {err}");
-            1
-        }
-    }
-}
-
 fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
     match result {
         Ok(value) => {
@@ -2430,10 +2423,6 @@ fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Vec
     let mut cmd = gh_command(&["issue", action, issue]);
     add_repo_arg(&mut cmd, repo);
     cmd
-}
-
-fn gh_output_or_empty(args: &[&str]) -> String {
-    gh_cli::output_trim_or_empty(args)
 }
 
 fn print_non_empty_lines(text: &str) {
