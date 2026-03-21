@@ -1,10 +1,9 @@
 use crate::aggregator::{AggregationStrategy, OutputAggregator};
 use crate::moe_core::{ExpertId, ExpertOutput};
-use protocol::ProtocolId;
 use std::collections::HashMap;
 
-fn expert_id(_byte: u8) -> ExpertId {
-    ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> ExpertId {
+    crate::tests::helpers::expert_id(byte)
 }
 
 fn make_output(id: u8, confidence: f64) -> ExpertOutput {

@@ -48,10 +48,10 @@ impl GovernanceRuntimeState {
         }
 
         if let Some(last_audit) = self.governance_audit_entries.last()
-            && self.governance_state_version <= last_audit.version
+            && self.governance_state_version < last_audit.version
         {
             return Err(MoeError::PolicyRejected(format!(
-                "governance invariant failed: state version {} below or equal to latest audit version {}",
+                "governance invariant failed: state version {} below latest audit version {}",
                 self.governance_state_version, last_audit.version
             )));
         }

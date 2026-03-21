@@ -3,10 +3,9 @@ use crate::{
     moe_core::{self, ExpertCapability, ExpertMetadata, ExpertStatus, ExpertType},
     orchestrator::Version,
 };
-use protocol::ProtocolId;
 
-fn expert_id(_byte: u8) -> moe_core::ExpertId {
-    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> moe_core::ExpertId {
+    crate::tests::helpers::expert_id(byte)
 }
 
 #[test]

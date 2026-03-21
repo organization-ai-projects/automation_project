@@ -1,8 +1,8 @@
 use crate::dataset_engine::Correction;
 use protocol::ProtocolId;
 
-fn protocol_id(_byte: u8) -> ProtocolId {
-    ProtocolId::default()
+fn protocol_id(byte: u8) -> ProtocolId {
+    crate::tests::helpers::protocol_id(byte)
 }
 
 #[test]

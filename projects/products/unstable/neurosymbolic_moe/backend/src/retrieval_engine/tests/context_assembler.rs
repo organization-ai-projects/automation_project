@@ -23,7 +23,11 @@ fn assemble_respects_context_budget() {
 #[test]
 fn assemble_for_task_prepends_header() {
     let assembler = ContextAssembler::new(60);
-    let task = Task::new(TaskType::Retrieval, "find context");
+    let task = Task::new_with_id(
+        crate::tests::helpers::protocol_id(1),
+        TaskType::Retrieval,
+        "find context",
+    );
     let results = vec![RetrievalResult::new(
         ProtocolId::default(),
         "retrieved block",
@@ -32,5 +36,8 @@ fn assemble_for_task_prepends_header() {
     )];
     let assembled = assembler.assemble_for_task(&results, &task);
     assert!(!assembled.is_empty());
-    assert!(assembled[0].contains("[task:task-ctx]"));
+    assert_eq!(
+        assembled[0],
+        format!("[task:{}] {}", task.id(), task.input())
+    );
 }

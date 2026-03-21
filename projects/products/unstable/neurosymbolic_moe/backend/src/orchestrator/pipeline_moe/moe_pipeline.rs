@@ -11,7 +11,7 @@ use crate::evaluations::EvaluationEngine;
 use crate::expert_registries::ExpertRegistry;
 use crate::feedback_engine::{FeedbackEntry, FeedbackStore};
 use crate::memory_engine::{LongTermMemory, MemoryEntry, MemoryStore, ShortTermMemory};
-use crate::moe_core::{self, Expert, MoeError};
+use crate::moe_core::{Expert, MoeError};
 use crate::orchestrator::import_journal::ImportJournal;
 use crate::orchestrator::{
     ArbitrationMode, AutoImprovementStatus, GovernanceState, ImportTelemetry, ModelRegistry,
@@ -475,15 +475,15 @@ impl MoePipeline {
             .iter()
             .chain(candidate.validation_samples.iter())
         {
-            let id = ProtocolId::default();
+            let id = sample.entry_id;
             let was_existing = self.training_runtime_state.dataset_store.has_entry_id(&id);
 
             self.training_runtime_state
                 .dataset_store
                 .upsert_entry(dataset_engine::DatasetEntry {
                     id,
-                    task_id: moe_core::TaskId::new(),
-                    expert_id: moe_core::ExpertId::new(),
+                    task_id: sample.task_id.clone(),
+                    expert_id: sample.expert_id.clone(),
                     input: sample.input.clone(),
                     output: sample.target_output.clone(),
                     outcome: dataset_engine::Outcome::Success,

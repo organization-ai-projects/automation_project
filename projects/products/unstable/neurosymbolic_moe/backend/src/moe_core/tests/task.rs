@@ -2,12 +2,12 @@
 use crate::moe_core::{self, Task, TaskPriority, TaskType};
 use protocol::ProtocolId;
 
-fn protocol_id(_byte: u8) -> ProtocolId {
-    ProtocolId::default()
+fn protocol_id(byte: u8) -> ProtocolId {
+    crate::tests::helpers::protocol_id(byte)
 }
 
 fn task_id(byte: u8) -> moe_core::TaskId {
-    moe_core::TaskId::from_protocol_id(protocol_id(byte))
+    crate::tests::helpers::task_id(byte)
 }
 
 #[test]

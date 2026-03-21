@@ -1,11 +1,10 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/expert_output.rs
-use protocol::ProtocolId;
 use std::collections::HashMap;
 
 use crate::moe_core::{self, ExpertOutput};
 
-fn expert_id(_byte: u8) -> moe_core::ExpertId {
-    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> moe_core::ExpertId {
+    crate::tests::helpers::expert_id(byte)
 }
 
 #[test]

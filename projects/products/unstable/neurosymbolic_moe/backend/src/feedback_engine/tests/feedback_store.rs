@@ -2,16 +2,16 @@ use crate::feedback_engine::{FeedbackEntry, FeedbackStore, FeedbackType};
 use crate::moe_core::{ExpertId, TaskId};
 use protocol::ProtocolId;
 
-fn protocol_id(_byte: u8) -> ProtocolId {
-    ProtocolId::default()
+fn protocol_id(byte: u8) -> ProtocolId {
+    crate::tests::helpers::protocol_id(byte)
 }
 
 fn task_id(byte: u8) -> TaskId {
-    TaskId::from_protocol_id(protocol_id(byte))
+    crate::tests::helpers::task_id(byte)
 }
 
 fn expert_id(byte: u8) -> ExpertId {
-    ExpertId::from_protocol_id(protocol_id(byte))
+    crate::tests::helpers::expert_id(byte)
 }
 
 fn make_feedback(id: u8, task: u8, expert: u8, feedback_type: FeedbackType) -> FeedbackEntry {

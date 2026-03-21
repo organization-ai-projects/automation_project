@@ -1,13 +1,12 @@
 use crate::moe_core::{self, TracePhase, TraceRecord};
-use protocol::ProtocolId;
 use std::collections::HashMap;
 
-fn task_id(_byte: u8) -> moe_core::TaskId {
-    moe_core::TaskId::from_protocol_id(ProtocolId::default())
+fn task_id(byte: u8) -> moe_core::TaskId {
+    crate::tests::helpers::task_id(byte)
 }
 
-fn expert_id(_byte: u8) -> moe_core::ExpertId {
-    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> moe_core::ExpertId {
+    crate::tests::helpers::expert_id(byte)
 }
 
 #[test]

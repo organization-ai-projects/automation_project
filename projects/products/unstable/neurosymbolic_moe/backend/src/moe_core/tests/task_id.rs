@@ -1,9 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/task_id.rs
 use crate::moe_core::TaskId;
-use protocol::ProtocolId;
 
-fn task_id(_byte: u8) -> TaskId {
-    TaskId::from_protocol_id(ProtocolId::default())
+fn task_id(byte: u8) -> TaskId {
+    crate::tests::helpers::task_id(byte)
 }
 
 #[test]

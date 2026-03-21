@@ -1,9 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/execution_context.rs
 use crate::moe_core::{ExecutionContext, TaskId};
-use protocol::ProtocolId;
 
 fn task_id() -> TaskId {
-    TaskId::from_protocol_id(ProtocolId::default())
+    crate::tests::helpers::task_id(1)
 }
 
 #[test]

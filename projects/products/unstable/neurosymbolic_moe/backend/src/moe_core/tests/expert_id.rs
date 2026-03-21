@@ -1,9 +1,8 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/expert_id.rs
 use crate::moe_core::ExpertId;
-use protocol::ProtocolId;
 
 fn expert_id() -> ExpertId {
-    ExpertId::from_protocol_id(ProtocolId::default())
+    crate::tests::helpers::expert_id(1)
 }
 
 #[test]
