@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
+use crate::gh_cli::status_cmd;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
-use crate::pr::gh_cli::gh_status;
 
 pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
     let mode = opts.mode.trim();
@@ -37,7 +37,7 @@ pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
             format!("Duplicate of {canonical_issue_key}")
         };
 
-        let comment_status = gh_status(
+        let comment_status = match status_cmd(
             "api",
             &[
                 &format!(
@@ -47,7 +47,13 @@ pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
                 "-f",
                 &format!("body={comment_body}"),
             ],
-        );
+        ) {
+            Ok(()) => 0,
+            Err(err) => {
+                eprintln!("Failed to execute gh api: {err}");
+                1
+            }
+        };
         if comment_status != 0 {
             return comment_status;
         }
@@ -56,7 +62,7 @@ pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
         );
 
         if mode == "auto-close" && auto_close_allowed {
-            let close_status = gh_status(
+            let close_status = match status_cmd(
                 "api",
                 &[
                     &format!("repos/{}/issues/{}", opts.repo, duplicate_issue_number),
@@ -67,7 +73,13 @@ pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
                     "-f",
                     "state_reason=not_planned",
                 ],
-            );
+            ) {
+                Ok(()) => 0,
+                Err(err) => {
+                    eprintln!("Failed to execute gh api: {err}");
+                    1
+                }
+            };
             if close_status != 0 {
                 return close_status;
             }

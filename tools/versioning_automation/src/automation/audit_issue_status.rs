@@ -4,12 +4,11 @@ use std::fs;
 use common_json::Json;
 
 use crate::automation::commands::AuditIssueStatusOptions;
-use crate::gh_cli;
 use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name;
 
-use super::execute::{ensure_git_repo, run_git_output_preserve};
+use super::execute::{ensure_git_repo, run_gh_output, run_git_output_preserve};
 
 type IssueRefSets = (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 type AuditIssueStatusSections<'a> = (
@@ -200,10 +199,6 @@ pub(crate) fn render_issue_audit_report(
     }
     out.push("".to_string());
     out.join("\n")
-}
-
-fn run_gh_output(args: &[&str]) -> Result<String, String> {
-    gh_cli::output_trim(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
 }
 
 fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {

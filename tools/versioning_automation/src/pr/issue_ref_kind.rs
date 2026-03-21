@@ -1,5 +1,5 @@
+use crate::gh_cli::status_cmd;
 use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
-use crate::pr::gh_cli::gh_status;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_issue_ref_kind(opts: PrIssueRefKindOptions) -> i32 {
@@ -11,10 +11,16 @@ pub(crate) fn run_issue_ref_kind(opts: PrIssueRefKindOptions) -> i32 {
         }
     };
 
-    let status = gh_status(
+    let status = match status_cmd(
         "api",
         &[&format!("repos/{repo_name}/pulls/{}", opts.issue_number)],
-    );
+    ) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("Failed to execute gh api: {err}");
+            1
+        }
+    };
 
     if status == 0 {
         println!("true");

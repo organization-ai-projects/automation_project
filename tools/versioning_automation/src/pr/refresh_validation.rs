@@ -1,8 +1,8 @@
 //! tools/versioning_automation/src/pr/refresh_validation.rs
 use serde::Deserialize;
 
+use crate::gh_cli::{output_trim_end_newline_cmd, status_cmd};
 use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
-use crate::pr::gh_cli::{gh_output_trim_end_newline, gh_status};
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
@@ -44,7 +44,7 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
         return 0;
     }
 
-    let status = gh_status(
+    let status = match status_cmd(
         "pr",
         &[
             "edit",
@@ -54,7 +54,13 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
             "--body",
             &updated_body,
         ],
-    );
+    ) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("Failed to execute gh pr: {err}");
+            1
+        }
+    };
     if status == 0 {
         println!("PR updated: #{}", opts.pr_number);
     }
@@ -65,7 +71,7 @@ fn fetch_status_check_rollup_snapshot(
     pr_number: &str,
     repo_name: &str,
 ) -> Result<RefreshValidation, String> {
-    let json = gh_output_trim_end_newline(
+    let json = output_trim_end_newline_cmd(
         "pr",
         &[
             "view",

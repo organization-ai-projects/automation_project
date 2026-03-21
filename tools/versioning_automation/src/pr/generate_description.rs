@@ -3,13 +3,13 @@ use std::fs;
 
 use crate::category_resolver::classify_title;
 use crate::compare_snapshot::fetch_pr_refs;
+use crate::gh_cli::{output_trim_cmd, status_cmd};
 use crate::pr::IssueOutcomesSnapshot;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
 use crate::pr::commit_info::CommitInfo;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
-use crate::pr::gh_cli::gh_output_trim;
 use crate::pr::group_by_category::CATEGORIES;
 use crate::pr::render::print_usage;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
@@ -660,7 +660,7 @@ fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
         return Err("Error: unable to determine repository.".to_string());
     };
     let endpoint = format!("repos/{repo}/pulls/{pr_number}");
-    gh_output_trim(
+    status_cmd(
         "api",
         &[
             &endpoint,
@@ -670,7 +670,6 @@ fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
             &format!("body={body}"),
         ],
     )
-    .map(|_| ())
 }
 
 fn current_branch_name() -> Result<String, String> {
@@ -746,7 +745,7 @@ fn render_duplicate_mode_message(mode: &str, targets: &BTreeMap<String, String>)
 }
 
 fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Result<String, String> {
-    let text = gh_output_trim(
+    let text = output_trim_cmd(
         "pr",
         &[
             "create",

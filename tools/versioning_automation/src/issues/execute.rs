@@ -1220,48 +1220,12 @@ fn is_issue_key(value: &str) -> bool {
 type IssueAutoLinkPayload = (String, String, String, String);
 
 fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldLabel {
-        name: Option<String>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct AutoLinkIssuePayload {
-        title: Option<String>,
-        body: Option<String>,
-        state: Option<String>,
-        labels: Option<Vec<IssueFieldLabel>>,
-    }
-
-    let payload_raw = gh_output_or_empty(&[
-        "issue",
-        "view",
-        issue_number,
-        "-R",
-        repo_name,
-        "--json",
-        "title,body,state,labels",
-    ]);
-    let payload = common_json::from_json_str::<AutoLinkIssuePayload>(&payload_raw).unwrap_or(
-        AutoLinkIssuePayload {
-            title: None,
-            body: None,
-            state: None,
-            labels: None,
-        },
-    );
-    let labels_raw = payload
-        .labels
+    load_issue_remote_snapshot(issue_number, Some(repo_name))
+        .map(|snapshot| {
+            let labels_raw = issue_labels_raw(&snapshot);
+            (snapshot.title, snapshot.body, snapshot.state, labels_raw)
+        })
         .unwrap_or_default()
-        .into_iter()
-        .filter_map(|label| label.name)
-        .collect::<Vec<_>>()
-        .join("|");
-    (
-        payload.title.unwrap_or_default(),
-        payload.body.unwrap_or_default(),
-        payload.state.unwrap_or_default(),
-        labels_raw,
-    )
 }
 
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
@@ -1281,34 +1245,9 @@ fn normalize_issue_state(value: &str) -> Option<&str> {
 }
 
 fn gh_pr_body_or_empty(repo_name: &str, pr_number: &str) -> String {
-    let body = gh_output_or_empty(&[
-        "pr",
-        "view",
-        pr_number,
-        "-R",
-        repo_name,
-        "--json",
-        "body",
-        "--jq",
-        ".body // \"\"",
-    ]);
-    if !body.trim().is_empty() {
-        return body;
-    }
-
-    let payload_raw =
-        gh_output_or_empty(&["pr", "view", pr_number, "-R", repo_name, "--json", "body"]);
-    if payload_raw.trim().is_empty() {
-        return String::new();
-    }
-    #[derive(Debug, Deserialize)]
-    struct PrBodyPayload {
-        body: Option<String>,
-    }
-    match common_json::from_json_str::<PrBodyPayload>(&payload_raw) {
-        Ok(payload) => payload.body.unwrap_or_default(),
-        Err(_) => String::new(),
-    }
+    load_pr_remote_snapshot(pr_number, repo_name)
+        .map(|snapshot| snapshot.body)
+        .unwrap_or_default()
 }
 
 type NeutralizeRef = (String, String);
@@ -2448,8 +2387,7 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
 }
 
 fn execute_command(command: Vec<String>) -> i32 {
-    let borrowed = command.iter().map(String::as_str).collect::<Vec<&str>>();
-    match gh_cli::status(&borrowed) {
+    match gh_cli::status_owned(&command) {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("Failed to execute command: {err}");

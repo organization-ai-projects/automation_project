@@ -1,8 +1,8 @@
 //! tools/versioning_automation/src/pr/auto_add.rs
 use std::collections::BTreeSet;
 
+use crate::gh_cli::{output_trim_cmd, status_cmd};
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
-use crate::pr::gh_cli::{gh_output_trim, gh_status};
 use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
@@ -95,7 +95,7 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         return 0;
     }
 
-    let status = gh_status(
+    let status = match status_cmd(
         "pr",
         &[
             "edit",
@@ -105,7 +105,13 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
             "--body",
             &new_body,
         ],
-    );
+    ) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("Failed to execute gh pr: {err}");
+            1
+        }
+    };
     if status == 0 {
         println!(
             "PR #{}: updated body with auto-managed Closes refs.",
@@ -149,7 +155,7 @@ fn extract_issue_numbers(refs: &[String]) -> Vec<u32> {
 }
 
 fn should_close_issue_for_author(issue_number: u32, repo_name: &str, pr_author: &str) -> bool {
-    let assignees = gh_output_trim(
+    let assignees = output_trim_cmd(
         "issue",
         &[
             "view",

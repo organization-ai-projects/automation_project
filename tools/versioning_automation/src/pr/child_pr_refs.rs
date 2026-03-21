@@ -1,8 +1,8 @@
 use regex::Regex;
 use std::collections::BTreeSet;
 
+use crate::gh_cli::output_trim_cmd;
 use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
-use crate::pr::gh_cli::gh_output_trim;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
@@ -95,7 +95,7 @@ fn commit_headlines_from_messages(commit_messages: &str) -> String {
 }
 
 fn fetch_pr_comments(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output_trim(
+    output_trim_cmd(
         "pr",
         &[
             "view",
@@ -111,7 +111,7 @@ fn fetch_pr_comments(pr_number: &str, repo_name: &str) -> Result<String, String>
 }
 
 fn fetch_timeline_refs(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output_trim(
+    output_trim_cmd(
         "api",
         &[
             &format!("repos/{repo_name}/issues/{pr_number}/timeline"),

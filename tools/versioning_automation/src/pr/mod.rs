@@ -16,7 +16,6 @@ mod duplicate_actions;
 mod execute;
 mod generate_description;
 mod generate_options;
-mod gh_cli;
 mod group_by_category;
 mod issue_close_policy;
 mod issue_context;
