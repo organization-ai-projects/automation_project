@@ -667,7 +667,7 @@ fn run_ci_watch_pr(opts: CiWatchPrOptions) -> Result<(), String> {
             if branch.trim().is_empty() {
                 return Err("No PR provided and unable to detect current branch.".to_string());
             }
-            let value = run_gh_output(&[
+            let value = gh_cli::output_trim(&[
                 "pr",
                 "list",
                 "--head",
@@ -676,7 +676,13 @@ fn run_ci_watch_pr(opts: CiWatchPrOptions) -> Result<(), String> {
                 "number",
                 "--jq",
                 ".[0].number",
-            ])?;
+            ])
+            .map_err(|e| {
+                format!(
+                    "Failed to run gh pr list --head {} --json number --jq .[0].number: {e}",
+                    branch.trim()
+                )
+            })?;
             if value.trim().is_empty() || value.trim() == "null" {
                 return Err(format!("No PR found for branch '{}'.", branch.trim()));
             }
@@ -690,13 +696,19 @@ fn run_ci_watch_pr(opts: CiWatchPrOptions) -> Result<(), String> {
             return Err(format!("Timeout: CI not complete after {}s", opts.max_wait));
         }
 
-        let output = run_gh_output(&[
+        let output = gh_cli::output_trim(&[
             "pr",
             "view",
             &pr_number,
             "--json",
             "state,mergeable,statusCheckRollup",
-        ])?;
+        ])
+        .map_err(|e| {
+            format!(
+                "Failed to run gh pr view {} --json state,mergeable,statusCheckRollup: {e}",
+                pr_number
+            )
+        })?;
         let parsed = parse_json_object(&output, "PR JSON")?;
         let checks = parsed
             .get("statusCheckRollup")
@@ -801,7 +813,7 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
     run_git(&["switch", "-C", &opts.sync_branch, &main_ref])?;
     run_git(&["push", "-f", &opts.remote, &opts.sync_branch])?;
 
-    let pr_output = run_gh_output(&[
+    let pr_output = gh_cli::output_trim(&[
         "pr",
         "create",
         "--base",
@@ -812,7 +824,13 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
         "chore: sync main into dev",
         "--body",
         "Automated sync after merge into main.",
-    ])?;
+    ])
+    .map_err(|e| {
+        format!(
+            "Failed to run gh pr create --base {} --head {}: {e}",
+            opts.dev, opts.sync_branch
+        )
+    })?;
 
     let pr_url = pr_output.trim().to_string();
     if pr_url.is_empty() {
@@ -829,7 +847,7 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
         if Instant::now() >= deadline {
             return Err("PR did not stabilize in time.".to_string());
         }
-        let value = run_gh_output(&[
+        let value = gh_cli::output_trim(&[
             "pr",
             "view",
             &pr_url,
@@ -837,7 +855,13 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
             "mergeable",
             "--jq",
             ".mergeable // \"UNKNOWN\"",
-        ])?;
+        ])
+        .map_err(|e| {
+            format!(
+                "Failed to run gh pr view {} --json mergeable --jq .mergeable // \"UNKNOWN\": {e}",
+                pr_url
+            )
+        })?;
         if value != "UNKNOWN" {
             break value;
         }
@@ -851,14 +875,20 @@ fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
         return Err(format!("PR is not mergeable (status: {mergeable})."));
     }
 
-    run_gh_status(&[
+    gh_cli::status(&[
         "pr",
         "merge",
         &pr_url,
         "--auto",
         "--merge",
         "--delete-branch",
-    ])?;
+    ])
+    .map_err(|e| {
+        format!(
+            "Failed to run gh pr merge {} --auto --merge --delete-branch: {e}",
+            pr_url
+        )
+    })?;
     Ok(())
 }
 
@@ -902,7 +932,7 @@ pub(crate) fn validate_part_of_only_policy(
         }
         return Err("Cannot resolve GitHub repository for Part-of assignment policy.".to_string());
     };
-    let current_login = run_gh_output(&["api", "user", "--jq", ".login"]).unwrap_or_default();
+    let current_login = gh_cli::output_trim(&["api", "user", "--jq", ".login"]).unwrap_or_default();
     if current_login.trim().is_empty() {
         if remote_policy_warn_only()
             || std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
@@ -928,7 +958,7 @@ pub(crate) fn validate_part_of_only_policy(
         if has_closing.contains(&issue) {
             continue;
         }
-        let assignees = run_gh_output(&[
+        let assignees = gh_cli::output_trim(&[
             "issue",
             "view",
             &issue,
@@ -997,7 +1027,7 @@ fn extract_issue_refs_hook_detailed(text: &str) -> Result<Vec<(String, String)>,
 }
 
 fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> {
-    let body = run_gh_output(&[
+    let body = gh_cli::output_trim(&[
         "issue",
         "view",
         issue_number,
@@ -1007,7 +1037,13 @@ fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> 
         "body",
         "--jq",
         ".body // \"\"",
-    ])?;
+    ])
+    .map_err(|e| {
+        format!(
+            "Failed to run gh issue view {} -R {} --json body --jq .body // \"\": {e}",
+            issue_number, repo
+        )
+    })?;
     let parent = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
@@ -1041,7 +1077,7 @@ fn extract_subissue_refs_for_parent(
     repo_short_name: &str,
     parent_number: &str,
 ) -> Result<Vec<String>, String> {
-    let output = run_gh_output(&[
+    let output = gh_cli::output_trim(&[
         "api",
         "graphql",
         "-f",
@@ -1054,7 +1090,8 @@ fn extract_subissue_refs_for_parent(
         &format!("number={parent_number}"),
         "--jq",
         ".data.repository.issue.subIssues.nodes[]?.number | \"#\"+tostring",
-    ])?;
+    ])
+    .map_err(|e| format!("Failed to run gh api graphql for subissues of #{}: {e}", parent_number))?;
     Ok(output
         .lines()
         .map(str::trim)
@@ -1304,14 +1341,6 @@ fn is_executable_candidate(path: &Path) -> bool {
 #[cfg(not(unix))]
 fn is_executable_candidate(_path: &Path) -> bool {
     true
-}
-
-pub(crate) fn run_gh_status(args: &[&str]) -> Result<(), String> {
-    gh_cli::status(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
-}
-
-pub(crate) fn run_gh_output(args: &[&str]) -> Result<String, String> {
-    gh_cli::output_trim(args).map_err(|e| format!("Failed to run gh {}: {e}", args.join(" ")))
 }
 
 fn branch_exists_local(branch_name: &str) -> bool {
