@@ -2,9 +2,9 @@
 use std::collections::BTreeSet;
 
 use crate::pr::commands::pr_auto_add_closes_options::PrAutoAddClosesOptions;
-use crate::pr::contracts::github::pr_snapshot::PrSnapshot;
 use crate::pr::gh_cli::{gh_output_trim, gh_status};
 use crate::pr::text_payload::extract_effective_issue_ref_records;
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
 const AUTO_BLOCK_START: &str = "<!-- auto-closes:start -->";
@@ -19,7 +19,7 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         }
     };
 
-    let pr_snapshot = match gh_pr_snapshot(&opts.pr_number, &repo_name) {
+    let pr_snapshot = match load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
         Ok(snapshot) => snapshot,
         Err(_) => {
             eprintln!("Error: unable to read PR #{}.", opts.pr_number);
@@ -30,10 +30,7 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
     let pr_base = pr_snapshot.base_ref_name;
     let pr_title = pr_snapshot.title;
     let pr_body = pr_snapshot.body;
-    let pr_author = pr_snapshot
-        .author
-        .and_then(|author| author.login)
-        .unwrap_or_default();
+    let pr_author = pr_snapshot.author_login;
 
     if pr_state != "OPEN" {
         println!("PR #{} is not open; skipping.", opts.pr_number);
@@ -51,17 +48,7 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
         return 0;
     }
 
-    let pr_commits = gh_output_trim(
-        "api",
-        &[
-            &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
-            "--paginate",
-            "--jq",
-            ".[].commit.message",
-        ],
-    )
-    .unwrap_or_default();
-    let payload_all = format!("{pr_title}\n{pr_body}\n{pr_commits}");
+    let payload_all = format!("{pr_title}\n{pr_body}\n{}", pr_snapshot.commit_messages);
 
     let (part_of_refs, closing_refs) = collect_refs_from_payload(&payload_all);
     if part_of_refs.is_empty() {
@@ -128,21 +115,6 @@ pub(crate) fn run_auto_add_closes(opts: PrAutoAddClosesOptions) -> i32 {
     status
 }
 
-fn gh_pr_snapshot(pr_number: &str, repo_name: &str) -> Result<PrSnapshot, String> {
-    let json = gh_output_trim(
-        "pr",
-        &[
-            "view",
-            pr_number,
-            "-R",
-            repo_name,
-            "--json",
-            "state,baseRefName,title,body,author",
-        ],
-    )?;
-    common_json::from_json_str::<PrSnapshot>(&json).map_err(|err| err.to_string())
-}
-
 fn collect_refs_from_payload(payload: &str) -> (Vec<String>, Vec<String>) {
     let mut part_of_rows = BTreeSet::new();
     let mut closing_rows = BTreeSet::new();
@@ -195,7 +167,7 @@ fn should_close_issue_for_author(issue_number: u32, repo_name: &str, pr_author: 
     let mut non_empty = assignees
         .lines()
         .map(str::trim)
-        .filter(|line| !line.is_empty());
+        .filter(|line: &&str| !line.is_empty());
     if let Some(first) = non_empty.next() {
         if non_empty.next().is_some() {
             return false;

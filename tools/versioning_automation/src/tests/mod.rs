@@ -1,6 +1,10 @@
 mod app;
+mod category_resolver;
 mod cli;
 mod cli_action;
+mod compare_snapshot;
 mod gh_cli;
 mod git_cli;
+mod pr_remote_snapshot;
+mod pr_run_snapshot;
 mod repo_name;

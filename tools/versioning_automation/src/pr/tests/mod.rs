@@ -16,6 +16,7 @@ mod gh_cli;
 mod group_by_category;
 mod issue_context;
 mod issue_decision;
+mod issue_outcomes_snapshot;
 mod non_closing_refs;
 mod normalize_issue_key;
 mod open_referencing_issue;

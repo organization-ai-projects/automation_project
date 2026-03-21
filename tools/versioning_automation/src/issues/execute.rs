@@ -25,6 +25,7 @@ use crate::issues::required_fields::{
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 use crate::{gh_cli, issues};
 
@@ -231,28 +232,15 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
     let label_name = opts.label;
     let pr_number = opts.pr;
 
-    let pr_state = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "state",
-        "--jq",
-        ".state // \"\"",
-    ]);
-    let pr_base = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "baseRefName",
-        "--jq",
-        ".baseRefName // \"\"",
-    ]);
+    let pr_snapshot = match load_pr_remote_snapshot(&pr_number, &repo_name) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Error: unable to read PR #{}.", pr_number);
+            return 4;
+        }
+    };
+    let pr_state = pr_snapshot.state;
+    let pr_base = pr_snapshot.base_ref_name;
     if pr_base != "dev" {
         println!("PR #{} does not target dev; nothing to do.", pr_number);
         return 0;
