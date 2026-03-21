@@ -215,11 +215,11 @@ Without this, `status`, `impl-check`, `/healthz`, `/readyz`, and `/metrics` rema
 
 ## Workstream 1: Expert Model Must Become Real
 
-### Objective
+### Workstream 2 Objective
 
 Turn the expert layer from "multiple pluggable executors exist" into "multiple experts provide meaningfully different value."
 
-### Why this matters
+### Workstream 2 Why this matters
 
 Without real expert specialization, the rest of the MoE architecture becomes mostly ceremonial:
 
@@ -246,7 +246,7 @@ Without real expert specialization, the rest of the MoE architecture becomes mos
 - evaluation/ranking expert
 - fallback/generalist expert
 
-### Concrete tasks
+### Workstream 2 Concrete tasks
 
 - Replace placeholder experts in runtime-facing flows where they currently hide missing behavior.
 - Define a capability matrix for experts:
@@ -320,7 +320,7 @@ The current heuristic router likely proves that routing exists, but not yet that
 - Decide whether the project wants to remain heuristic-first or become score-driven.
 - Add traceability so routing decisions are inspectable in logs and reports.
 
-### Questions to answer
+### Workstream 2 Questions to answer
 
 - When should routing select one expert only?
 - When should routing fan out to multiple experts?
@@ -328,7 +328,7 @@ The current heuristic router likely proves that routing exists, but not yet that
 - How should retrieval evidence influence routing?
 - Should routing consider previous runtime failures?
 
-### Deliverables
+### Workstream 2 Deliverables
 
 - Routing specification
 - Routing trace schema
@@ -336,7 +336,7 @@ The current heuristic router likely proves that routing exists, but not yet that
 - Updated router tests covering real decision branches
 - A documented decision table mapping representative tasks to expected routing outcomes
 
-### Acceptance criteria
+### Workstream 2 Acceptance criteria
 
 - Routing choices differ across task classes for meaningful reasons.
 - Routing decisions can be explained from runtime data.
@@ -346,11 +346,11 @@ The current heuristic router likely proves that routing exists, but not yet that
 
 ## Workstream 3: Aggregation Must Demonstrate Real Value
 
-### Objective
+### Workstream 3 Objective
 
 Ensure that aggregation is not merely a technical post-processing step but a source of measurable MoE value.
 
-### Why this matters
+### Workstream 3 Why this matters
 
 A MoE that routes to multiple experts but always ends up behaving like a single winner-takes-all executor is not using its architecture well.
 
@@ -363,7 +363,7 @@ A MoE that routes to multiple experts but always ends up behaving like a single 
 - expert disagreement detection
 - structured fallback when one expert fails
 
-### Concrete tasks
+### Workstream 3 Concrete tasks
 
 - Audit existing aggregation strategies and document what they truly optimize.
 - Define when aggregation should happen and when it should not.
@@ -371,14 +371,14 @@ A MoE that routes to multiple experts but always ends up behaving like a single 
 - Identify tasks where merged output is better than the best single output.
 - Identify tasks where merging is actively harmful and should be blocked.
 
-### Deliverables
+### Workstream 3 Deliverables
 
 - Aggregation strategy matrix
 - Cases where aggregation improves quality
 - Cases where aggregation improves robustness
 - Cases where aggregation must be rejected
 
-### Acceptance criteria
+### Workstream 3 Acceptance criteria
 
 - There is at least one scenario where multi-expert aggregation materially improves the result.
 - Aggregation is not used by default without a reason.
@@ -388,11 +388,11 @@ A MoE that routes to multiple experts but always ends up behaving like a single 
 
 ## Workstream 4: Dataset Generation Must Reflect Real Runtime Diversity
 
-### Objective
+### Workstream 4 Objective
 
 Make dataset generation represent actual MoE runtime behavior rather than mostly synthetic plumbing.
 
-### Why this matters
+### Workstream 4 Why this matters
 
 The dataset is the memory of the system. If the dataset is unrealistic, the improvement loop will reinforce unrealistic patterns.
 
@@ -402,7 +402,7 @@ The following path must be treated as one coherent product flow:
 
 `trace -> dataset entry -> correction -> quality report -> training bundle -> shards -> rebuild`
 
-### Concrete tasks
+### Workstream 4 Concrete tasks
 
 - For each step above, classify current behavior as:
   - real runtime behavior
@@ -436,7 +436,7 @@ This needs an explicit product decision:
   - one synthetic placeholder artifact
 - Isolate synthetic or diagnostic flows from real dataset flows where necessary.
 
-### Deliverables
+### Workstream 4 Deliverables
 
 - Dataset semantics inventory
 - Provenance rules
@@ -444,7 +444,7 @@ This needs an explicit product decision:
 - Updated tests that reflect the chosen dataset semantics
 - Explicit distinction between runtime, diagnostic, bootstrap, and synthetic dataset paths
 
-### Acceptance criteria
+### Workstream 4 Acceptance criteria
 
 - A runtime observer can explain why a dataset entry exists.
 - Distinct runtime observations are not accidentally conflated unless that is the intentional product rule.
@@ -454,15 +454,15 @@ This needs an explicit product decision:
 
 ## Workstream 5: Auto-Improvement Must Change Real Runtime Outcomes
 
-### Objective
+### Workstream 5 Objective
 
 Ensure the improvement loop is product-real, not just artifact-generating.
 
-### Why this matters
+### Workstream 5 Why this matters
 
 It is not enough to produce bundles, counters, and reports. The system must actually improve something operators and users care about.
 
-### Concrete tasks
+### Workstream 5 Concrete tasks
 
 - Audit `AutoImprovementPolicy` defaults and thresholds:
   - minimum dataset entries
@@ -479,14 +479,14 @@ It is not enough to produce bundles, counters, and reports. The system must actu
   - better aggregation selection
 - Ensure skip reasons and failure reasons are operationally actionable.
 
-### Deliverables
+### Workstream 5 Deliverables
 
 - Auto-improvement success definition
 - Promotion and rollback decision rules
 - Runtime-visible effect of promoted versions
 - Operator-readable reports
 
-### Acceptance criteria
+### Workstream 5 Acceptance criteria
 
 - At least one end-to-end flow demonstrates that runtime behavior changes after improvement.
 - Operators can explain why a promotion happened or was skipped.
@@ -496,11 +496,11 @@ It is not enough to produce bundles, counters, and reports. The system must actu
 
 ## Workstream 6: Governance Must Protect Real Product Semantics
 
-### Objective
+### Workstream 6 Objective
 
 Make governance rules represent actual product protection boundaries instead of generic metadata drift checks.
 
-### Why this matters
+### Workstream 6 Why this matters
 
 Governance exists to block unsafe or incoherent state transitions. If the rules are too abstract, the system will accept bad runtime states or reject valid ones for the wrong reasons.
 
@@ -525,13 +525,13 @@ The project now uses structured `Version` and richer `VersionDelta` semantics. T
   - CLI-friendly explanations
   - audit serialization guarantees
 
-### Deliverables
+### Workstream 6 Deliverables
 
 - Governance rulebook
 - Import decision matrix
 - Operator-facing rejection reason catalog
 
-### Acceptance criteria
+### Workstream 6 Acceptance criteria
 
 - Every governance rejection can be understood without reading source code.
 - Version semantics are tied to actual release and rollback policy.
@@ -541,11 +541,11 @@ The project now uses structured `Version` and richer `VersionDelta` semantics. T
 
 ## Workstream 7: `cmd_impl_check` Must Become A Production Capability Diagnostic
 
-### Objective
+### Workstream 7 Objective
 
 Turn `cmd_impl_check` into a trustworthy production-oriented diagnostic that validates MoE capabilities, not just component presence.
 
-### Why this matters
+### Workstream 7 Why this matters
 
 This command is one of the most visible operational entry points. If its semantics are vague, operators will draw the wrong conclusions from it.
 
@@ -578,7 +578,7 @@ This block needs a clear semantic decision:
 - If it validates concurrent updates to the same logical entry, say so explicitly.
 - If it validates concurrent ingestion of multiple runtime observations, current `ProtocolId::default()` behavior is not semantically expressive enough.
 
-### Concrete tasks
+### Workstream 7 Concrete tasks
 
 - Rename phases and logs around capability checks.
 - Remove any wording that sounds like a test harness.
@@ -586,7 +586,7 @@ This block needs a clear semantic decision:
 - Decide whether the command should fail fast or produce a phase-by-phase report.
 - Decide whether this command is CI-facing, operator-facing, or both.
 
-### Deliverables
+### Workstream 7 Deliverables
 
 - `impl-check` phase map
 - capability-oriented logs
@@ -594,7 +594,7 @@ This block needs a clear semantic decision:
 - diagnostic summary format
 - documented explanation of what `impl-check` proves and what it does not prove
 
-### Acceptance criteria
+### Workstream 7 Acceptance criteria
 
 - An operator can read the output and know which MoE capability failed.
 - The command does not over-claim what it has proven.
@@ -604,7 +604,7 @@ This block needs a clear semantic decision:
 
 ## Workstream 8: Operational CLI And Endpoints Must Express Guarantees
 
-### Objective
+### Workstream 8 Objective
 
 Define what each operational surface actually guarantees.
 
@@ -617,7 +617,7 @@ Define what each operational surface actually guarantees.
 - `trainer-events`
 - trace CLI paths
 
-### Questions to answer
+### Workstream 8 Questions to answer
 
 - Is `status` only inventory, or does it mean health?
 - Is `/healthz` shallow or deep?
@@ -626,7 +626,7 @@ Define what each operational surface actually guarantees.
 - Should profile switching use cached health or fresh health?
 - Are trainer event operations observability tools, maintenance tools, or real operator workflows?
 
-### Concrete tasks
+### Workstream 8 Concrete tasks
 
 - Write guarantee statements for each endpoint/command.
 - Separate cheap liveness checks from expensive correctness checks.
@@ -634,14 +634,14 @@ Define what each operational surface actually guarantees.
 - Decide which endpoints are safe for high-frequency scraping.
 - Tighten admin endpoint semantics and failure messaging.
 
-### Deliverables
+### Workstream 8 Deliverables
 
 - Operational semantics document
 - endpoint guarantee table
 - cache and freshness policy
 - admin workflow policy
 
-### Acceptance criteria
+### Workstream 8 Acceptance criteria
 
 - Operators know which endpoint to trust for which question.
 - The system does not present expensive deep diagnostics as cheap health checks.
@@ -651,15 +651,15 @@ Define what each operational surface actually guarantees.
 
 ## Workstream 9: Concurrency Semantics Must Be Explicit
 
-### Objective
+### Workstream 9 Objective
 
 Define concurrency behavior at the product level, not just at the mutex/RwLock level.
 
-### Why this matters
+### Workstream 9 Why this matters
 
 Thread safety alone is not enough. The product needs stable semantics for concurrent updates.
 
-### Questions to answer
+### Workstream 9 Questions to answer
 
 - What is last-write-wins and where is it acceptable?
 - What is idempotent and where is it required?
@@ -668,7 +668,7 @@ Thread safety alone is not enough. The product needs stable semantics for concur
 - Which flows represent contention on one logical object?
 - Which flows represent parallel creation of many objects?
 
-### Concrete tasks
+### Workstream 9 Concrete tasks
 
 - Audit concurrent stores and wrappers.
 - Label each path with its expected semantics:
@@ -684,13 +684,13 @@ Thread safety alone is not enough. The product needs stable semantics for concur
   - duplicate identifiers
   - partial persistence failure
 
-### Deliverables
+### Workstream 9 Deliverables
 
 - concurrency semantics matrix
 - path-by-path write behavior inventory
 - clarified contention policy
 
-### Acceptance criteria
+### Workstream 9 Acceptance criteria
 
 - Each concurrent path has a declared semantic model.
 - Diagnostics and metrics reflect the declared model.
@@ -700,11 +700,11 @@ Thread safety alone is not enough. The product needs stable semantics for concur
 
 ## Workstream 10: Evaluation Must Measure MoE Usefulness
 
-### Objective
+### Workstream 10 Objective
 
 Make the evaluation layer measure whether the MoE architecture is helping.
 
-### Why this matters
+### Workstream 10 Why this matters
 
 If metrics only measure component activity, they will not prove product value.
 
@@ -720,7 +720,7 @@ If metrics only measure component activity, they will not prove product value.
 - governance rejection rate
 - improvement promotion rate
 
-### Concrete tasks
+### Workstream 10 Concrete tasks
 
 - Audit existing evaluation metrics.
 - Separate infrastructure metrics from MoE value metrics.
@@ -728,14 +728,14 @@ If metrics only measure component activity, they will not prove product value.
 - Add metrics for aggregation benefit.
 - Add metrics for skipped improvement and skipped promotion reasons.
 
-### Deliverables
+### Workstream 10 Deliverables
 
 - MoE metrics inventory
 - dashboard-worthy metric set
 - report output that distinguishes activity from usefulness
 - explicit relationship between evaluation signals and routing/improvement decisions
 
-### Acceptance criteria
+### Workstream 10 Acceptance criteria
 
 - The project can answer whether the MoE is helping, not only whether it is running.
 - Metrics can identify underperforming experts or useless routing branches.
@@ -744,7 +744,7 @@ If metrics only measure component activity, they will not prove product value.
 
 ## Workstream 11: Observability Must Explain Behavior, Not Only Events
 
-### Objective
+### Workstream 11 Objective
 
 Improve logs, traces, and reports so they explain why the MoE behaved the way it did.
 
@@ -760,20 +760,20 @@ Improve logs, traces, and reports so they explain why the MoE behaved the way it
 - auto-improvement skip reasons
 - governance rejection reasons
 
-### Concrete tasks
+### Workstream 11 Concrete tasks
 
 - Review current trace fields and logs.
 - Ensure trace records are rich enough for later dataset and debugging use.
 - Add operator-friendly summaries where raw internal structures are too noisy.
 - Align reporting vocabulary across runtime, governance, and diagnostics.
 
-### Deliverables
+### Workstream 11 Deliverables
 
 - observability vocabulary
 - trace schema review
 - report summary fields
 
-### Acceptance criteria
+### Workstream 11 Acceptance criteria
 
 - A trace can be used to reconstruct the decision flow of one MoE execution.
 - Logs explain product behavior instead of only listing internal events.
@@ -782,7 +782,7 @@ Improve logs, traces, and reports so they explain why the MoE behaved the way it
 
 ## Workstream 12: Testing Strategy Must Follow Product Semantics
 
-### Objective
+### Workstream 12 Objective
 
 Make tests protect meaningful product behavior rather than stale abstractions.
 
@@ -792,7 +792,7 @@ Make tests protect meaningful product behavior rather than stale abstractions.
 - tests should follow the current `ProtocolId` convention
 - tests should target concrete behavior, not ornamental abstraction
 
-### Concrete tasks
+### Workstream 12 Concrete tasks
 
 - Audit tests that still reflect outdated string-ID assumptions.
 - Audit tests that mostly prove compile-time trait usability instead of behavior.
@@ -809,13 +809,13 @@ Make tests protect meaningful product behavior rather than stale abstractions.
   - diagnostic semantics
   - bootstrap/synthetic semantics
 
-### Deliverables
+### Workstream 12 Deliverables
 
 - testing strategy note
 - updated semantic test suites
 - end-to-end MoE flow coverage
 
-### Acceptance criteria
+### Workstream 12 Acceptance criteria
 
 - Tests fail when a real MoE behavior regresses.
 - Tests do not overfit placeholder implementation details.
