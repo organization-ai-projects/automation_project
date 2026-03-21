@@ -2,6 +2,7 @@
 use serde::Deserialize;
 
 use crate::gh_cli::output_trim;
+use crate::pr::IssueLabel;
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub(crate) struct PrRemoteSnapshot {
@@ -19,6 +20,8 @@ pub(crate) struct PrRemoteSnapshot {
     pub(crate) title: String,
     #[serde(default)]
     pub(crate) body: String,
+    #[serde(default)]
+    pub(crate) labels: Vec<IssueLabel>,
     #[serde(default, deserialize_with = "deserialize_author_login")]
     pub(crate) author_login: String,
     #[serde(skip)]
@@ -36,7 +39,7 @@ pub(crate) fn load_pr_remote_snapshot(
         "-R",
         repo_name,
         "--json",
-        "number,url,state,baseRefName,headRefName,title,body,author",
+        "number,url,state,baseRefName,headRefName,title,body,labels,author",
     ])?;
     let mut snapshot = parse_pr_remote_snapshot(&snapshot_json)?;
     snapshot.commit_messages = fetch_pr_commit_messages(pr_number, repo_name)?;

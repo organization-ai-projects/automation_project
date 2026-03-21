@@ -47,6 +47,7 @@ mod tests;
 pub(crate) use breaking_detect::text_indicates_breaking;
 pub(crate) use commands::pr_issue_context_options::PrIssueContextOptions;
 pub(crate) use commit_info::CommitInfo;
+pub(crate) use contracts::github::issue_label::IssueLabel;
 pub(crate) use domain::directives::directive_record_type::DirectiveRecordType;
 pub(crate) use execute::run;
 pub(crate) use issue_context::load_issue_context_payload;
