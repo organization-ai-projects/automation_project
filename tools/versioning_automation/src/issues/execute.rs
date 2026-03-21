@@ -5,6 +5,7 @@ use std::fs;
 use regex::Regex;
 use serde::Deserialize;
 
+use crate::issue_remote_snapshot::{issue_labels_raw, load_issue_remote_snapshot};
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
@@ -25,6 +26,7 @@ use crate::issues::required_fields::{
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::open_pr_issue_refs::load_open_pr_numbers_referencing_issue;
+use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
@@ -1000,26 +1002,6 @@ fn auto_link_extract_parent(body: &str) -> Option<String> {
         .map(|m| m.as_str().trim().to_string())
 }
 
-fn extract_parent_field(body: &str) -> Option<String> {
-    let re =
-        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
-            .expect("static regex must compile");
-    let mut parent_value: Option<String> = None;
-
-    for line in body.lines() {
-        if let Some(captures) = re.captures(line) {
-            parent_value = captures.get(1).map(|m| m.as_str().trim().to_lowercase());
-        }
-    }
-
-    parent_value.map(|raw| {
-        raw.trim()
-            .trim_start_matches('(')
-            .trim_end_matches(')')
-            .to_string()
-    })
-}
-
 fn auto_link_query_child_parent_relation(
     repo_owner: &str,
     repo_short_name: &str,
@@ -1282,48 +1264,10 @@ fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLi
 }
 
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
-    let mut state_args = vec![
-        "issue",
-        "view",
-        issue_number,
-        "--json",
-        "state",
-        "--jq",
-        ".state // \"\"",
-    ];
-    if let Some(repo) = repo_name {
-        state_args.extend(["-R", repo]);
-    }
-
-    let state = gh_output_or_empty(&state_args);
-    if let Some(normalized) = normalize_issue_state(&state) {
-        return normalized.to_string();
-    }
-
-    let mut payload_args = vec!["issue", "view", issue_number, "--json", "state"];
-    if let Some(repo) = repo_name {
-        payload_args.extend(["-R", repo]);
-    }
-
-    let payload_raw = gh_output_or_empty(&payload_args);
-    if let Some(normalized) = normalize_issue_state(&payload_raw) {
-        return normalized.to_string();
-    }
-    if payload_raw.trim().is_empty() {
-        return String::new();
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct IssueStatePayload {
-        state: Option<String>,
-    }
-    match common_json::from_json_str::<IssueStatePayload>(&payload_raw) {
-        Ok(payload) => payload
-            .state
-            .and_then(|value| normalize_issue_state(&value).map(str::to_string))
-            .unwrap_or_default(),
-        Err(_) => String::new(),
-    }
+    load_issue_remote_snapshot(issue_number, repo_name)
+        .ok()
+        .and_then(|snapshot| normalize_issue_state(&snapshot.state).map(str::to_string))
+        .unwrap_or_default()
 }
 
 fn normalize_issue_state(value: &str) -> Option<&str> {
@@ -2453,49 +2397,15 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
 }
 
 pub(crate) fn run_field(opts: IssueFieldOptions) -> i32 {
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldLabel {
-        name: Option<String>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldPayload {
-        title: Option<String>,
-        body: Option<String>,
-        labels: Option<Vec<IssueFieldLabel>>,
-    }
-
-    let mut args: Vec<&str> = vec!["issue", "view", &opts.issue, "--json", "title,body,labels"];
-    if let Some(repo) = opts.repo.as_deref() {
-        args.push("-R");
-        args.push(repo);
-    }
-
-    let payload_raw = gh_output_or_empty(&args);
-    if payload_raw.trim().is_empty() {
+    let Ok(snapshot) = load_issue_remote_snapshot(&opts.issue, opts.repo.as_deref()) else {
         println!();
         return 0;
-    }
-    let payload = match common_json::from_json_str::<IssueFieldPayload>(&payload_raw) {
-        Ok(value) => value,
-        Err(err) => {
-            eprintln!("failed to parse issue payload: {err}");
-            return 1;
-        }
     };
 
     match opts.name {
-        IssueFieldName::Title => println!("{}", payload.title.unwrap_or_default()),
-        IssueFieldName::Body => println!("{}", payload.body.unwrap_or_default()),
-        IssueFieldName::LabelsRaw => {
-            let labels = payload
-                .labels
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|item| item.name)
-                .collect::<Vec<_>>()
-                .join("||");
-            println!("{labels}");
-        }
+        IssueFieldName::Title => println!("{}", snapshot.title),
+        IssueFieldName::Body => println!("{}", snapshot.body),
+        IssueFieldName::LabelsRaw => println!("{}", issue_labels_raw(&snapshot)),
     }
 
     0

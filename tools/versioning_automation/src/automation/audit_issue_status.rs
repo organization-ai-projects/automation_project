@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 use std::fs;
 
 use common_json::Json;
-use regex::Regex;
 
 use crate::automation::commands::AuditIssueStatusOptions;
 use crate::gh_cli;
+use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name;
 
@@ -114,24 +114,6 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
 
 pub(crate) fn extract_issue_refs_from_text(text: &str) -> Result<IssueRefSets, String> {
     Ok(extract_effective_issue_ref_sets(text))
-}
-
-pub(crate) fn extract_parent_field(body: &str) -> Option<String> {
-    let re =
-        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
-            .ok()?;
-    let mut parent_value: Option<String> = None;
-    for line in body.lines() {
-        if let Some(cap) = re.captures(line) {
-            parent_value = cap.get(1).map(|m| m.as_str().trim().to_lowercase());
-        }
-    }
-    parent_value.map(|raw| {
-        raw.trim()
-            .trim_start_matches('(')
-            .trim_end_matches(')')
-            .to_string()
-    })
 }
 
 pub(crate) fn render_issue_audit_report(

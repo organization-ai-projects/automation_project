@@ -20,6 +20,7 @@ use crate::automation::{
     audit_issue_status, changed_crates, check_dependencies, check_merge_conflicts, hook_checks,
     install_hooks, pre_add_review, ui_build,
 };
+use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{gh_cli, git_cli};
@@ -1007,7 +1008,7 @@ fn issue_is_root_parent(issue_number: &str, repo: &str) -> Result<bool, String> 
         "--jq",
         ".body // \"\"",
     ])?;
-    let parent = super::audit_issue_status::extract_parent_field(&body)
+    let parent = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
     if parent == "epic" {
