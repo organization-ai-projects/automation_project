@@ -2,8 +2,9 @@ use std::collections::BTreeSet;
 use std::fs;
 
 use crate::automation::commands::LabelsSyncOptions;
+use crate::gh_cli;
 
-use super::execute::{object_string, parse_json_array, run_gh_output, run_gh_status};
+use super::execute::{object_string, parse_json_array};
 
 pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
     let content = fs::read_to_string(&opts.labels_file).map_err(|e| {
@@ -14,9 +15,10 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
     })?;
     let labels = parse_labels(&content, &opts.labels_file)?;
 
-    let existing = run_gh_output(&[
+    let existing = gh_cli::output_trim(&[
         "label", "list", "--limit", "1000", "--json", "name", "--jq", ".[].name",
-    ])?;
+    ])
+    .map_err(|e| format!("Failed to run gh label list: {e}"))?;
     let mut existing_set: BTreeSet<String> = existing
         .lines()
         .map(|v| v.trim().to_string())
@@ -32,7 +34,7 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
         }
 
         if existing_set.contains(name) {
-            run_gh_status(&[
+            gh_cli::status(&[
                 "label",
                 "edit",
                 name,
@@ -40,9 +42,10 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
                 color,
                 "--description",
                 description,
-            ])?;
+            ])
+            .map_err(|e| format!("Failed to run gh label edit: {e}"))?;
         } else {
-            run_gh_status(&[
+            gh_cli::status(&[
                 "label",
                 "create",
                 name,
@@ -50,7 +53,8 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
                 color,
                 "--description",
                 description,
-            ])?;
+            ])
+            .map_err(|e| format!("Failed to run gh label create: {e}"))?;
             existing_set.insert(name.clone());
         }
     }
@@ -62,9 +66,10 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
             .filter(|name| !name.trim().is_empty())
             .collect();
 
-        let repo_labels = run_gh_output(&[
+        let repo_labels = gh_cli::output_trim(&[
             "label", "list", "--limit", "1000", "--json", "name", "--jq", ".[].name",
-        ])?;
+        ])
+        .map_err(|e| format!("Failed to run gh label list: {e}"))?;
         let protected: BTreeSet<String> = [
             "bug",
             "documentation",
@@ -88,7 +93,7 @@ pub(crate) fn run_labels_sync(opts: LabelsSyncOptions) -> Result<(), String> {
             if desired.contains(label) || protected.contains(label) {
                 continue;
             }
-            let _ = run_gh_status(&["label", "delete", label, "--yes"]);
+            let _ = gh_cli::status(&["label", "delete", label, "--yes"]);
         }
     }
 

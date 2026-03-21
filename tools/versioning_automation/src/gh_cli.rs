@@ -15,6 +15,10 @@ pub(crate) fn output_preserve(args: &[&str]) -> Result<String, String> {
     output_with_transform(args, |stdout| stdout.to_string())
 }
 
+pub(crate) fn output_trim_or_empty(args: &[&str]) -> String {
+    output_trim(args).unwrap_or_default()
+}
+
 pub(crate) fn output_trim_cmd(cmd: &str, args: &[&str]) -> Result<String, String> {
     let owned_args = build_args(cmd, args);
     let borrowed_args = owned_args.iter().map(String::as_str).collect::<Vec<&str>>();

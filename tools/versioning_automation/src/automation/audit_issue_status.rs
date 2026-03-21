@@ -4,11 +4,12 @@ use std::fs;
 use common_json::Json;
 
 use crate::automation::commands::AuditIssueStatusOptions;
+use crate::gh_cli;
 use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name;
 
-use super::execute::{ensure_git_repo, run_gh_output, run_git_output_preserve};
+use super::execute::{ensure_git_repo, run_git_output_preserve};
 
 type IssueRefSets = (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 type AuditIssueStatusSections<'a> = (
@@ -24,7 +25,7 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
     let repo = resolve_repo_name(opts.repo).map_err(|e| e.to_string())?;
     let range = format!("{}..{}", opts.base_ref, opts.head_ref);
 
-    let open_issues_json = run_gh_output(&[
+    let open_issues_json = gh_cli::output_trim(&[
         "issue",
         "list",
         "--state",
@@ -35,7 +36,8 @@ pub(crate) fn run_audit_issue_status(opts: AuditIssueStatusOptions) -> Result<()
         "number,title,url,body,labels,state",
         "-R",
         &repo,
-    ])?;
+    ])
+    .map_err(|e| format!("Failed to run gh issue list: {e}"))?;
     let open_issues = parse_json_array(&open_issues_json, "open issues JSON")?;
     let total_open = open_issues.len();
 

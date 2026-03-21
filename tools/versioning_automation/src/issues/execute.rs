@@ -2427,15 +2427,7 @@ fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Vec
 }
 
 fn gh_output_or_empty(args: &[&str]) -> String {
-    gh_output(args, true).unwrap_or_default()
-}
-
-fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
-    match gh_cli::output_trim(args) {
-        Ok(value) => Ok(value),
-        Err(_) if silence_stderr => Ok(String::new()),
-        Err(message) => Err(message),
-    }
+    gh_cli::output_trim_or_empty(args)
 }
 
 fn print_non_empty_lines(text: &str) {
