@@ -6,7 +6,9 @@ use regex::Regex;
 use serde::Deserialize;
 
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
-use crate::issue_remote_snapshot::{issue_labels_raw, load_issue_remote_snapshot};
+use crate::issue_remote_snapshot::{
+    IssueRemoteSnapshot, issue_labels_raw, load_issue_remote_snapshot,
+};
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
@@ -347,7 +349,9 @@ fn load_issue_sync_snapshot(
     issue_number: &str,
     unreadable_suffix: &str,
 ) -> Option<(String, String)> {
-    let (_, _, state, labels_raw) = gh_issue_autolink_payload(repo_name, issue_number);
+    let snapshot = issue_remote_snapshot_or_default(repo_name, issue_number);
+    let labels_raw = issue_labels_raw(&snapshot);
+    let state = snapshot.state;
     if state.is_empty() {
         println!(
             "Issue #{}: unreadable; {}.",
@@ -477,8 +481,11 @@ pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
     let label_automation_failed = "automation-failed";
     let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
 
-    let (issue_title, issue_body, issue_state, issue_labels_raw) =
-        gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let issue_snapshot = issue_remote_snapshot_or_default(&repo_name, &opts.issue);
+    let issue_labels_raw = issue_labels_raw(&issue_snapshot);
+    let issue_title = issue_snapshot.title;
+    let issue_body = issue_snapshot.body;
+    let issue_state = issue_snapshot.state;
     if issue_state.is_empty() {
         eprintln!("Erreur: impossible de lire l'issue #{}.", opts.issue);
         return 4;
@@ -703,7 +710,9 @@ fn run_auto_link_parent_link(
         return if status == 0 { 0 } else { status };
     }
 
-    let (parent_title, _, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_snapshot = issue_remote_snapshot_or_default(repo_name, parent_number);
+    let parent_title = parent_snapshot.title;
+    let parent_state = parent_snapshot.state;
     if parent_state.is_empty() && parent_title.is_empty() {
         let status = auto_link_set_validation_error_state(
             repo_name,
@@ -1217,15 +1226,8 @@ fn is_issue_key(value: &str) -> bool {
     trimmed.starts_with('#') && trimmed[1..].chars().all(|ch| ch.is_ascii_digit())
 }
 
-type IssueAutoLinkPayload = (String, String, String, String);
-
-fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
-    load_issue_remote_snapshot(issue_number, Some(repo_name))
-        .map(|snapshot| {
-            let labels_raw = issue_labels_raw(&snapshot);
-            (snapshot.title, snapshot.body, snapshot.state, labels_raw)
-        })
-        .unwrap_or_default()
+fn issue_remote_snapshot_or_default(repo_name: &str, issue_number: &str) -> IssueRemoteSnapshot {
+    load_issue_remote_snapshot(issue_number, Some(repo_name)).unwrap_or_default()
 }
 
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
@@ -1413,7 +1415,7 @@ pub(crate) fn run_is_root_parent(opts: IsRootParentOptions) -> i32 {
             return 3;
         }
     };
-    let (_, body, _, _) = gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let body = issue_remote_snapshot_or_default(&repo_name, &opts.issue).body;
     let parent_value = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
@@ -1678,7 +1680,7 @@ fn extract_issue_refs_for_footer(text: &str) -> Vec<(String, String)> {
 }
 
 fn is_root_parent_issue_for_repo(issue_number: &str, repo_name: &str) -> Result<bool, String> {
-    let (_, body, _, _) = gh_issue_autolink_payload(repo_name, issue_number);
+    let body = issue_remote_snapshot_or_default(repo_name, issue_number).body;
     let parent_value = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
@@ -1905,7 +1907,9 @@ fn evaluate_parent_issue(
     repo_short_name: &str,
     parent_number: &str,
 ) -> i32 {
-    let (_, body, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_snapshot = issue_remote_snapshot_or_default(repo_name, parent_number);
+    let body = parent_snapshot.body;
+    let parent_state = parent_snapshot.state;
     if parent_state.is_empty() && body.is_empty() {
         return 0;
     }
@@ -1926,7 +1930,9 @@ fn evaluate_parent_issue(
 
     for child_ref in child_refs {
         let child_number = child_ref.trim_start_matches('#');
-        let (child_title, _, child_state, _) = gh_issue_autolink_payload(repo_name, child_number);
+        let child_snapshot = issue_remote_snapshot_or_default(repo_name, child_number);
+        let child_title = child_snapshot.title;
+        let child_state = child_snapshot.state;
         if child_state.is_empty() && child_title.is_empty() {
             open_count += 1;
             open_lines.push_str(&format!("- {} (unreadable or missing)\n", child_ref));
