@@ -3,12 +3,11 @@ use serde::Deserialize;
 
 use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
 use crate::pr::gh_cli::{gh_output_trim_end_newline, gh_status};
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
 #[derive(Debug, Deserialize)]
 struct RefreshValidation {
-    #[serde(default)]
-    body: String,
     #[serde(default, rename = "statusCheckRollup")]
     status_check_rollup: Vec<std::collections::HashMap<String, String>>,
 }
@@ -22,7 +21,14 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
         }
     };
 
-    let snapshot = match fetch_pr_validation_snapshot(&opts.pr_number, &repo_name) {
+    let pr_snapshot = match load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
+        Ok(value) => value,
+        Err(msg) => {
+            eprintln!("{msg}");
+            return 4;
+        }
+    };
+    let status_snapshot = match fetch_status_check_rollup_snapshot(&opts.pr_number, &repo_name) {
         Ok(value) => value,
         Err(msg) => {
             eprintln!("{msg}");
@@ -30,9 +36,10 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
         }
     };
 
-    let ci_line = map_ci_status_with_symbol(compute_ci_status(&snapshot.status_check_rollup));
-    let updated_body = apply_ci_refresh(&snapshot.body, ci_line);
-    if updated_body == snapshot.body {
+    let ci_line =
+        map_ci_status_with_symbol(compute_ci_status(&status_snapshot.status_check_rollup));
+    let updated_body = apply_ci_refresh(&pr_snapshot.body, ci_line);
+    if updated_body == pr_snapshot.body {
         println!("PR unchanged: #{}", opts.pr_number);
         return 0;
     }
@@ -54,7 +61,7 @@ pub(crate) fn run_refresh_validation(opts: PrRefreshValidationOptions) -> i32 {
     status
 }
 
-fn fetch_pr_validation_snapshot(
+fn fetch_status_check_rollup_snapshot(
     pr_number: &str,
     repo_name: &str,
 ) -> Result<RefreshValidation, String> {
@@ -66,7 +73,7 @@ fn fetch_pr_validation_snapshot(
             "-R",
             repo_name,
             "--json",
-            "body,statusCheckRollup",
+            "statusCheckRollup",
         ],
     )?;
     common_json::from_json_str::<RefreshValidation>(&json).map_err(|err| err.to_string())
