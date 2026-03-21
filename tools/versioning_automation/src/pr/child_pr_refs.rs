@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 
 use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
 use crate::pr::gh_cli::gh_output_trim;
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_child_pr_refs(opts: PrChildPrRefsOptions) -> i32 {
@@ -10,8 +11,9 @@ pub(crate) fn run_child_pr_refs(opts: PrChildPrRefsOptions) -> i32 {
         return 0;
     };
 
-    let commit_headlines = fetch_commit_headlines(&opts.pr_number, &repo_name).unwrap_or_default();
-    let pr_body = fetch_pr_body(&opts.pr_number, &repo_name).unwrap_or_default();
+    let pr_snapshot = load_pr_remote_snapshot(&opts.pr_number, &repo_name).unwrap_or_default();
+    let commit_headlines = commit_headlines_from_messages(&pr_snapshot.commit_messages);
+    let pr_body = pr_snapshot.body;
     let pr_comments = fetch_pr_comments(&opts.pr_number, &repo_name).unwrap_or_default();
     let timeline_refs = fetch_timeline_refs(&opts.pr_number, &repo_name).unwrap_or_default();
 
@@ -83,32 +85,13 @@ fn extract_timeline_refs(text: &str) -> Vec<String> {
         .collect()
 }
 
-fn fetch_commit_headlines(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output_trim(
-        "api",
-        &[
-            &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-            "--paginate",
-            "--jq",
-            ".[].commit.message | split(\"\\n\")[0]",
-        ],
-    )
-}
-
-fn fetch_pr_body(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    gh_output_trim(
-        "pr",
-        &[
-            "view",
-            pr_number,
-            "-R",
-            repo_name,
-            "--json",
-            "body",
-            "-q",
-            ".body // \"\"",
-        ],
-    )
+fn commit_headlines_from_messages(commit_messages: &str) -> String {
+    commit_messages
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn fetch_pr_comments(pr_number: &str, repo_name: &str) -> Result<String, String> {

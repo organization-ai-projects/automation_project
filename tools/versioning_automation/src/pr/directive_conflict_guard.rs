@@ -6,6 +6,7 @@ use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
 use crate::pr::gh_cli::{gh_output_trim, gh_status};
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
 const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
@@ -20,37 +21,16 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         }
     };
 
-    let original_body = match gh_output_trim(
-        "pr",
-        &[
-            "view",
-            &opts.pr_number,
-            "-R",
-            &repo_name,
-            "--json",
-            "body",
-            "--jq",
-            ".body // \"\"",
-        ],
-    ) {
-        Ok(body) => body,
+    let pr_snapshot = match load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
+        Ok(snapshot) => snapshot,
         Err(_) => {
             eprintln!("Error: unable to read PR #{}.", opts.pr_number);
             return 4;
         }
     };
+    let original_body = pr_snapshot.body;
     let mut updated_body = original_body.clone();
-
-    let commit_messages = gh_output_trim(
-        "api",
-        &[
-            &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
-            "--paginate",
-            "--jq",
-            ".[].commit.message",
-        ],
-    )
-    .unwrap_or_default();
+    let commit_messages = pr_snapshot.commit_messages;
     let source_branch_count = detect_source_branch_count(&commit_messages);
     let directive_payload = build_directive_payload(&original_body, &commit_messages);
 
