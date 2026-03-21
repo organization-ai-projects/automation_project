@@ -1,13 +1,15 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/task.rs
 use crate::moe_core::{self, Task, TaskPriority, TaskType};
 use protocol::ProtocolId;
+use std::str::FromStr;
 
 fn protocol_id(byte: u8) -> ProtocolId {
-    crate::tests::helpers::protocol_id(byte)
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 fn task_id(byte: u8) -> moe_core::TaskId {
-    crate::tests::helpers::task_id(byte)
+    moe_core::TaskId::from_protocol_id(protocol_id(byte))
 }
 
 #[test]

@@ -2,11 +2,26 @@
 use std::collections::HashMap;
 
 use crate::router::{RoutingDecision, RoutingStrategy, RoutingTrace};
+use protocol::ProtocolId;
+use std::str::FromStr;
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
+}
+
+fn task_id(byte: u8) -> crate::moe_core::TaskId {
+    crate::moe_core::TaskId::from_protocol_id(protocol_id(byte))
+}
+
+fn expert_id(byte: u8) -> crate::moe_core::ExpertId {
+    crate::moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
 
 #[test]
 fn routing_trace_from_decision_uses_deterministic_timestamp() {
-    let task_id = crate::tests::helpers::task_id(1);
-    let expert_id = crate::tests::helpers::expert_id(1);
+    let task_id = task_id(1);
+    let expert_id = expert_id(1);
     let decision = RoutingDecision {
         task_id: task_id.clone(),
         selected_experts: vec![expert_id.clone()],

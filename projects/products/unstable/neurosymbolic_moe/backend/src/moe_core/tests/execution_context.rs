@@ -1,8 +1,13 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/execution_context.rs
 use crate::moe_core::{ExecutionContext, TaskId};
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 fn task_id() -> TaskId {
-    crate::tests::helpers::task_id(1)
+    TaskId::from_protocol_id(
+        ProtocolId::from_str("00000000000000000000000000000001")
+            .expect("test protocol id should be valid fixed hex"),
+    )
 }
 
 #[test]

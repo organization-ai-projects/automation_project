@@ -2,17 +2,19 @@ use crate::dataset_engine::{Correction, DatasetEntry, Outcome};
 use crate::moe_core::{ExpertId, TaskId};
 use protocol::ProtocolId;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 fn protocol_id(byte: u8) -> ProtocolId {
-    crate::tests::helpers::protocol_id(byte)
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 fn task_id(byte: u8) -> TaskId {
-    crate::tests::helpers::task_id(byte)
+    TaskId::from_protocol_id(protocol_id(byte))
 }
 
 fn expert_id(byte: u8) -> ExpertId {
-    crate::tests::helpers::expert_id(byte)
+    ExpertId::from_protocol_id(protocol_id(byte))
 }
 
 #[test]

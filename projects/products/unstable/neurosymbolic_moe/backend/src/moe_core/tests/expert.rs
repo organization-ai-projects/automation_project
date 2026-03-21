@@ -3,9 +3,16 @@ use crate::{
     moe_core::{self, ExpertCapability, ExpertMetadata, ExpertStatus, ExpertType},
     orchestrator::Version,
 };
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 fn expert_id(byte: u8) -> moe_core::ExpertId {
-    crate::tests::helpers::expert_id(byte)
+    moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 #[test]

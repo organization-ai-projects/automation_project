@@ -3,9 +3,16 @@ use std::collections::HashMap;
 
 use crate::moe_core::{self, TracePhase, TraceRecord};
 use crate::trace_logging::TraceLogger;
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 fn task_id(task: u8) -> moe_core::TaskId {
-    crate::tests::helpers::task_id(task)
+    moe_core::TaskId::from_protocol_id(protocol_id(task))
+}
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 fn make_record(task: u8, phase: TracePhase) -> TraceRecord {

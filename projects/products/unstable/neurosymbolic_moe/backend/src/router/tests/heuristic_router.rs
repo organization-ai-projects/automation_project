@@ -8,6 +8,17 @@ use crate::moe_core::{
 };
 use crate::orchestrator::Version;
 use crate::router::{HeuristicRouter, Router};
+use protocol::ProtocolId;
+use std::str::FromStr;
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
+}
+
+fn expert_id(byte: u8) -> crate::moe_core::ExpertId {
+    crate::moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
 
 struct TestExpert {
     meta: ExpertMetadata,
@@ -62,7 +73,7 @@ impl Expert for TestExpert {
 #[test]
 fn routes_to_correct_expert_by_capability() {
     let mut registry = ExpertRegistry::new();
-    let codegen_expert_id = crate::tests::helpers::expert_id(1);
+    let codegen_expert_id = expert_id(1);
     let register_result = registry.register(Box::new(TestExpert::new(
         codegen_expert_id.clone(),
         "codegen",
@@ -92,7 +103,7 @@ fn respects_max_experts_limit() {
     let mut registry = ExpertRegistry::new();
     for i in 0..5 {
         let register_result = registry.register(Box::new(TestExpert::new(
-            crate::tests::helpers::expert_id((i + 1) as u8),
+            expert_id((i + 1) as u8),
             &format!("e{i}"),
             vec![ExpertCapability::CodeGeneration],
         )));

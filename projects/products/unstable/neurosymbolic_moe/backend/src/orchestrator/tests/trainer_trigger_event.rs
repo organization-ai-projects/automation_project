@@ -1,8 +1,11 @@
 use crate::orchestrator::{TrainerTriggerEvent, Version};
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 #[test]
 fn trainer_trigger_event_fields_roundtrip() {
-    let event_id = crate::tests::helpers::protocol_id(1);
+    let event_id = ProtocolId::from_str("00000000000000000000000000000001")
+        .expect("test protocol id should be valid fixed hex");
     let event = TrainerTriggerEvent {
         event_id,
         model_version: Version::new(3, 0, 0),

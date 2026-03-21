@@ -4,5 +4,4 @@ mod app_cli;
 mod app_http_admin;
 mod auto_improvement;
 mod echo_expert;
-pub(crate) mod helpers;
 mod specialized_expert;

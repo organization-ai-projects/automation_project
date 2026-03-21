@@ -1,5 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/tests/context_assembler.rs
 use protocol::ProtocolId;
+use std::str::FromStr;
 
 use crate::{
     moe_core::{Task, TaskType},
@@ -24,7 +25,8 @@ fn assemble_respects_context_budget() {
 fn assemble_for_task_prepends_header() {
     let assembler = ContextAssembler::new(60);
     let task = Task::new_with_id(
-        crate::tests::helpers::protocol_id(1),
+        ProtocolId::from_str("00000000000000000000000000000001")
+            .expect("test protocol id should be valid fixed hex"),
         TaskType::Retrieval,
         "find context",
     );

@@ -9,9 +9,11 @@ use crate::{buffer_manager::BufferManager, memory_engine::MemoryEntry as Runtime
 use protocol::ProtocolId;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 fn protocol_id(tag: u8) -> ProtocolId {
-    crate::tests::helpers::protocol_id(tag)
+    ProtocolId::from_str(&format!("{:032x}", tag.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 fn test_memory_entry(id: &str, content: &str, memory_type: MemoryType) -> MemoryEntry {
