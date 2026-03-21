@@ -6,9 +6,9 @@ use regex::Regex;
 use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
 use crate::pr::domain::directives::directive_record::DirectiveRecord;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::gh_cli::gh_output_trim_end_newline;
 use crate::pr::scan::scan_directives;
 use crate::pr::state::build_state;
+use crate::pr_remote_snapshot::{load_pr_remote_snapshot, pr_text_payload_from_snapshot};
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
@@ -23,46 +23,8 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
 }
 
 pub(crate) fn load_pr_text_payload(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    let title = gh_output_trim_end_newline(
-        "pr",
-        &[
-            "view",
-            pr_number,
-            "-R",
-            repo_name,
-            "--json",
-            "title",
-            "--jq",
-            ".title // \"\"",
-        ],
-    )
-    .map_err(|err| err.to_string())?;
-    let body = gh_output_trim_end_newline(
-        "pr",
-        &[
-            "view",
-            pr_number,
-            "-R",
-            repo_name,
-            "--json",
-            "body",
-            "--jq",
-            ".body // \"\"",
-        ],
-    )
-    .map_err(|err| err.to_string())?;
-    let commits = gh_output_trim_end_newline(
-        "api",
-        &[
-            &format!("repos/{repo_name}/pulls/{pr_number}/commits"),
-            "--paginate",
-            "--jq",
-            ".[].commit.message",
-        ],
-    )
-    .map_err(|err| err.to_string())?;
-
-    Ok(format!("{title}\n{body}\n{commits}"))
+    let snapshot = load_pr_remote_snapshot(pr_number, repo_name)?;
+    Ok(pr_text_payload_from_snapshot(&snapshot))
 }
 
 pub(crate) fn extract_effective_action_issue_numbers(

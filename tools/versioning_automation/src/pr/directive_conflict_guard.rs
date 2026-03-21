@@ -2,10 +2,12 @@ use std::collections::BTreeSet;
 
 use regex::Regex;
 
+use crate::gh_cli::status_cmd;
+use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
-use crate::pr::gh_cli::{gh_output_trim, gh_status};
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
 const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
@@ -20,37 +22,16 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         }
     };
 
-    let original_body = match gh_output_trim(
-        "pr",
-        &[
-            "view",
-            &opts.pr_number,
-            "-R",
-            &repo_name,
-            "--json",
-            "body",
-            "--jq",
-            ".body // \"\"",
-        ],
-    ) {
-        Ok(body) => body,
+    let pr_snapshot = match load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
+        Ok(snapshot) => snapshot,
         Err(_) => {
             eprintln!("Error: unable to read PR #{}.", opts.pr_number);
             return 4;
         }
     };
+    let original_body = pr_snapshot.body;
     let mut updated_body = original_body.clone();
-
-    let commit_messages = gh_output_trim(
-        "api",
-        &[
-            &format!("repos/{repo_name}/pulls/{}/commits", opts.pr_number),
-            "--paginate",
-            "--jq",
-            ".[].commit.message",
-        ],
-    )
-    .unwrap_or_default();
+    let commit_messages = pr_snapshot.commit_messages;
     let source_branch_count = detect_source_branch_count(&commit_messages);
     let directive_payload = build_directive_payload(&original_body, &commit_messages);
 
@@ -76,7 +57,7 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
     updated_body = upsert_conflict_block_in_body(&updated_body, conflict_block.as_deref());
 
     if updated_body != original_body {
-        let status = gh_status(
+        let status = match status_cmd(
             "pr",
             &[
                 "edit",
@@ -86,7 +67,13 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
                 "--body",
                 &updated_body,
             ],
-        );
+        ) {
+            Ok(()) => 0,
+            Err(err) => {
+                eprintln!("Failed to execute gh pr: {err}");
+                1
+            }
+        };
         if status != 0 {
             return status;
         }
@@ -216,34 +203,12 @@ fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
 }
 
 fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
-    let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
-    let comment_id = gh_output_trim(
-        "api",
-        &[
-            &list_path,
-            "--paginate",
-            "--jq",
-            &format!(
-                "map(select((.body // \"\") | contains(\"{}\"))) | sort_by(.updated_at) | last | .id // empty",
-                marker.replace('"', "\\\"")
-            ),
-        ],
-    )
-    .unwrap_or_default();
-
-    if comment_id.trim().is_empty() {
-        gh_status("api", &[&list_path, "-f", &format!("body={body}")])
-    } else {
-        gh_status(
-            "api",
-            &[
-                "-X",
-                "PATCH",
-                &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
-                "-f",
-                &format!("body={body}"),
-            ],
-        )
+    match upsert_issue_comment_by_marker(repo_name, pr_number, marker, body) {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
     }
 }
 

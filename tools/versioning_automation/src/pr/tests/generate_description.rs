@@ -2,6 +2,7 @@ use crate::pr::commit_info::CommitInfo;
 use crate::pr::generate_description::render_issue_outcome_groups_with_mode;
 use crate::pr::generate_description::{build_full_body, parse_generate_options};
 use crate::pr::group_by_category::parse_records;
+use crate::{category_resolver, pr};
 
 #[test]
 fn test_generate_description() {
@@ -49,6 +50,10 @@ fn build_full_body_mentions_conflict_resolution_winner_in_issue_outcomes() {
             body: "Closes #1085".to_string(),
         },
     ];
+    let outcomes = pr::build_issue_outcomes_snapshot(
+        &commits,
+        category_resolver::resolve_issue_outcome_category,
+    );
 
     let rendered = build_full_body(
         "dev",
@@ -56,6 +61,7 @@ fn build_full_body_mentions_conflict_resolution_winner_in_issue_outcomes() {
         &commits,
         "dev..fix",
         "- CI: UNKNOWN",
+        &outcomes,
     );
 
     assert!(rendered.contains("#### Category 1: Issues Without Conflicts"));
@@ -64,7 +70,6 @@ fn build_full_body_mentions_conflict_resolution_winner_in_issue_outcomes() {
     assert!(rendered.contains("#### Category 2: Issues With Conflicts"));
     assert!(rendered.contains("##### Auto-resolved"));
     assert!(rendered.contains("##### Not resolved"));
-    assert!(rendered.contains("#### Automation"));
     assert!(rendered.contains("- Closes #1085 - Resolved via directive decision => close."));
     assert!(!rendered.contains("- Closes #1085\n"));
 }

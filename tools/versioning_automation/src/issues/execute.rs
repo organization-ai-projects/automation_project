@@ -5,6 +5,14 @@ use std::fs;
 use regex::Regex;
 use serde::Deserialize;
 
+use crate::gh_cli::{
+    output_trim_or_empty as gh_output_or_empty, status_code_owned as execute_command,
+};
+use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
+use crate::issue_remote_snapshot::{
+    IssueRemoteSnapshot, issue_labels_raw, load_issue_remote_snapshot,
+};
+use crate::issues;
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
@@ -24,9 +32,11 @@ use crate::issues::required_fields::{
 };
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
+use crate::open_pr_issue_refs::load_open_pr_numbers_referencing_issue;
+use crate::parent_field::extract_parent_field;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
-use crate::{gh_cli, issues};
 
 pub(crate) fn run_create(opts: CreateOptions) -> i32 {
     let body = render_direct_issue_body(&opts);
@@ -138,11 +148,13 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let Some((state, labels_raw)) =
-                    load_issue_sync_snapshot(&repo_name, &issue_number, "skipping")
-                else {
+                let snapshot = issue_remote_snapshot_or_default(&repo_name, &issue_number);
+                if snapshot.state.is_empty() {
+                    println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
-                };
+                }
+                let labels_raw = issue_labels_raw(&snapshot);
+                let state = snapshot.state;
                 let sync_plan =
                     plan_done_in_dev_sync(&state, has_label_named(&labels_raw, &label_name));
                 if !sync_plan.add_done_in_dev_label {
@@ -231,28 +243,15 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
     let label_name = opts.label;
     let pr_number = opts.pr;
 
-    let pr_state = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "state",
-        "--jq",
-        ".state // \"\"",
-    ]);
-    let pr_base = gh_output_or_empty(&[
-        "pr",
-        "view",
-        &pr_number,
-        "-R",
-        &repo_name,
-        "--json",
-        "baseRefName",
-        "--jq",
-        ".baseRefName // \"\"",
-    ]);
+    let pr_snapshot = match load_pr_remote_snapshot(&pr_number, &repo_name) {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("Error: unable to read PR #{}.", pr_number);
+            return 4;
+        }
+    };
+    let pr_state = pr_snapshot.state;
+    let pr_base = pr_snapshot.base_ref_name;
     if pr_base != "dev" {
         println!("PR #{} does not target dev; nothing to do.", pr_number);
         return 0;
@@ -285,11 +284,13 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let Some((state, labels_raw)) =
-            load_issue_sync_snapshot(&repo_name, &issue_number, "skipping reopen sync")
-        else {
+        let snapshot = issue_remote_snapshot_or_default(&repo_name, &issue_number);
+        if snapshot.state.is_empty() {
+            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
-        };
+        }
+        let labels_raw = issue_labels_raw(&snapshot);
+        let state = snapshot.state;
         let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
         if sync_plan.reopen_issue {
@@ -348,22 +349,6 @@ fn load_effective_issue_action_numbers_for_pr(
     };
 
     Ok(extract_effective_action_issue_numbers(&payload))
-}
-
-fn load_issue_sync_snapshot(
-    repo_name: &str,
-    issue_number: &str,
-    unreadable_suffix: &str,
-) -> Option<(String, String)> {
-    let (_, _, state, labels_raw) = gh_issue_autolink_payload(repo_name, issue_number);
-    if state.is_empty() {
-        println!(
-            "Issue #{}: unreadable; {}.",
-            issue_number, unreadable_suffix
-        );
-        return None;
-    }
-    Some((state, labels_raw))
 }
 
 fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
@@ -485,8 +470,11 @@ pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
     let label_automation_failed = "automation-failed";
     let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
 
-    let (issue_title, issue_body, issue_state, issue_labels_raw) =
-        gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let issue_snapshot = issue_remote_snapshot_or_default(&repo_name, &opts.issue);
+    let issue_labels_raw = issue_labels_raw(&issue_snapshot);
+    let issue_title = issue_snapshot.title;
+    let issue_body = issue_snapshot.body;
+    let issue_state = issue_snapshot.state;
     if issue_state.is_empty() {
         eprintln!("Erreur: impossible de lire l'issue #{}.", opts.issue);
         return 4;
@@ -711,7 +699,9 @@ fn run_auto_link_parent_link(
         return if status == 0 { 0 } else { status };
     }
 
-    let (parent_title, _, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_snapshot = issue_remote_snapshot_or_default(repo_name, parent_number);
+    let parent_title = parent_snapshot.title;
+    let parent_state = parent_snapshot.state;
     if parent_state.is_empty() && parent_title.is_empty() {
         let status = auto_link_set_validation_error_state(
             repo_name,
@@ -1011,26 +1001,6 @@ fn auto_link_extract_parent(body: &str) -> Option<String> {
         .map(|m| m.as_str().trim().to_string())
 }
 
-fn extract_parent_field(body: &str) -> Option<String> {
-    let re =
-        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
-            .expect("static regex must compile");
-    let mut parent_value: Option<String> = None;
-
-    for line in body.lines() {
-        if let Some(captures) = re.captures(line) {
-            parent_value = captures.get(1).map(|m| m.as_str().trim().to_lowercase());
-        }
-    }
-
-    parent_value.map(|raw| {
-        raw.trim()
-            .trim_start_matches('(')
-            .trim_end_matches(')')
-            .to_string()
-    })
-}
-
 fn auto_link_query_child_parent_relation(
     repo_owner: &str,
     repo_short_name: &str,
@@ -1245,96 +1215,15 @@ fn is_issue_key(value: &str) -> bool {
     trimmed.starts_with('#') && trimmed[1..].chars().all(|ch| ch.is_ascii_digit())
 }
 
-type IssueAutoLinkPayload = (String, String, String, String);
-
-fn gh_issue_autolink_payload(repo_name: &str, issue_number: &str) -> IssueAutoLinkPayload {
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldLabel {
-        name: Option<String>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct AutoLinkIssuePayload {
-        title: Option<String>,
-        body: Option<String>,
-        state: Option<String>,
-        labels: Option<Vec<IssueFieldLabel>>,
-    }
-
-    let payload_raw = gh_output_or_empty(&[
-        "issue",
-        "view",
-        issue_number,
-        "-R",
-        repo_name,
-        "--json",
-        "title,body,state,labels",
-    ]);
-    let payload = common_json::from_json_str::<AutoLinkIssuePayload>(&payload_raw).unwrap_or(
-        AutoLinkIssuePayload {
-            title: None,
-            body: None,
-            state: None,
-            labels: None,
-        },
-    );
-    let labels_raw = payload
-        .labels
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|label| label.name)
-        .collect::<Vec<_>>()
-        .join("|");
-    (
-        payload.title.unwrap_or_default(),
-        payload.body.unwrap_or_default(),
-        payload.state.unwrap_or_default(),
-        labels_raw,
-    )
+fn issue_remote_snapshot_or_default(repo_name: &str, issue_number: &str) -> IssueRemoteSnapshot {
+    load_issue_remote_snapshot(issue_number, Some(repo_name)).unwrap_or_default()
 }
 
 fn gh_issue_state_or_empty(repo_name: Option<&str>, issue_number: &str) -> String {
-    let mut state_args = vec![
-        "issue",
-        "view",
-        issue_number,
-        "--json",
-        "state",
-        "--jq",
-        ".state // \"\"",
-    ];
-    if let Some(repo) = repo_name {
-        state_args.extend(["-R", repo]);
-    }
-
-    let state = gh_output_or_empty(&state_args);
-    if let Some(normalized) = normalize_issue_state(&state) {
-        return normalized.to_string();
-    }
-
-    let mut payload_args = vec!["issue", "view", issue_number, "--json", "state"];
-    if let Some(repo) = repo_name {
-        payload_args.extend(["-R", repo]);
-    }
-
-    let payload_raw = gh_output_or_empty(&payload_args);
-    if let Some(normalized) = normalize_issue_state(&payload_raw) {
-        return normalized.to_string();
-    }
-    if payload_raw.trim().is_empty() {
-        return String::new();
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct IssueStatePayload {
-        state: Option<String>,
-    }
-    match common_json::from_json_str::<IssueStatePayload>(&payload_raw) {
-        Ok(payload) => payload
-            .state
-            .and_then(|value| normalize_issue_state(&value).map(str::to_string))
-            .unwrap_or_default(),
-        Err(_) => String::new(),
-    }
+    load_issue_remote_snapshot(issue_number, repo_name)
+        .ok()
+        .and_then(|snapshot| normalize_issue_state(&snapshot.state).map(str::to_string))
+        .unwrap_or_default()
 }
 
 fn normalize_issue_state(value: &str) -> Option<&str> {
@@ -1347,34 +1236,9 @@ fn normalize_issue_state(value: &str) -> Option<&str> {
 }
 
 fn gh_pr_body_or_empty(repo_name: &str, pr_number: &str) -> String {
-    let body = gh_output_or_empty(&[
-        "pr",
-        "view",
-        pr_number,
-        "-R",
-        repo_name,
-        "--json",
-        "body",
-        "--jq",
-        ".body // \"\"",
-    ]);
-    if !body.trim().is_empty() {
-        return body;
-    }
-
-    let payload_raw =
-        gh_output_or_empty(&["pr", "view", pr_number, "-R", repo_name, "--json", "body"]);
-    if payload_raw.trim().is_empty() {
-        return String::new();
-    }
-    #[derive(Debug, Deserialize)]
-    struct PrBodyPayload {
-        body: Option<String>,
-    }
-    match common_json::from_json_str::<PrBodyPayload>(&payload_raw) {
-        Ok(payload) => payload.body.unwrap_or_default(),
-        Err(_) => String::new(),
-    }
+    load_pr_remote_snapshot(pr_number, repo_name)
+        .map(|snapshot| snapshot.body)
+        .unwrap_or_default()
 }
 
 type NeutralizeRef = (String, String);
@@ -1500,32 +1364,12 @@ fn build_neutralize_comment_body(
 }
 
 fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
-    let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
-    let marker_query = marker.replace('\\', "\\\\").replace('"', "\\\"");
-    let jq_filter = format!(
-        "map(select((.body // \"\") | contains(\"{marker_query}\"))) | sort_by(.updated_at) | last | .id // empty"
-    );
-    let comment_id = gh_output_or_empty(&["api", &list_path, "--paginate", "--jq", &jq_filter]);
-
-    if comment_id.trim().is_empty() {
-        execute_command({
-            let mut cmd = gh_command(&["api", &list_path]);
-            push_arg(&mut cmd, "-f");
-            push_arg(&mut cmd, format!("body={body}"));
-            cmd
-        })
-    } else {
-        execute_command({
-            let mut cmd = gh_command(&[
-                "api",
-                "-X",
-                "PATCH",
-                &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
-            ]);
-            push_arg(&mut cmd, "-f");
-            push_arg(&mut cmd, format!("body={body}"));
-            cmd
-        })
+    match upsert_issue_comment_by_marker(repo_name, pr_number, marker, body) {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
     }
 }
 
@@ -1560,7 +1404,7 @@ pub(crate) fn run_is_root_parent(opts: IsRootParentOptions) -> i32 {
             return 3;
         }
     };
-    let (_, body, _, _) = gh_issue_autolink_payload(&repo_name, &opts.issue);
+    let body = issue_remote_snapshot_or_default(&repo_name, &opts.issue).body;
     let parent_value = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
@@ -1825,7 +1669,7 @@ fn extract_issue_refs_for_footer(text: &str) -> Vec<(String, String)> {
 }
 
 fn is_root_parent_issue_for_repo(issue_number: &str, repo_name: &str) -> Result<bool, String> {
-    let (_, body, _, _) = gh_issue_autolink_payload(repo_name, issue_number);
+    let body = issue_remote_snapshot_or_default(repo_name, issue_number).body;
     let parent_value = extract_parent_field(&body)
         .unwrap_or_else(|| "none".to_string())
         .to_lowercase();
@@ -1893,26 +1737,8 @@ pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
         }
     };
 
-    let pulls_tsv = gh_output_or_empty(&[
-        "api",
-        &format!("repos/{repo_name}/pulls?state=open&per_page=100"),
-        "--paginate",
-        "--jq",
-        ".[]. | [.number, (.body // \"\")] | @tsv",
-    ]);
-
-    let mut pr_numbers: Vec<String> = Vec::new();
-    for line in pulls_tsv.lines() {
-        let mut parts = line.splitn(2, '\t');
-        let pr_num = parts.next().unwrap_or("").trim();
-        let pr_body = parts.next().unwrap_or("");
-        if pr_num.is_empty() {
-            continue;
-        }
-        if pr_body_references_issue(pr_body, &opts.issue) {
-            pr_numbers.push(pr_num.to_string());
-        }
-    }
+    let pr_numbers =
+        load_open_pr_numbers_referencing_issue(&opts.issue, &repo_name).unwrap_or_default();
 
     if pr_numbers.is_empty() {
         println!("No open PRs found referencing issue #{}.", opts.issue);
@@ -2070,7 +1896,9 @@ fn evaluate_parent_issue(
     repo_short_name: &str,
     parent_number: &str,
 ) -> i32 {
-    let (_, body, parent_state, _) = gh_issue_autolink_payload(repo_name, parent_number);
+    let parent_snapshot = issue_remote_snapshot_or_default(repo_name, parent_number);
+    let body = parent_snapshot.body;
+    let parent_state = parent_snapshot.state;
     if parent_state.is_empty() && body.is_empty() {
         return 0;
     }
@@ -2091,7 +1919,9 @@ fn evaluate_parent_issue(
 
     for child_ref in child_refs {
         let child_number = child_ref.trim_start_matches('#');
-        let (child_title, _, child_state, _) = gh_issue_autolink_payload(repo_name, child_number);
+        let child_snapshot = issue_remote_snapshot_or_default(repo_name, child_number);
+        let child_title = child_snapshot.title;
+        let child_state = child_snapshot.state;
         if child_state.is_empty() && child_title.is_empty() {
             open_count += 1;
             open_lines.push_str(&format!("- {} (unreadable or missing)\n", child_ref));
@@ -2482,49 +2312,15 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
 }
 
 pub(crate) fn run_field(opts: IssueFieldOptions) -> i32 {
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldLabel {
-        name: Option<String>,
-    }
-    #[derive(Debug, Deserialize)]
-    struct IssueFieldPayload {
-        title: Option<String>,
-        body: Option<String>,
-        labels: Option<Vec<IssueFieldLabel>>,
-    }
-
-    let mut args: Vec<&str> = vec!["issue", "view", &opts.issue, "--json", "title,body,labels"];
-    if let Some(repo) = opts.repo.as_deref() {
-        args.push("-R");
-        args.push(repo);
-    }
-
-    let payload_raw = gh_output_or_empty(&args);
-    if payload_raw.trim().is_empty() {
+    let Ok(snapshot) = load_issue_remote_snapshot(&opts.issue, opts.repo.as_deref()) else {
         println!();
         return 0;
-    }
-    let payload = match common_json::from_json_str::<IssueFieldPayload>(&payload_raw) {
-        Ok(value) => value,
-        Err(err) => {
-            eprintln!("failed to parse issue payload: {err}");
-            return 1;
-        }
     };
 
     match opts.name {
-        IssueFieldName::Title => println!("{}", payload.title.unwrap_or_default()),
-        IssueFieldName::Body => println!("{}", payload.body.unwrap_or_default()),
-        IssueFieldName::LabelsRaw => {
-            let labels = payload
-                .labels
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|item| item.name)
-                .collect::<Vec<_>>()
-                .join("||");
-            println!("{labels}");
-        }
+        IssueFieldName::Title => println!("{}", snapshot.title),
+        IssueFieldName::Body => println!("{}", snapshot.body),
+        IssueFieldName::LabelsRaw => println!("{}", issue_labels_raw(&snapshot)),
     }
 
     0
@@ -2560,15 +2356,15 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
     let comments_endpoint = format!("repos/{}/issues/{}/comments", opts.repo, opts.issue);
     let comments_json = gh_output_or_empty(&["api", &comments_endpoint]);
     let comments = parse_issue_comments(&comments_json);
-    let existing_id = find_latest_matching_comment_id(&comments, &opts.marker);
-
-    let had_existing_comment = existing_id.is_some();
-    let status = upsert_issue_comment(
-        &opts.repo,
-        &comments_endpoint,
-        &opts.body,
-        existing_id.as_deref(),
-    );
+    let had_existing_comment = find_latest_matching_comment_id(&comments, &opts.marker).is_some();
+    let status =
+        match upsert_issue_comment_by_marker(&opts.repo, &opts.issue, &opts.marker, &opts.body) {
+            Ok(_) => 0,
+            Err(err) => {
+                eprintln!("{err}");
+                1
+            }
+        };
 
     if status != 0 {
         return status;
@@ -2583,17 +2379,6 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
     }
 
     0
-}
-
-fn execute_command(command: Vec<String>) -> i32 {
-    let borrowed = command.iter().map(String::as_str).collect::<Vec<&str>>();
-    match gh_cli::status(&borrowed) {
-        Ok(()) => 0,
-        Err(err) => {
-            eprintln!("Failed to execute command: {err}");
-            1
-        }
-    }
 }
 
 fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
@@ -2626,51 +2411,10 @@ fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Vec
     cmd
 }
 
-fn gh_output_or_empty(args: &[&str]) -> String {
-    gh_output(args, true).unwrap_or_default()
-}
-
-fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
-    match gh_cli::output_trim(args) {
-        Ok(value) => Ok(value),
-        Err(_) if silence_stderr => Ok(String::new()),
-        Err(message) => Err(message),
-    }
-}
-
-fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
-    let pattern = format!(
-        r"(?i)\b(closes|fixes)\b\s+(rejected\s+)?[^#\s]*#{}(?:\b|[^0-9])",
-        regex::escape(issue_number)
-    );
-    Regex::new(&pattern)
-        .map(|re| re.is_match(body))
-        .unwrap_or(false)
-}
-
 fn print_non_empty_lines(text: &str) {
     for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
         println!("{line}");
     }
-}
-
-fn upsert_issue_comment(
-    repo: &str,
-    comments_endpoint: &str,
-    body: &str,
-    comment_id: Option<&str>,
-) -> i32 {
-    let mut cmd = gh_command(&["api"]);
-    if let Some(id) = comment_id {
-        push_arg(&mut cmd, "-X");
-        push_arg(&mut cmd, "PATCH");
-        push_arg(&mut cmd, format!("repos/{repo}/issues/comments/{id}"));
-    } else {
-        push_arg(&mut cmd, comments_endpoint);
-    }
-    push_arg(&mut cmd, "-f");
-    push_arg(&mut cmd, format!("body={body}"));
-    execute_command(cmd)
 }
 
 fn push_arg<T: Into<String>>(cmd: &mut Vec<String>, value: T) {

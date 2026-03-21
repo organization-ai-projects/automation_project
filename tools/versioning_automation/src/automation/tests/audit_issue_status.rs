@@ -27,7 +27,7 @@ fn extract_issue_refs_ignores_cancelled_closes() {
 #[test]
 fn extract_parent_field_normalizes_parent_value() {
     let body = "Some body\nParent: (EPIC)\nOther: value";
-    let parent = super::super::audit_issue_status::extract_parent_field(body);
+    let parent = crate::parent_field::extract_parent_field(body);
     assert_eq!(parent.as_deref(), Some("epic"));
 }
 

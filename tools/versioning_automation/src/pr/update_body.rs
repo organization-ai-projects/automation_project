@@ -1,5 +1,5 @@
+use crate::gh_cli::status_cmd;
 use crate::pr::commands::pr_update_body_options::PrUpdateBodyOptions;
-use crate::pr::gh_cli::gh_status;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_update_body(opts: PrUpdateBodyOptions) -> i32 {
@@ -11,7 +11,7 @@ pub(crate) fn run_update_body(opts: PrUpdateBodyOptions) -> i32 {
         }
     };
 
-    gh_status(
+    match status_cmd(
         "pr",
         &[
             "edit",
@@ -21,5 +21,11 @@ pub(crate) fn run_update_body(opts: PrUpdateBodyOptions) -> i32 {
             "--body",
             &opts.body,
         ],
-    )
+    ) {
+        Ok(()) => 0,
+        Err(err) => {
+            eprintln!("Failed to execute gh pr: {err}");
+            1
+        }
+    }
 }

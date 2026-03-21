@@ -1,26 +1,19 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs;
 
-use common_json::Json;
-use regex::Regex;
-
-use crate::pr::breaking_detect::text_indicates_breaking;
+use crate::category_resolver::classify_title;
+use crate::compare_snapshot::fetch_pr_refs;
+use crate::gh_cli::{output_trim_cmd, status_cmd};
+use crate::pr::IssueOutcomesSnapshot;
 use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
 use crate::pr::commands::pr_generate_description_options::PrGenerateDescriptionOptions;
-use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::commit_info::CommitInfo;
-use crate::pr::conflicts::build_conflict_report;
-use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::duplicate_actions::run_duplicate_actions;
 use crate::pr::generate_options::GenerateOptions;
-use crate::pr::gh_cli::{gh_output_trim, gh_output_trim_end_newline};
 use crate::pr::group_by_category::CATEGORIES;
-use crate::pr::issue_context::load_issue_context_payload;
-use crate::pr::main_pr_ref_snapshot::MainPrRefSnapshot;
 use crate::pr::render::print_usage;
-use crate::pr::resolve_category::{issue_category_from_labels, resolve_effective_category};
-use crate::pr::scan::scan_directives;
-use crate::pr::text_payload::extract_effective_issue_ref_records;
+use crate::pr_remote_snapshot::load_pr_remote_snapshot;
+use crate::pr_run_snapshot::load_pr_run_snapshot;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{git_cli, pr};
 
@@ -48,7 +41,7 @@ pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i3
 
 fn run_generate_flow(opts: GenerateOptions) -> i32 {
     let (base_ref, head_ref) = if let Some(pr_number) = opts.auto_edit_pr_number.as_deref() {
-        let refs = match fetch_main_pr_refs(pr_number) {
+        let refs = match fetch_pr_refs(pr_number) {
             Ok(value) => value,
             Err(msg) => {
                 eprintln!("{msg}");
@@ -75,7 +68,7 @@ fn run_generate_flow(opts: GenerateOptions) -> i32 {
         };
         (base_ref, head_ref)
     } else if let Some(main_pr_number) = opts.main_pr_number.as_deref() {
-        let refs = match fetch_main_pr_refs(main_pr_number) {
+        let refs = match fetch_pr_refs(main_pr_number) {
             Ok(value) => value,
             Err(msg) => {
                 eprintln!("{msg}");
@@ -116,40 +109,27 @@ fn run_generate_flow(opts: GenerateOptions) -> i32 {
         (base_ref, head_ref)
     };
 
-    let range = format!("{base_ref}..{head_ref}");
-    let mut commits = match git_log_commits(&range) {
+    let run_snapshot = match load_pr_run_snapshot(&base_ref, &head_ref) {
         Ok(value) => value,
         Err(msg) => {
-            if !opts.dry_run {
-                eprintln!("Warning: {msg}");
-            }
-            Vec::new()
+            eprintln!("{msg}");
+            return E_DEPENDENCY;
         }
     };
+    let range = format!(
+        "{}..{}",
+        run_snapshot.compare.base_ref, run_snapshot.compare.head_ref
+    );
+    let commits = run_snapshot.compare.commits;
 
     if commits.is_empty() {
-        if opts.dry_run {
-            eprintln!(
-                "Error: unable to determine commit messages for --dry-run compare {base_ref}...{head_ref}."
-            );
-            return E_NO_DATA;
-        }
-        commits = compare_api_commits(&base_ref, &head_ref).unwrap_or_default();
+        eprintln!("Error: unable to retrieve commit messages for {base_ref}...{head_ref}.");
+        return E_NO_DATA;
     }
 
-    if commits.is_empty() {
-        if opts.dry_run {
-            eprintln!(
-                "Error: unable to determine commit messages for --dry-run compare {base_ref}...{head_ref}."
-            );
-            return E_NO_DATA;
-        }
-        eprintln!("Error: unable to retrieve commit messages for {base_ref}..{head_ref}.");
-        return E_DEPENDENCY;
-    }
-
-    let validation_gate = build_validation_gate(&commits);
-    let duplicate_targets = collect_duplicate_targets(&commits);
+    let validation_gate = run_snapshot.validation_gate;
+    let duplicate_targets = run_snapshot.duplicate_targets;
+    let issue_outcomes = run_snapshot.issue_outcomes;
     if let Some(mode) = opts.duplicate_mode.as_deref()
         && !opts.dry_run
     {
@@ -202,7 +182,14 @@ fn run_generate_flow(opts: GenerateOptions) -> i32 {
         };
         replace_validation_gate(&current_body, &validation_gate)
     } else {
-        build_full_body(&base_ref, &head_ref, &commits, &range, &validation_gate)
+        build_full_body(
+            &base_ref,
+            &head_ref,
+            &commits,
+            &range,
+            &validation_gate,
+            &issue_outcomes,
+        )
     };
 
     let exit_code = if let Some(pr_number) = opts.auto_edit_pr_number {
@@ -267,6 +254,7 @@ pub(crate) fn build_full_body(
     commits: &[CommitInfo],
     range: &str,
     validation_gate: &str,
+    issue_outcomes: &IssueOutcomesSnapshot,
 ) -> String {
     let mut out = String::new();
 
@@ -279,7 +267,7 @@ pub(crate) fn build_full_body(
     out.push_str("\n\n");
 
     out.push_str("### Issue Outcomes\n\n");
-    out.push_str(&render_issue_outcomes(commits));
+    out.push_str(&render_issue_outcomes(issue_outcomes));
     out.push_str("\n\n");
 
     out.push_str("### Key Changes\n\n");
@@ -292,85 +280,47 @@ pub(crate) fn build_full_body(
     out.trim_end().to_string()
 }
 
-fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
-    let mut closes = BTreeSet::new();
-    let mut reopens = BTreeSet::new();
-
-    let text = commits
-        .iter()
-        .map(|commit| format!("{}\n{}", commit.subject, commit.body))
-        .collect::<Vec<String>>()
-        .join("\n\n");
-    let conflict_report = build_conflict_report(&text, 1);
-    let resolved_conflicts = conflict_report.resolved.into_iter().collect::<Vec<_>>();
-    let unresolved_conflicts = conflict_report.unresolved.into_iter().collect::<Vec<_>>();
-    let resolved_conflict_keys = resolved_conflicts
-        .iter()
-        .map(|entry| entry.issue.clone())
-        .collect::<BTreeSet<_>>();
-
-    for record in extract_effective_issue_ref_records(&text) {
-        if record.first == "Closes" {
-            closes.insert(record.second);
-        } else if record.first == "Reopen" {
-            reopens.insert(record.second);
-        }
-    }
-
-    if closes.is_empty()
-        && reopens.is_empty()
-        && resolved_conflicts.is_empty()
-        && unresolved_conflicts.is_empty()
-    {
+fn render_issue_outcomes(snapshot: &IssueOutcomesSnapshot) -> String {
+    if snapshot.is_empty() {
         return "- No issues processed in this PR.".to_string();
     }
 
-    let close_only = closes
-        .difference(&resolved_conflict_keys)
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    let reopen_only = reopens
-        .difference(&resolved_conflict_keys)
-        .cloned()
-        .collect::<BTreeSet<_>>();
-
-    let directive_resolution_records = resolved_conflicts
+    let close_rendered = render_issue_outcome_entries(&snapshot.close_only, "Closes");
+    let reopen_rendered = render_issue_outcome_entries(&snapshot.reopen_only, "Reopen");
+    let directive_resolution_records = snapshot
+        .resolved_conflicts
         .iter()
         .map(|entry| {
             (
                 entry
-                    .issue
+                    .0
                     .trim_start_matches('#')
                     .parse::<u32>()
                     .unwrap_or(u32::MAX),
-                "Automation".to_string(),
+                entry.1.clone(),
                 vec![render_directive_resolution_line(
-                    &entry.issue,
-                    &entry.decision,
-                    &entry.origin,
+                    &entry.0, &entry.2, &entry.3,
                 )],
                 0usize,
             )
         })
         .collect::<Vec<_>>();
-    let unresolved_conflict_records = unresolved_conflicts
+    let unresolved_conflict_records = snapshot
+        .unresolved_conflicts
         .iter()
         .map(|entry| {
             (
                 entry
-                    .issue
+                    .0
                     .trim_start_matches('#')
                     .parse::<u32>()
                     .unwrap_or(u32::MAX),
-                resolve_issue_outcome_category(&entry.issue),
-                vec![entry.issue.clone(), entry.reason.clone()],
+                entry.1.clone(),
+                vec![entry.0.clone(), entry.2.clone()],
                 0usize,
             )
         })
         .collect::<Vec<_>>();
-
-    let close_rendered = render_issue_outcome_section(&close_only, "Closes");
-    let reopen_rendered = render_issue_outcome_section(&reopen_only, "Reopen");
     let directive_rendered =
         render_issue_outcome_groups_with_mode(&directive_resolution_records, "directive")
             .trim()
@@ -419,17 +369,18 @@ fn render_issue_outcomes(commits: &[CommitInfo]) -> String {
     out
 }
 
-fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> String {
-    let records = issue_keys
+fn render_issue_outcome_entries(entries: &[(String, String)], action: &str) -> String {
+    let records = entries
         .iter()
-        .map(|issue_key| {
+        .map(|entry| {
             (
-                issue_key
+                entry
+                    .0
                     .trim_start_matches('#')
                     .parse::<u32>()
                     .unwrap_or(u32::MAX),
-                resolve_issue_outcome_category(issue_key),
-                vec![action.to_string(), issue_key.to_string()],
+                entry.1.clone(),
+                vec![action.to_string(), entry.0.clone()],
                 0usize,
             )
         })
@@ -437,9 +388,9 @@ fn render_issue_outcome_section(issue_keys: &BTreeSet<String>, action: &str) -> 
 
     let rendered = render_issue_outcome_groups(&records);
     if rendered.trim().is_empty() {
-        issue_keys
+        entries
             .iter()
-            .map(|issue_key| format!("- {action} {issue_key}"))
+            .map(|entry| format!("- {action} {}", entry.0))
             .collect::<Vec<String>>()
             .join("\n")
     } else {
@@ -510,16 +461,6 @@ fn render_directive_resolution_line(issue_key: &str, decision: &str, origin: &st
             "{prefix} {issue_key} - resolved Closes/Reopen conflict; winner: {resolved_action}; origin: {origin}."
         )
     }
-}
-
-fn resolve_issue_outcome_category(issue_key: &str) -> String {
-    let opts = PrIssueContextOptions {
-        issue_number: issue_key.trim_start_matches('#').to_string(),
-        repo: None,
-    };
-    let (labels_raw, title_category, _) = load_issue_context_payload(&opts);
-    let label_category = issue_category_from_labels(&labels_raw);
-    resolve_effective_category(label_category, &title_category, "Unknown")
 }
 
 fn render_key_changes(commits: &[CommitInfo]) -> String {
@@ -666,65 +607,6 @@ fn infer_crate_from_path(path: &str) -> Option<String> {
     None
 }
 
-fn build_validation_gate(commits: &[CommitInfo]) -> String {
-    let ci_status = "UNKNOWN ⚪";
-
-    let mut breaking_commit_hashes = BTreeSet::new();
-    let mut breaking_scopes = BTreeSet::new();
-
-    let scope_re =
-        Regex::new(r"^[\s]*[a-z][a-z0-9_-]*\(([a-z0-9_./,-]+)\)!?:").expect("valid regex");
-
-    for commit in commits {
-        let combined = format!("{}\n{}", commit.subject, commit.body);
-        if !text_indicates_breaking(&combined) {
-            continue;
-        }
-
-        breaking_commit_hashes.insert(commit.short_hash.clone());
-
-        if let Some(caps) = scope_re.captures(commit.subject.trim()) {
-            let scope = caps.get(1).map(|m| m.as_str().trim()).unwrap_or_default();
-            if !scope.is_empty() {
-                breaking_scopes.insert(scope.to_string());
-            }
-        }
-    }
-
-    let mut lines = vec![
-        "### Validation Gate".to_string(),
-        String::new(),
-        format!("- CI: {ci_status}"),
-    ];
-
-    if breaking_commit_hashes.is_empty() {
-        lines.push("- No breaking change".to_string());
-    } else {
-        lines.push("- Breaking change".to_string());
-        lines.push("- Breaking scope:".to_string());
-
-        if breaking_scopes.is_empty() {
-            lines.push("  - crate(s): metadata-only (scope not inferable)".to_string());
-        } else {
-            let scopes = breaking_scopes
-                .iter()
-                .map(|v| format!("`{v}`"))
-                .collect::<Vec<String>>()
-                .join(", ");
-            lines.push(format!("  - crate(s): {scopes}"));
-        }
-
-        let commits_value = breaking_commit_hashes
-            .iter()
-            .map(|v| format!("`{v}`"))
-            .collect::<Vec<String>>()
-            .join(", ");
-        lines.push(format!("  - source commit(s): {commits_value}"));
-    }
-
-    lines.join("\n")
-}
-
 fn replace_validation_gate(body: &str, replacement: &str) -> String {
     replace_top_level_section(body, "### Validation Gate", replacement)
 }
@@ -767,10 +649,10 @@ fn replace_top_level_section(body: &str, marker: &str, replacement: &str) -> Str
 }
 
 fn gh_read_pr_body(pr_number: &str) -> Result<String, String> {
-    gh_output_trim_end_newline(
-        "pr",
-        &["view", pr_number, "--json", "body", "-q", ".body // \"\""],
-    )
+    let Some(repo) = resolve_repo_name_optional(None) else {
+        return Err("Error: unable to determine repository.".to_string());
+    };
+    load_pr_remote_snapshot(pr_number, &repo).map(|snapshot| snapshot.body)
 }
 
 fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
@@ -778,7 +660,7 @@ fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
         return Err("Error: unable to determine repository.".to_string());
     };
     let endpoint = format!("repos/{repo}/pulls/{pr_number}");
-    gh_output_trim(
+    status_cmd(
         "api",
         &[
             &endpoint,
@@ -788,33 +670,6 @@ fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {
             &format!("body={body}"),
         ],
     )
-    .map(|_| ())
-}
-
-fn git_log_commits(range: &str) -> Result<Vec<CommitInfo>, String> {
-    let text = git_cli::output_preserve(&["log", "--format=%H%x1f%s%x1f%b%x1e", range])
-        .map_err(|err| format!("Error: failed to run git log for range {range}: {err}"))?;
-    let mut commits = Vec::new();
-
-    for record in text.split('\x1e') {
-        if record.trim().is_empty() {
-            continue;
-        }
-        let mut parts = record.split('\x1f');
-        let hash = parts.next().unwrap_or_default().trim();
-        let subject = parts.next().unwrap_or_default().trim();
-        let body = parts.next().unwrap_or_default().trim();
-        if hash.is_empty() && subject.is_empty() && body.is_empty() {
-            continue;
-        }
-        commits.push(CommitInfo {
-            short_hash: hash.chars().take(7).collect::<String>(),
-            subject: subject.to_string(),
-            body: body.to_string(),
-        });
-    }
-
-    Ok(commits)
 }
 
 fn current_branch_name() -> Result<String, String> {
@@ -825,25 +680,6 @@ fn current_branch_name() -> Result<String, String> {
     }
 
     Ok(branch)
-}
-
-fn classify_title(title: &str) -> &'static str {
-    let lower = title.to_lowercase();
-
-    if lower.starts_with("merge ") || lower.contains("main into") || lower.contains("dev into") {
-        return "Synchronization";
-    }
-    if lower.starts_with("fix") || lower.contains("bug") || lower.contains("hotfix") {
-        return "Bug Fixes";
-    }
-    if lower.starts_with("refactor")
-        || lower.starts_with("chore")
-        || lower.contains("cleanup")
-        || lower.contains("maintainability")
-    {
-        return "Refactoring";
-    }
-    "Features"
 }
 
 fn build_dynamic_pr_title(base_ref: &str, head_ref: &str, commits: &[CommitInfo]) -> String {
@@ -900,26 +736,6 @@ fn build_dynamic_pr_title(base_ref: &str, head_ref: &str, commits: &[CommitInfo]
     format!("Merge {head_ref} into {base_ref}: {summary}")
 }
 
-fn collect_duplicate_targets(commits: &[CommitInfo]) -> BTreeMap<String, String> {
-    let text = commits
-        .iter()
-        .map(|commit| format!("{}\n{}", commit.subject, commit.body))
-        .collect::<Vec<String>>()
-        .join("\n\n");
-
-    let mut targets = BTreeMap::new();
-    for record in scan_directives(&text, true) {
-        if record.record_type != DirectiveRecordType::Duplicate {
-            continue;
-        }
-        if !record.first.is_empty() && !record.second.is_empty() {
-            targets.insert(record.first, record.second);
-        }
-    }
-
-    targets
-}
-
 fn render_duplicate_mode_message(mode: &str, targets: &BTreeMap<String, String>) -> String {
     if targets.is_empty() {
         format!("Duplicate mode ({mode}): no duplicate declarations detected.")
@@ -929,7 +745,7 @@ fn render_duplicate_mode_message(mode: &str, targets: &BTreeMap<String, String>)
 }
 
 fn gh_create_pr(base_ref: &str, head_ref: &str, title: &str, body: &str) -> Result<String, String> {
-    let text = gh_output_trim(
+    let text = output_trim_cmd(
         "pr",
         &[
             "create",
@@ -1136,72 +952,6 @@ pub(crate) fn parse_generate_options(args: &[String]) -> Result<GenerateOptions,
         validation_only,
         output_file,
     })
-}
-
-fn fetch_main_pr_refs(pr_number: &str) -> Result<MainPrRefSnapshot, String> {
-    let mut args = vec![
-        "view".to_string(),
-        pr_number.to_string(),
-        "--json".to_string(),
-        "baseRefName,headRefName".to_string(),
-    ];
-    if let Some(repo) = resolve_repo_name_optional(None) {
-        args.push("-R".to_string());
-        args.push(repo);
-    }
-
-    let borrowed = args.iter().map(String::as_str).collect::<Vec<&str>>();
-    let json = gh_output_trim("pr", &borrowed)?;
-    common_json::from_json_str::<MainPrRefSnapshot>(&json).map_err(|err| err.to_string())
-}
-
-fn compare_api_commits(base_ref: &str, head_ref: &str) -> Result<Vec<CommitInfo>, String> {
-    let Some(repo) = resolve_repo_name_optional(None) else {
-        return Err("Error: unable to determine repository.".to_string());
-    };
-
-    let endpoint = format!("repos/{repo}/compare/{base_ref}...{head_ref}");
-    let json = gh_output_trim("api", &[&endpoint])?;
-    let parsed: Json = common_json::from_json_str(&json).map_err(|err| err.to_string())?;
-
-    let mut commits = Vec::new();
-    let commit_entries = parsed
-        .as_object()
-        .and_then(|object| object.get("commits"))
-        .and_then(Json::as_array)
-        .cloned()
-        .unwrap_or_default();
-    for entry in commit_entries {
-        let Some(entry_object) = entry.as_object() else {
-            continue;
-        };
-        let sha = entry_object
-            .get("sha")
-            .and_then(Json::as_str)
-            .unwrap_or_default()
-            .to_string();
-        let message = entry_object
-            .get("commit")
-            .and_then(Json::as_object)
-            .and_then(|commit_object| commit_object.get("message"))
-            .and_then(Json::as_str)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        if message.is_empty() {
-            continue;
-        }
-        let mut lines = message.lines();
-        let subject = lines.next().unwrap_or_default().trim().to_string();
-        let body = lines.collect::<Vec<&str>>().join("\n").trim().to_string();
-        commits.push(CommitInfo {
-            short_hash: sha.chars().take(7).collect::<String>(),
-            subject,
-            body,
-        });
-    }
-
-    Ok(commits)
 }
 
 fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {

@@ -16,11 +16,11 @@ mod duplicate_actions;
 mod execute;
 mod generate_description;
 mod generate_options;
-mod gh_cli;
 mod group_by_category;
 mod issue_close_policy;
 mod issue_context;
 mod issue_decision;
+mod issue_outcomes_snapshot;
 mod issue_ref_kind;
 mod issue_view;
 mod main_pr_ref_snapshot;
@@ -43,4 +43,13 @@ mod upsert_comment;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use breaking_detect::text_indicates_breaking;
+pub(crate) use commands::pr_issue_context_options::PrIssueContextOptions;
+pub(crate) use commit_info::CommitInfo;
+pub(crate) use contracts::github::issue_label::IssueLabel;
+pub(crate) use domain::directives::directive_record_type::DirectiveRecordType;
 pub(crate) use execute::run;
+pub(crate) use issue_context::load_issue_context_payload;
+pub(crate) use issue_outcomes_snapshot::{IssueOutcomesSnapshot, build_issue_outcomes_snapshot};
+pub(crate) use main_pr_ref_snapshot::MainPrRefSnapshot;
+pub(crate) use resolve_category::{issue_category_from_labels, resolve_effective_category};

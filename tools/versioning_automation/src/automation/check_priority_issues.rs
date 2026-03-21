@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use crate::automation::commands::CheckPriorityIssuesOptions;
+use crate::gh_cli;
 
-use super::execute::{object_string, object_u64, parse_json_array, run_gh_output};
+use super::execute::{object_string, object_u64, parse_json_array};
 
 pub(crate) fn run_check_priority_issues(opts: CheckPriorityIssuesOptions) -> Result<(), String> {
     let mut by_number: BTreeMap<u64, (String, String)> = BTreeMap::new();
@@ -23,7 +24,8 @@ pub(crate) fn run_check_priority_issues(opts: CheckPriorityIssuesOptions) -> Res
             args.push("-R");
             args.push(repo);
         }
-        let output = run_gh_output(&args)?;
+        let output =
+            gh_cli::output_trim(&args).map_err(|e| format!("Failed to run gh issue list: {e}"))?;
         let issues = parse_json_array(&output, "issues JSON")?;
         for issue in issues {
             let Some(issue_object) = issue.as_object() else {
