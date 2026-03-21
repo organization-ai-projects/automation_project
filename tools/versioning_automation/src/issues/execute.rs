@@ -24,6 +24,7 @@ use crate::issues::required_fields::{
 };
 use crate::issues::sync_project_status::run_sync_project_status;
 use crate::issues::tasklist_refs::extract_tasklist_refs;
+use crate::open_pr_issue_refs::load_open_pr_numbers_referencing_issue;
 use crate::pr::text_payload::{extract_effective_action_issue_numbers, load_pr_text_payload};
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
@@ -1881,26 +1882,8 @@ pub(crate) fn run_reevaluate(opts: ReevaluateOptions) -> i32 {
         }
     };
 
-    let pulls_tsv = gh_output_or_empty(&[
-        "api",
-        &format!("repos/{repo_name}/pulls?state=open&per_page=100"),
-        "--paginate",
-        "--jq",
-        ".[]. | [.number, (.body // \"\")] | @tsv",
-    ]);
-
-    let mut pr_numbers: Vec<String> = Vec::new();
-    for line in pulls_tsv.lines() {
-        let mut parts = line.splitn(2, '\t');
-        let pr_num = parts.next().unwrap_or("").trim();
-        let pr_body = parts.next().unwrap_or("");
-        if pr_num.is_empty() {
-            continue;
-        }
-        if pr_body_references_issue(pr_body, &opts.issue) {
-            pr_numbers.push(pr_num.to_string());
-        }
-    }
+    let pr_numbers =
+        load_open_pr_numbers_referencing_issue(&opts.issue, &repo_name).unwrap_or_default();
 
     if pr_numbers.is_empty() {
         println!("No open PRs found referencing issue #{}.", opts.issue);
@@ -2624,16 +2607,6 @@ fn gh_output(args: &[&str], silence_stderr: bool) -> Result<String, String> {
         Err(_) if silence_stderr => Ok(String::new()),
         Err(message) => Err(message),
     }
-}
-
-fn pr_body_references_issue(body: &str, issue_number: &str) -> bool {
-    let pattern = format!(
-        r"(?i)\b(closes|fixes)\b\s+(rejected\s+)?[^#\s]*#{}(?:\b|[^0-9])",
-        regex::escape(issue_number)
-    );
-    Regex::new(&pattern)
-        .map(|re| re.is_match(body))
-        .unwrap_or(false)
 }
 
 fn print_non_empty_lines(text: &str) {

@@ -8,6 +8,7 @@ mod gh_cli;
 mod git;
 mod git_cli;
 mod issues;
+mod open_pr_issue_refs;
 mod pr;
 mod pr_remote_snapshot;
 mod pr_run_snapshot;
