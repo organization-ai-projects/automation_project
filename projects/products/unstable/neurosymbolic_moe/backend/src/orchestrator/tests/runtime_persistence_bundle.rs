@@ -509,8 +509,8 @@ fn runtime_bundle_roundtrip_with_high_volume_preserves_counts() {
             .expect("long memory write should succeed");
         source.put_session_buffer(
             &ProtocolId::default(),
-            &format!("checkpoint.{idx}"),
-            &format!("state snapshot marker {idx}"),
+            format!("checkpoint.{idx}"),
+            format!("state snapshot marker {idx}"),
         );
     }
 
