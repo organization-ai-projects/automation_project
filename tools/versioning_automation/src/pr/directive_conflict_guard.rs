@@ -2,10 +2,11 @@ use std::collections::BTreeSet;
 
 use regex::Regex;
 
+use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
-use crate::pr::gh_cli::{gh_output_trim, gh_status};
+use crate::pr::gh_cli::gh_status;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 
@@ -196,34 +197,12 @@ fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
 }
 
 fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
-    let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
-    let comment_id = gh_output_trim(
-        "api",
-        &[
-            &list_path,
-            "--paginate",
-            "--jq",
-            &format!(
-                "map(select((.body // \"\") | contains(\"{}\"))) | sort_by(.updated_at) | last | .id // empty",
-                marker.replace('"', "\\\"")
-            ),
-        ],
-    )
-    .unwrap_or_default();
-
-    if comment_id.trim().is_empty() {
-        gh_status("api", &[&list_path, "-f", &format!("body={body}")])
-    } else {
-        gh_status(
-            "api",
-            &[
-                "-X",
-                "PATCH",
-                &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
-                "-f",
-                &format!("body={body}"),
-            ],
-        )
+    match upsert_issue_comment_by_marker(repo_name, pr_number, marker, body) {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
     }
 }
 

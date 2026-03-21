@@ -5,6 +5,7 @@ mod cli_action;
 mod compare_snapshot;
 mod gh_cli;
 mod git_cli;
+mod issue_comment_upsert;
 mod issue_remote_snapshot;
 mod open_pr_issue_refs;
 mod parent_field;

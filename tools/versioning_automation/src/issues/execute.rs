@@ -5,6 +5,7 @@ use std::fs;
 use regex::Regex;
 use serde::Deserialize;
 
+use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::issue_remote_snapshot::{issue_labels_raw, load_issue_remote_snapshot};
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
@@ -1433,32 +1434,12 @@ fn build_neutralize_comment_body(
 }
 
 fn upsert_pr_marker_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
-    let list_path = format!("repos/{repo_name}/issues/{pr_number}/comments");
-    let marker_query = marker.replace('\\', "\\\\").replace('"', "\\\"");
-    let jq_filter = format!(
-        "map(select((.body // \"\") | contains(\"{marker_query}\"))) | sort_by(.updated_at) | last | .id // empty"
-    );
-    let comment_id = gh_output_or_empty(&["api", &list_path, "--paginate", "--jq", &jq_filter]);
-
-    if comment_id.trim().is_empty() {
-        execute_command({
-            let mut cmd = gh_command(&["api", &list_path]);
-            push_arg(&mut cmd, "-f");
-            push_arg(&mut cmd, format!("body={body}"));
-            cmd
-        })
-    } else {
-        execute_command({
-            let mut cmd = gh_command(&[
-                "api",
-                "-X",
-                "PATCH",
-                &format!("repos/{repo_name}/issues/comments/{}", comment_id.trim()),
-            ]);
-            push_arg(&mut cmd, "-f");
-            push_arg(&mut cmd, format!("body={body}"));
-            cmd
-        })
+    match upsert_issue_comment_by_marker(repo_name, pr_number, marker, body) {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("{err}");
+            1
+        }
     }
 }
 
@@ -2441,15 +2422,15 @@ pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32
     let comments_endpoint = format!("repos/{}/issues/{}/comments", opts.repo, opts.issue);
     let comments_json = gh_output_or_empty(&["api", &comments_endpoint]);
     let comments = parse_issue_comments(&comments_json);
-    let existing_id = find_latest_matching_comment_id(&comments, &opts.marker);
-
-    let had_existing_comment = existing_id.is_some();
-    let status = upsert_issue_comment(
-        &opts.repo,
-        &comments_endpoint,
-        &opts.body,
-        existing_id.as_deref(),
-    );
+    let had_existing_comment = find_latest_matching_comment_id(&comments, &opts.marker).is_some();
+    let status =
+        match upsert_issue_comment_by_marker(&opts.repo, &opts.issue, &opts.marker, &opts.body) {
+            Ok(_) => 0,
+            Err(err) => {
+                eprintln!("{err}");
+                1
+            }
+        };
 
     if status != 0 {
         return status;
@@ -2523,25 +2504,6 @@ fn print_non_empty_lines(text: &str) {
     for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
         println!("{line}");
     }
-}
-
-fn upsert_issue_comment(
-    repo: &str,
-    comments_endpoint: &str,
-    body: &str,
-    comment_id: Option<&str>,
-) -> i32 {
-    let mut cmd = gh_command(&["api"]);
-    if let Some(id) = comment_id {
-        push_arg(&mut cmd, "-X");
-        push_arg(&mut cmd, "PATCH");
-        push_arg(&mut cmd, format!("repos/{repo}/issues/comments/{id}"));
-    } else {
-        push_arg(&mut cmd, comments_endpoint);
-    }
-    push_arg(&mut cmd, "-f");
-    push_arg(&mut cmd, format!("body={body}"));
-    execute_command(cmd)
 }
 
 fn push_arg<T: Into<String>>(cmd: &mut Vec<String>, value: T) {
