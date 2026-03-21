@@ -243,13 +243,13 @@ fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
 fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
     let sessions_buffer = buffer_manager.sessions();
     let mut sessions = sessions_buffer.list_sessions();
-    sessions.sort_unstable_by(|a, b| a.to_string().cmp(&b.to_string()));
+    sessions.sort_unstable_by_key(|session| session.to_string());
     let mut fingerprint = String::new();
     for session in sessions {
         if !fingerprint.is_empty() {
             fingerprint.push(';');
         }
-        if let Ok(()) = write!(fingerprint, "{}:", session.to_string()) {}
+        if let Ok(()) = write!(fingerprint, "{session}:") {}
         let values = sessions_buffer.values_ref(&session);
         for (value_idx, value) in values.iter().enumerate() {
             if value_idx > 0 {
@@ -303,7 +303,7 @@ fn dataset_fingerprint(
     corrections: &HashMap<ProtocolId, Vec<Correction>>,
 ) -> String {
     let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
-    ordered_entries.sort_by(|a, b| a.id.to_hex().cmp(&b.id.to_hex()));
+    ordered_entries.sort_by_key(|entry| entry.id.to_hex());
     let mut fingerprint = String::new();
     let mut first_segment = true;
     for entry in ordered_entries {
@@ -323,7 +323,7 @@ fn dataset_fingerprint(
     }
 
     let mut ordered_keys: Vec<&ProtocolId> = corrections.keys().collect();
-    ordered_keys.sort_by(|a, b| a.to_hex().cmp(&b.to_hex()));
+    ordered_keys.sort_by_key(|key| key.to_hex());
     for key in ordered_keys {
         if let Some(values) = corrections.get(key) {
             for correction in values {
@@ -441,7 +441,7 @@ where
     I: IntoIterator<Item = &'a ProtocolId>,
 {
     let mut ordered_ids: Vec<&ProtocolId> = ids.into_iter().collect();
-    ordered_ids.sort_unstable_by(|a, b| a.to_string().cmp(&b.to_string()));
+    ordered_ids.sort_unstable_by_key(|id| id.to_string());
     let mut fingerprint = String::new();
     let mut first_segment = true;
     for id in &ordered_ids {

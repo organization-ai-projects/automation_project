@@ -76,7 +76,7 @@ impl Retriever for SimpleRetriever {
                 let relevance = Self::compute_relevance(&chunk.content, &query.query);
                 if relevance >= query.min_relevance && relevance > 0.0 {
                     Some(RetrievalResult {
-                        chunk_id: chunk.id.clone(),
+                        chunk_id: chunk.id,
                         content: chunk.content.clone(),
                         relevance_score: relevance,
                         source: chunk.source.clone(),

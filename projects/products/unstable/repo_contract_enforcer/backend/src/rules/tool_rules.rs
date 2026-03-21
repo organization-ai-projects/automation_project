@@ -54,40 +54,39 @@ impl ToolRules {
             ));
         }
 
-        if cargo.exists() {
-            if let Some(txt) =
+        if cargo.exists()
+            && let Some(txt) =
                 read_text_or_emit_violation(&mut out, (scope, mode), &cargo, "Cargo.toml")
-            {
-                if txt.contains("[lib]") {
-                    out.push(make_violation(
-                        RuleId::Crate,
-                        ViolationCode::CrateNotBinOnly,
-                        (scope, mode),
-                        &cargo,
-                        "tool crate must be bin-only (no [lib])",
-                        (true, None),
-                    ));
-                }
-                if txt.contains("[[bin]]") {
-                    out.push(make_violation(
-                        RuleId::Crate,
-                        ViolationCode::CrateNotBinOnly,
-                        (scope, mode),
-                        &cargo,
-                        "tool crate must be single-bin only (no [[bin]])",
-                        (true, None),
-                    ));
-                }
-                if !txt.contains(&format!("name = \"{tool_name}\"")) {
-                    out.push(make_violation(
-                        RuleId::Naming,
-                        ViolationCode::NameCrateMismatch,
-                        (scope, mode),
-                        &cargo,
-                        &format!("tool crate name must be {tool_name}"),
-                        (true, None),
-                    ));
-                }
+        {
+            if txt.contains("[lib]") {
+                out.push(make_violation(
+                    RuleId::Crate,
+                    ViolationCode::CrateNotBinOnly,
+                    (scope, mode),
+                    &cargo,
+                    "tool crate must be bin-only (no [lib])",
+                    (true, None),
+                ));
+            }
+            if txt.contains("[[bin]]") {
+                out.push(make_violation(
+                    RuleId::Crate,
+                    ViolationCode::CrateNotBinOnly,
+                    (scope, mode),
+                    &cargo,
+                    "tool crate must be single-bin only (no [[bin]])",
+                    (true, None),
+                ));
+            }
+            if !txt.contains(&format!("name = \"{tool_name}\"")) {
+                out.push(make_violation(
+                    RuleId::Naming,
+                    ViolationCode::NameCrateMismatch,
+                    (scope, mode),
+                    &cargo,
+                    &format!("tool crate name must be {tool_name}"),
+                    (true, None),
+                ));
             }
         }
 

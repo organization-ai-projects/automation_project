@@ -23,12 +23,12 @@ impl TraceConverter {
         let task_id = traces
             .first()
             .map(|t| t.task_id.clone())
-            .unwrap_or_else(|| TaskId::new());
+            .unwrap_or_else(TaskId::new);
 
         let expert_id = traces
             .iter()
             .find_map(|t| t.expert_id.clone())
-            .unwrap_or_else(|| ExpertId::new());
+            .unwrap_or_else(ExpertId::new);
 
         let timestamp = traces.iter().map(|t| t.timestamp).max().unwrap_or(0);
 

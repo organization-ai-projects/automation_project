@@ -407,6 +407,7 @@ impl MoePipeline {
         leased
     }
 
+    #[cfg(test)]
     pub fn acknowledge_trainer_trigger_event(&mut self, event_id: ProtocolId) -> bool {
         if self.trainer_trigger_queue.acknowledge(&event_id) {
             self.training_runtime_state
@@ -448,6 +449,7 @@ impl MoePipeline {
         }
     }
 
+    #[cfg(test)]
     pub fn drain_trainer_trigger_events(&mut self, max_events: usize) -> Vec<TrainerTriggerEvent> {
         self.trainer_trigger_queue.drain(max_events)
     }

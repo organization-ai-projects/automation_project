@@ -1,4 +1,4 @@
-use common_time::{Timestamp, current_timestamp_ms};
+use common_time::Timestamp;
 use protocol::ProtocolId;
 use serde::{Deserialize, Serialize};
 
@@ -19,29 +19,4 @@ pub struct TrainerTriggerEvent {
     pub last_attempted_at: Option<Timestamp>,
 }
 
-impl TrainerTriggerEvent {
-    pub fn new(
-        event_id: ProtocolId,
-        model_version: Version,
-        training_bundle_checksum: String,
-        included_entries: usize,
-        train_samples: usize,
-        validation_samples: usize,
-    ) -> Self {
-        Self {
-            event_id,
-            model_version,
-            training_bundle_checksum,
-            included_entries,
-            train_samples,
-            validation_samples,
-            generated_at: current_timestamp_ms(),
-            delivery_attempts: 0,
-            last_attempted_at: None,
-        }
-    }
-
-    pub fn update_last_attempted(&mut self) {
-        self.last_attempted_at = Some(current_timestamp_ms());
-    }
-}
+impl TrainerTriggerEvent {}

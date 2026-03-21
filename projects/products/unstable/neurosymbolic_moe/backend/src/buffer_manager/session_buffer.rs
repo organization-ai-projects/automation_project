@@ -62,19 +62,6 @@ impl SessionBuffer {
             .collect()
     }
 
-    pub fn values_protocol_id(&self, session_id: &ProtocolId) -> Vec<ProtocolId> {
-        let mut entries: Vec<&BufferEntry> = self
-            .sessions
-            .get(session_id)
-            .map(|session| session.values().collect())
-            .unwrap_or_default();
-        entries.sort_by(|a, b| a.key.cmp(&b.key));
-        entries
-            .into_iter()
-            .filter_map(|entry| entry.session_id.as_ref().and_then(|id| id.parse().ok()))
-            .collect()
-    }
-
     pub fn remove_session(&mut self, session_id: &ProtocolId) -> bool {
         self.sessions.remove(session_id).is_some()
     }

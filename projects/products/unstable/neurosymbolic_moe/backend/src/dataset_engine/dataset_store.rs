@@ -48,7 +48,7 @@ impl DatasetStore {
 
     pub fn add_correction(&mut self, correction: Correction) {
         self.corrections
-            .entry(correction.entry_id.clone())
+            .entry(correction.entry_id)
             .or_default()
             .push(correction);
     }
@@ -260,7 +260,7 @@ impl DatasetStore {
                 .unwrap_or_else(|| (entry.output.clone(), false, None));
 
             let sample = DatasetTrainingSample {
-                entry_id: entry.id.clone(),
+                entry_id: entry.id,
                 task_id: entry.task_id.clone(),
                 expert_id: entry.expert_id.clone(),
                 input: entry.input.clone(),
@@ -607,11 +607,9 @@ impl DatasetStore {
         let mut duplicates: Vec<ProtocolId> = Vec::new();
 
         for sample in samples {
-            let entry_id = sample.entry_id.clone();
-            if !seen.insert(entry_id.clone()) {
-                if !duplicates.contains(&entry_id) {
-                    duplicates.push(entry_id);
-                }
+            let entry_id = sample.entry_id;
+            if !seen.insert(entry_id) && !duplicates.contains(&entry_id) {
+                duplicates.push(entry_id);
             }
         }
 

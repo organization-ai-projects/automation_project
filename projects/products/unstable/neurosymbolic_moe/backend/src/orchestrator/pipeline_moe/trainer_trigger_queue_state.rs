@@ -179,6 +179,7 @@ impl TrainerTriggerQueueState {
         Some(event.clone())
     }
 
+    #[cfg(test)]
     pub fn acknowledge(&mut self, event_id: &ProtocolId) -> bool {
         if !self.leased_event_ids.contains(event_id) {
             return false;
@@ -217,6 +218,7 @@ impl TrainerTriggerQueueState {
         }
     }
 
+    #[cfg(test)]
     pub fn drain(&mut self, max_events: usize) -> Vec<TrainerTriggerEvent> {
         if max_events == 0 || self.events.is_empty() {
             return Vec::new();
