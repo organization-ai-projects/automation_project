@@ -148,11 +148,13 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
             }
 
             for issue_number in closing_issue_numbers {
-                let Some((state, labels_raw)) =
-                    load_issue_sync_snapshot(&repo_name, &issue_number, "skipping")
-                else {
+                let snapshot = issue_remote_snapshot_or_default(&repo_name, &issue_number);
+                if snapshot.state.is_empty() {
+                    println!("Issue #{}: unreadable; skipping.", issue_number);
                     continue;
-                };
+                }
+                let labels_raw = issue_labels_raw(&snapshot);
+                let state = snapshot.state;
                 let sync_plan =
                     plan_done_in_dev_sync(&state, has_label_named(&labels_raw, &label_name));
                 if !sync_plan.add_done_in_dev_label {
@@ -282,11 +284,13 @@ pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
         std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
 
     for issue_number in reopen_issue_numbers {
-        let Some((state, labels_raw)) =
-            load_issue_sync_snapshot(&repo_name, &issue_number, "skipping reopen sync")
-        else {
+        let snapshot = issue_remote_snapshot_or_default(&repo_name, &issue_number);
+        if snapshot.state.is_empty() {
+            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
             continue;
-        };
+        }
+        let labels_raw = issue_labels_raw(&snapshot);
+        let state = snapshot.state;
         let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
         if sync_plan.reopen_issue {
@@ -345,24 +349,6 @@ fn load_effective_issue_action_numbers_for_pr(
     };
 
     Ok(extract_effective_action_issue_numbers(&payload))
-}
-
-fn load_issue_sync_snapshot(
-    repo_name: &str,
-    issue_number: &str,
-    unreadable_suffix: &str,
-) -> Option<(String, String)> {
-    let snapshot = issue_remote_snapshot_or_default(repo_name, issue_number);
-    let labels_raw = issue_labels_raw(&snapshot);
-    let state = snapshot.state;
-    if state.is_empty() {
-        println!(
-            "Issue #{}: unreadable; {}.",
-            issue_number, unreadable_suffix
-        );
-        return None;
-    }
-    Some((state, labels_raw))
 }
 
 fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
