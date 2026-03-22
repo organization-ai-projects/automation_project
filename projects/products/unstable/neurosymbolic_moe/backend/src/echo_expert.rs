@@ -13,11 +13,6 @@ pub(crate) struct EchoExpert {
 }
 
 impl EchoExpert {
-    #[cfg(test)]
-    pub(crate) fn new(name: &str, capabilities: Vec<ExpertCapability>) -> Self {
-        Self::new_with_id(ProtocolId::default(), name, capabilities)
-    }
-
     pub(crate) fn new_with_id(
         id: ProtocolId,
         name: &str,

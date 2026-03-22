@@ -2,9 +2,15 @@ use crate::aggregator::{AggregationStrategy, OutputAggregator};
 use crate::moe_core::{ExpertId, ExpertOutput};
 use protocol::ProtocolId;
 use std::collections::HashMap;
+use std::str::FromStr;
 
-fn expert_id(_byte: u8) -> ExpertId {
-    ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> ExpertId {
+    ExpertId::from_protocol_id(protocol_id(byte))
+}
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 fn make_output(id: u8, confidence: f64) -> ExpertOutput {

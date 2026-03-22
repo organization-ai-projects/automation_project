@@ -1,11 +1,13 @@
-use protocol::ProtocolId;
-
 use crate::orchestrator::{TrainerTriggerEvent, Version};
+use protocol::ProtocolId;
+use std::str::FromStr;
 
 #[test]
 fn trainer_trigger_event_fields_roundtrip() {
+    let event_id = ProtocolId::from_str("00000000000000000000000000000001")
+        .expect("test protocol id should be valid fixed hex");
     let event = TrainerTriggerEvent {
-        event_id: ProtocolId::default(),
+        event_id,
         model_version: Version::new(3, 0, 0),
         training_bundle_checksum: "bundle-xyz".to_string(),
         included_entries: 120,
@@ -15,7 +17,7 @@ fn trainer_trigger_event_fields_roundtrip() {
         delivery_attempts: 2,
         last_attempted_at: Some(1234),
     };
-    assert_eq!(event.event_id, ProtocolId::default());
+    assert_eq!(event.event_id, event_id);
     assert_eq!(event.model_version, Version::new(3, 0, 0));
     assert_eq!(event.training_bundle_checksum, "bundle-xyz");
     assert_eq!(event.included_entries, 120);

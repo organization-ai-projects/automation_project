@@ -8,17 +8,28 @@ use crate::moe_core::{
 };
 use crate::orchestrator::Version;
 use crate::router::{HeuristicRouter, Router};
+use protocol::ProtocolId;
+use std::str::FromStr;
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
+}
+
+fn expert_id(byte: u8) -> crate::moe_core::ExpertId {
+    crate::moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
 
 struct TestExpert {
     meta: ExpertMetadata,
 }
 
 impl TestExpert {
-    fn new(id: &str, capabilities: Vec<ExpertCapability>) -> Self {
+    fn new(id: crate::moe_core::ExpertId, name: &str, capabilities: Vec<ExpertCapability>) -> Self {
         Self {
             meta: ExpertMetadata {
-                id: ExpertId::new(),
-                name: id.to_string(),
+                id,
+                name: name.to_string(),
                 version: Version::new(1, 0, 0),
                 capabilities,
                 status: ExpertStatus::Active,
@@ -62,7 +73,9 @@ impl Expert for TestExpert {
 #[test]
 fn routes_to_correct_expert_by_capability() {
     let mut registry = ExpertRegistry::new();
+    let codegen_expert_id = expert_id(1);
     let register_result = registry.register(Box::new(TestExpert::new(
+        codegen_expert_id.clone(),
         "codegen",
         vec![ExpertCapability::CodeGeneration],
     )));
@@ -73,7 +86,7 @@ fn routes_to_correct_expert_by_capability() {
     let decision = router.route(&task, &registry);
     assert!(decision.is_ok());
     let decision = decision.expect("route must succeed");
-    assert!(decision.selected_experts.contains(&ExpertId::new()));
+    assert!(decision.selected_experts.contains(&codegen_expert_id));
 }
 
 #[test]
@@ -90,6 +103,7 @@ fn respects_max_experts_limit() {
     let mut registry = ExpertRegistry::new();
     for i in 0..5 {
         let register_result = registry.register(Box::new(TestExpert::new(
+            expert_id((i + 1) as u8),
             &format!("e{i}"),
             vec![ExpertCapability::CodeGeneration],
         )));

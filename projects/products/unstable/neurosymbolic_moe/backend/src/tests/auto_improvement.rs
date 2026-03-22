@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use protocol::ProtocolId;
+use std::str::FromStr;
 
 use crate::aggregator::AggregationStrategy;
 use crate::dataset_engine::{
@@ -12,6 +13,11 @@ use crate::echo_expert::EchoExpert;
 use crate::moe_core::{ExpertCapability, ExpertId, Task, TaskId, TaskPriority, TaskType};
 use crate::orchestrator::{AutoImprovementPolicy, MoePipelineBuilder};
 use crate::router::HeuristicRouter;
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
+}
 
 #[test]
 fn bootstrap_initial_dataset_from_training_bundle_json_seeds_entries() {
@@ -88,7 +94,8 @@ fn execute_triggers_auto_improvement_when_policy_thresholds_are_met() {
         .with_auto_improvement_policy(policy)
         .build();
     pipeline
-        .register_expert(Box::new(EchoExpert::new(
+        .register_expert(Box::new(EchoExpert::new_with_id(
+            protocol_id(1),
             "AutoExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
@@ -143,7 +150,8 @@ fn execute_tracks_skip_reason_when_min_dataset_entries_is_not_reached() {
         .with_auto_improvement_policy(policy)
         .build();
     pipeline
-        .register_expert(Box::new(EchoExpert::new(
+        .register_expert(Box::new(EchoExpert::new_with_id(
+            protocol_id(2),
             "AutoSkipExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
@@ -184,7 +192,8 @@ fn trainer_trigger_event_queue_supports_pop_and_bounded_drain() {
         .with_auto_improvement_policy(policy)
         .build();
     pipeline
-        .register_expert(Box::new(EchoExpert::new(
+        .register_expert(Box::new(EchoExpert::new_with_id(
+            protocol_id(3),
             "AutoQueueExpert",
             vec![ExpertCapability::CodeGeneration],
         )))
@@ -201,8 +210,7 @@ fn trainer_trigger_event_queue_supports_pop_and_bounded_drain() {
     let remaining = pipeline.trainer_trigger_events_pending();
     assert!(remaining >= 2);
 
-    let drained = pipeline.drain_trainer_trigger_events(1);
-    assert_eq!(drained.len(), 1);
+    assert!(pipeline.pop_next_trainer_trigger_event().is_some());
     assert_eq!(pipeline.trainer_trigger_events_pending(), remaining - 1);
     assert!(!pipeline.trainer_trigger_events().is_empty());
 }
@@ -229,7 +237,8 @@ fn trainer_trigger_event_queue_supports_lease_fail_and_ack_flow() {
         .with_auto_improvement_policy(policy)
         .build();
     pipeline
-        .register_expert(Box::new(EchoExpert::new(
+        .register_expert(Box::new(EchoExpert::new_with_id(
+            protocol_id(4),
             "auto-lease-expert",
             vec![ExpertCapability::CodeGeneration],
         )))
@@ -311,7 +320,8 @@ fn trainer_trigger_event_queue_dead_letters_after_max_attempts_policy() {
         .with_auto_improvement_policy(policy)
         .build();
     pipeline
-        .register_expert(Box::new(EchoExpert::new(
+        .register_expert(Box::new(EchoExpert::new_with_id(
+            protocol_id(5),
             "auto-dead-letter-expert",
             vec![ExpertCapability::CodeGeneration],
         )))

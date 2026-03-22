@@ -1,11 +1,17 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/moe_core/tests/expert_output.rs
 use protocol::ProtocolId;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::moe_core::{self, ExpertOutput};
 
-fn expert_id(_byte: u8) -> moe_core::ExpertId {
-    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> moe_core::ExpertId {
+    moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 #[test]

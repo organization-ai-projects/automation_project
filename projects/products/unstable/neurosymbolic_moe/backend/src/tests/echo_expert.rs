@@ -3,11 +3,18 @@ use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertStatus, ExpertType, Task, TaskType,
 };
 use crate::orchestrator::Version;
+use protocol::ProtocolId;
+use std::str::FromStr;
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
+}
 
 #[test]
 fn echo_expert_new_sets_metadata_correctly() {
     let capabilities = vec![ExpertCapability::Routing];
-    let expert = EchoExpert::new("echo", capabilities.clone());
+    let expert = EchoExpert::new_with_id(protocol_id(1), "echo", capabilities.clone());
 
     let metadata = expert.metadata();
 
@@ -20,14 +27,14 @@ fn echo_expert_new_sets_metadata_correctly() {
 
 #[test]
 fn echo_expert_id_matches_metadata_id() {
-    let expert = EchoExpert::new("echo", vec![ExpertCapability::Routing]);
+    let expert = EchoExpert::new_with_id(protocol_id(1), "echo", vec![ExpertCapability::Routing]);
 
     assert_eq!(expert.id(), &expert.metadata().id);
 }
 
 #[test]
 fn echo_expert_can_handle_returns_false_when_task_input_is_empty() {
-    let expert = EchoExpert::new("echo", vec![ExpertCapability::Routing]);
+    let expert = EchoExpert::new_with_id(protocol_id(1), "echo", vec![ExpertCapability::Routing]);
 
     let task = Task::new(TaskType::Custom("default".to_string()), String::new());
 
@@ -36,7 +43,7 @@ fn echo_expert_can_handle_returns_false_when_task_input_is_empty() {
 
 #[test]
 fn echo_expert_can_handle_returns_true_when_task_input_is_not_empty() {
-    let expert = EchoExpert::new("echo", vec![ExpertCapability::Routing]);
+    let expert = EchoExpert::new_with_id(protocol_id(1), "echo", vec![ExpertCapability::Routing]);
 
     let task = Task::new(TaskType::Custom("default".to_string()), "hello".to_string());
 
@@ -45,7 +52,7 @@ fn echo_expert_can_handle_returns_true_when_task_input_is_not_empty() {
 
 #[test]
 fn echo_expert_execute_returns_real_expected_output() {
-    let expert = EchoExpert::new("echo", vec![ExpertCapability::Routing]);
+    let expert = EchoExpert::new_with_id(protocol_id(1), "echo", vec![ExpertCapability::Routing]);
 
     let task = Task::new(TaskType::Custom("default".to_string()), "hello".to_string());
 

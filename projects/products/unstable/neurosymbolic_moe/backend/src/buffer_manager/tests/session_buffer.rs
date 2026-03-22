@@ -1,8 +1,10 @@
 use crate::buffer_manager::SessionBuffer;
 use protocol::ProtocolId;
+use std::str::FromStr;
 
-fn protocol_id(_byte: u8) -> ProtocolId {
-    ProtocolId::default()
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 #[test]

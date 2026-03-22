@@ -1,13 +1,19 @@
 use crate::moe_core::{self, TracePhase, TraceRecord};
 use protocol::ProtocolId;
 use std::collections::HashMap;
+use std::str::FromStr;
 
-fn task_id(_byte: u8) -> moe_core::TaskId {
-    moe_core::TaskId::from_protocol_id(ProtocolId::default())
+fn task_id(byte: u8) -> moe_core::TaskId {
+    moe_core::TaskId::from_protocol_id(protocol_id(byte))
 }
 
-fn expert_id(_byte: u8) -> moe_core::ExpertId {
-    moe_core::ExpertId::from_protocol_id(ProtocolId::default())
+fn expert_id(byte: u8) -> moe_core::ExpertId {
+    moe_core::ExpertId::from_protocol_id(protocol_id(byte))
+}
+
+fn protocol_id(byte: u8) -> ProtocolId {
+    ProtocolId::from_str(&format!("{:032x}", byte.max(1)))
+        .expect("test protocol id should be valid fixed hex")
 }
 
 #[test]
