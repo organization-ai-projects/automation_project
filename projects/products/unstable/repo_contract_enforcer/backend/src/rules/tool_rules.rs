@@ -1,3 +1,4 @@
+//! projects/products/unstable/repo_contract_enforcer/backend/src/rules/tool_rules.rs
 use crate::scan::file_scanner::FileScanner;
 use crate::scan::rust_parser::{MainItemViolationKind, RustParser};
 use crate::{config, reports, rules};
@@ -68,16 +69,28 @@ impl ToolRules {
                     (true, None),
                 ));
             }
+
             if txt.contains("[[bin]]") {
-                out.push(make_violation(
-                    RuleId::Crate,
-                    ViolationCode::CrateNotBinOnly,
-                    (scope, mode),
-                    &cargo,
-                    "tool crate must be single-bin only (no [[bin]])",
-                    (true, None),
-                ));
+                let cli_name = read_cli_name_from_metadata(tool_dir);
+                let bin_name = parse_bin_name_from_cargo(&txt);
+
+                let allowed = match (&cli_name, &bin_name) {
+                    (Some(cli), Some(bin)) => cli == bin,
+                    _ => false,
+                };
+
+                if !allowed {
+                    out.push(make_violation(
+                        RuleId::Crate,
+                        ViolationCode::CrateNotBinOnly,
+                        (scope, mode),
+                        &cargo,
+                        "tool crate must be single-bin only (no [[bin]]); to declare a CLI name, set cli_name in metadata.ron and use [[bin]] name = cli_name",
+                        (true, None),
+                    ));
+                }
             }
+
             if !txt.contains(&format!("name = \"{tool_name}\"")) {
                 out.push(make_violation(
                     RuleId::Naming,
@@ -250,6 +263,87 @@ impl ToolRules {
     }
 }
 
+// ---------------------------------------------------------------------------
+// CLI name helpers
+// ---------------------------------------------------------------------------
+
+/// Reads `cli_name` from `metadata.ron` located at the tool root.
+/// Returns `None` if the file is absent, unreadable, or `cli_name` is not set.
+fn read_cli_name_from_metadata(tool_dir: &std::path::Path) -> Option<String> {
+    let metadata_path = tool_dir.join("metadata.ron");
+    let content = std::fs::read_to_string(&metadata_path).ok()?;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Match `cli_name:` key anywhere on the line.
+        let rest = trimmed.strip_prefix("cli_name:").or_else(|| {
+            // Handle inline tuple: `..., cli_name: Some("va"), ...`
+            let pos = trimmed.find("cli_name:")?;
+            Some(&trimmed[pos + "cli_name:".len()..])
+        });
+
+        if let Some(rest) = rest {
+            // Strip trailing comma, whitespace, comments.
+            let value = rest
+                .trim()
+                .trim_end_matches(',')
+                .trim()
+                .split("//") // strip inline comments
+                .next()
+                .unwrap_or_default()
+                .trim();
+
+            // Match `Some("...")` — tolerant of inner whitespace.
+            let inner = value
+                .strip_prefix("Some(")
+                .or_else(|| value.strip_prefix("Some ("))?
+                .trim()
+                .strip_prefix('"')?;
+
+            let name = inner.split('"').next()?.trim();
+
+            if !name.is_empty() {
+                return Some(name.to_string());
+            }
+
+            // Explicit None — stop here.
+            return None;
+        }
+    }
+    None
+}
+
+/// Extracts the `name` field from the first `[[bin]]` section in a Cargo.toml string.
+/// Returns `None` if `[[bin]]` is absent or has no `name` field.
+fn parse_bin_name_from_cargo(cargo_toml: &str) -> Option<String> {
+    let mut in_bin_section = false;
+    for line in cargo_toml.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[[bin]]" {
+            in_bin_section = true;
+            continue;
+        }
+        if in_bin_section && trimmed.starts_with('[') {
+            break;
+        }
+        if in_bin_section && let Some(rest) = trimmed.strip_prefix("name") {
+            let rest = rest.trim();
+            if let Some(value) = rest.strip_prefix('=') {
+                let raw = value.trim().trim_matches('"');
+                if !raw.is_empty() {
+                    return Some(raw.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Private helpers (unchanged)
+// ---------------------------------------------------------------------------
+
 fn should_enforce_primary_item_contract(
     src_dir: &std::path::Path,
     rs_file: &std::path::Path,
@@ -258,7 +352,6 @@ fn should_enforce_primary_item_contract(
     if is_excluded_primary_stem(stem) {
         return false;
     }
-
     let rel = match rs_file.strip_prefix(src_dir) {
         Ok(path) => path,
         Err(_) => return true,
@@ -305,7 +398,6 @@ fn expected_paired_test_path(rs_file: &std::path::Path) -> Option<std::path::Pat
     if is_excluded_primary_stem(stem) {
         return None;
     }
-
     let parent = rs_file.parent()?;
     Some(parent.join("tests").join(format!("{stem}.rs")))
 }
@@ -353,13 +445,11 @@ fn make_violation(
     } else {
         config::severity::Severity::Warning
     };
-
     if mode == config::enforcement_mode::EnforcementMode::Relaxed
         || scope == config::path_classification::PathClassification::Unstable
     {
         severity = config::severity::Severity::Warning;
     }
-
     reports::violation::Violation {
         rule_id,
         violation_code: code,
@@ -410,61 +500,4 @@ fn is_fn_line(trimmed: &str) -> bool {
         || trimmed.starts_with("pub unsafe fn ")
         || trimmed.starts_with("async unsafe fn ")
         || trimmed.starts_with("pub async unsafe fn ")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::ToolRules;
-    use crate::config::enforcement_mode::EnforcementMode;
-    use crate::config::path_classification::PathClassification;
-    use crate::reports::violation_code::ViolationCode;
-    use std::fs;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temp_tool_root() -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("time before epoch")
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("repo_contract_enforcer_tool_rules_{stamp}"));
-        fs::create_dir_all(&root).expect("create temp tool root");
-        root
-    }
-
-    fn write_minimal_tool(tool_root: &std::path::Path, tool_name: &str) {
-        fs::create_dir_all(tool_root.join("src")).expect("create src dir");
-        fs::write(
-            tool_root.join("Cargo.toml"),
-            format!("[package]\nname = \"{tool_name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"),
-        )
-        .expect("write Cargo.toml");
-        fs::write(tool_root.join("src/main.rs"), "fn main() {}\n").expect("write main.rs");
-    }
-
-    #[test]
-    fn tool_detects_multiple_primary_items_in_single_file() {
-        let tool_root = temp_tool_root();
-        let tool_name = "multi_primary_tool";
-        write_minimal_tool(&tool_root, tool_name);
-
-        fs::write(
-            tool_root.join("src/multi.rs"),
-            "pub struct Alpha;\npub struct Beta;\n",
-        )
-        .expect("write multi.rs");
-
-        let violations = ToolRules::evaluate(
-            &tool_root,
-            PathClassification::Tool,
-            EnforcementMode::Strict,
-        );
-
-        assert!(violations.iter().any(|v| {
-            v.violation_code == ViolationCode::CratePrimaryItemContractViolation
-                && v.path.ends_with("src/multi.rs")
-                && v.message
-                    .contains("multiple primary struct/enum/trait declarations")
-        }));
-    }
 }

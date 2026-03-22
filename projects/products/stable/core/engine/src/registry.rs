@@ -149,6 +149,7 @@ impl Registry {
             capabilities: Vec::new(),
             domains: Vec::new(),
             ai_hints: None,
+            cli_name: None,
         })
     }
 
