@@ -1,0 +1,50 @@
+(
+    agent_name: "autonomous_dev_ai",
+    execution_mode: "ci_bound",
+    neural: (
+        enabled: true,
+        prefer_gpu: true,
+        cpu_fallback: true,
+        models: {
+            "intent": "intent_v1.bin",
+            "codegen": "codegen_v2.bin",
+            "review": "review_v1.bin",
+        },
+    ),
+    symbolic: (
+        strict_validation: true,
+        deterministic: true,
+    ),
+    objectives: [
+        (
+            name: "task_completion",
+            weight: 1.0,
+            hard: true,
+            threshold: Some(1.0),
+        ),
+        (
+            name: "policy_safety",
+            weight: 1.0,
+            hard: true,
+            threshold: Some(1.0),
+        ),
+        (
+            name: "tests_pass",
+            weight: 0.9,
+            hard: true,
+            threshold: Some(1.0),
+        ),
+        (
+            name: "minimal_diff",
+            weight: 0.6,
+            hard: false,
+            threshold: None,
+        ),
+        (
+            name: "time_budget",
+            weight: 0.4,
+            hard: false,
+            threshold: None,
+        ),
+    ],
+)
