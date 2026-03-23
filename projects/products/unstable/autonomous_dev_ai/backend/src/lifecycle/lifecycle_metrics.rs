@@ -1,0 +1,20 @@
+// projects/products/unstable/autonomous_dev_ai/src/lifecycle/lifecycle_metrics.rs
+use std::{collections::HashMap, time::Duration};
+
+#[derive(Debug, Clone, Default)]
+pub struct LifecycleMetrics {
+    pub iterations_total: usize,
+    pub iterations_successful: usize,
+    pub iterations_failed: usize,
+    pub tool_executions_total: usize,
+    pub tool_executions_failed: usize,
+    pub state_transitions_total: usize,
+    pub risk_gate_allows: usize,
+    pub risk_gate_denies: usize,
+    pub risk_gate_high_approvals: usize,
+    pub total_duration: Duration,
+    pub average_iteration_duration: Duration,
+    pub tool_execution_times: HashMap<String, Vec<Duration>>,
+    pub tool_execution_counts: HashMap<String, usize>,
+    pub tool_execution_failures: HashMap<String, usize>,
+}
