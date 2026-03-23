@@ -72,7 +72,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     .map_err(|error| format!("Failed to write executor config: {error}"))?;
 
     println!(
-        "[orchestrator] Building binaries (autonomy_orchestrator_ai, auto_manager_ai, autonomous_dev_ai, autonomy_reviewer_ai)..."
+        "[orchestrator] Building binaries (autonomy_orchestrator_ai, auto_manager_ai, autonomy_reviewer_ai)..."
     );
     run_command(
         Command::new("cargo")
@@ -81,8 +81,6 @@ pub fn run(args: &[String]) -> Result<(), String> {
             .arg("autonomy_orchestrator_ai")
             .arg("-p")
             .arg("auto_manager_ai")
-            .arg("-p")
-            .arg("autonomous_dev_ai")
             .arg("-p")
             .arg("autonomy_reviewer_ai")
             .current_dir(&root_dir),
