@@ -1,0 +1,19 @@
+[package]
+name = "autonomous_dev_ai_ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing = { workspace = true }
+thiserror = { workspace = true }
+common_ron = { workspace = true }
+serde = { workspace = true }
+common = { workspace = true }
+common_json = { workspace = true }
+common_binary = { workspace = true }
+
+# UI-specific dependencies
+dioxus = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+http = { workspace = true }
