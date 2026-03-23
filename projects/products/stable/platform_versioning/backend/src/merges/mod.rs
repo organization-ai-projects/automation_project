@@ -8,3 +8,6 @@ pub use conflict::Conflict;
 pub use conflict_kind::ConflictKind;
 pub use merge::Merge;
 pub use merge_result::MergeResult;
+
+#[cfg(test)]
+mod tests;

@@ -26,6 +26,7 @@ impl VscodePrinter {
             let scope = match violation.scope {
                 transport::ipc_client::Scope::Stable => "stable",
                 transport::ipc_client::Scope::Unstable => "unstable",
+                transport::ipc_client::Scope::Tool => "tool",
                 transport::ipc_client::Scope::Other => "other",
             };
             let msg = format!(

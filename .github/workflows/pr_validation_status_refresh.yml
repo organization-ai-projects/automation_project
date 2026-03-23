@@ -37,9 +37,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: dev
-          sparse-checkout: |
-            scripts/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        if: steps.pr.outputs.pr_number != ''
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        if: steps.pr.outputs.pr_number != ''
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         if: steps.pr.outputs.pr_number != ''
@@ -57,6 +62,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/generate_pr_description.sh
-          bash scripts/versioning/file_versioning/github/generate_pr_description.sh \
-            --refresh-pr "${PR_NUMBER}" "${PR_NUMBER}" --validation-only --yes
+          target/debug/versioning_automation pr refresh-validation \
+            --pr "${PR_NUMBER}" \
+            --repo "${GH_REPO}"

@@ -10,3 +10,6 @@ pub use negotiation::Negotiation;
 pub use ref_update::RefUpdate;
 pub use ref_update_policy::RefUpdatePolicy;
 pub use upload_request::UploadRequest;
+
+#[cfg(test)]
+mod tests;

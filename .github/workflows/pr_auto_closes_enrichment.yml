@@ -23,10 +23,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || 'dev' }}
-          sparse-checkout: |
-            scripts/versioning/file_versioning/github/
-            scripts/common_lib/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         run: |
@@ -46,5 +48,4 @@ jobs:
             echo "Invalid or missing PR number." >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh
-          bash scripts/versioning/file_versioning/github/auto_add_closes_on_dev_pr/run.sh --pr "${PR_NUMBER}"
+          target/debug/versioning_automation pr auto-add-closes --pr "${PR_NUMBER}" --repo "${GH_REPO}"

@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/issues/issue_summary.rs
+//! projects/products/stable/platform_ide/backend/src/issues/issue_summary.rs
 use serde::{Deserialize, Serialize};
 
 /// A summary of a platform issue visible to the current user.

@@ -20,4 +20,4 @@ Keeps parent issues consistent with required child issue state.
 
 This workflow delegates core logic to:
 
-- `scripts/versioning/file_versioning/github/parent_issue_guard/run.sh`
+- `versioning_automation issue parent-guard`

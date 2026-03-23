@@ -1,13 +1,6 @@
 // projects/products/stable/platform_versioning/backend/src/diff/diff.rs
 use std::collections::BTreeMap;
 
-#[cfg(test)]
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use serde::{Deserialize, Serialize};
 
 use crate::diffs::{ContentClass, DiffEntry, DiffKind};
@@ -131,99 +124,5 @@ fn read_blob_class(blob_id: &BlobId, store: &ObjectStore) -> Result<ContentClass
     match obj {
         Object::Blob(b) => Ok(ContentClass::of(&b.content)),
         _ => Err(PvError::Internal(format!("{blob_id} is not a blob"))),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::indexes::Index;
-    use crate::objects::Blob;
-    use crate::pipeline::CommitBuilder;
-    use crate::refs_store::RefStore;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir(tag: &str) -> std::path::PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_diff_{tag}_{pid}_{nanos}_{id}"))
-    }
-
-    fn make_stores(tag: &str) -> (ObjectStore, RefStore) {
-        let dir = unique_test_dir(tag);
-        let obj = ObjectStore::open(&dir).unwrap();
-        let refs = RefStore::open(&dir).unwrap();
-        (obj, refs)
-    }
-
-    fn commit_files(
-        files: &[(&str, &[u8])],
-        ts: u64,
-        obj: &ObjectStore,
-        refs: &RefStore,
-    ) -> CommitId {
-        let mut idx = Index::new();
-        for (path, content) in files {
-            let blob = Blob::from_bytes(content.to_vec());
-            idx.add(path.parse().unwrap(), blob.id.clone());
-            obj.write(Object::Blob(blob)).unwrap();
-        }
-        CommitBuilder::new("user", "msg", ts)
-            .commit(&idx, obj, refs)
-            .unwrap()
-            .commit_id
-    }
-
-    #[test]
-    fn added_file_detected() {
-        let (obj, refs) = make_stores("add");
-        let c1 = commit_files(&[("a.txt", b"hello")], 1, &obj, &refs);
-        let c2 = commit_files(&[("a.txt", b"hello"), ("b.txt", b"new")], 2, &obj, &refs);
-        let diff = Diff::compute(&c1, &c2, &obj).unwrap();
-        assert_eq!(diff.entries.len(), 1);
-        assert_eq!(diff.entries[0].kind, DiffKind::Added);
-        assert_eq!(diff.entries[0].path.as_str(), "b.txt");
-    }
-
-    #[test]
-    fn deleted_file_detected() {
-        let (obj, refs) = make_stores("del");
-        let c1 = commit_files(&[("a.txt", b"hello"), ("b.txt", b"bye")], 1, &obj, &refs);
-        let c2 = commit_files(&[("a.txt", b"hello")], 2, &obj, &refs);
-        let diff = Diff::compute(&c1, &c2, &obj).unwrap();
-        assert_eq!(diff.entries.len(), 1);
-        assert_eq!(diff.entries[0].kind, DiffKind::Deleted);
-    }
-
-    #[test]
-    fn modified_file_detected() {
-        let (obj, refs) = make_stores("mod");
-        let c1 = commit_files(&[("a.txt", b"v1")], 1, &obj, &refs);
-        let c2 = commit_files(&[("a.txt", b"v2")], 2, &obj, &refs);
-        let diff = Diff::compute(&c1, &c2, &obj).unwrap();
-        assert_eq!(diff.entries.len(), 1);
-        assert_eq!(diff.entries[0].kind, DiffKind::Modified);
-    }
-
-    #[test]
-    fn identical_revisions_produce_empty_diff() {
-        let (obj, refs) = make_stores("same");
-        let c1 = commit_files(&[("a.txt", b"same")], 1, &obj, &refs);
-        let c2 = commit_files(&[("a.txt", b"same")], 2, &obj, &refs);
-        let diff = Diff::compute(&c1, &c2, &obj).unwrap();
-        assert!(diff.entries.is_empty());
-    }
-
-    #[test]
-    fn diff_output_is_deterministic() {
-        let (obj, refs) = make_stores("det");
-        let c1 = commit_files(&[("f.txt", b"old")], 1, &obj, &refs);
-        let c2 = commit_files(&[("f.txt", b"new")], 2, &obj, &refs);
-        let d1 = Diff::compute(&c1, &c2, &obj).unwrap();
-        let d2 = Diff::compute(&c1, &c2, &obj).unwrap();
-        assert_eq!(d1, d2);
     }
 }

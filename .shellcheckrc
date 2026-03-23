@@ -1,0 +1,8 @@
+external-sources=true
+source-path=.
+source-path=scripts
+source-path=SCRIPTDIR
+source-path=SCRIPTDIR/..
+source-path=SCRIPTDIR/../..
+source-path=SCRIPTDIR/../../..
+source-path=SCRIPTDIR/../../../..

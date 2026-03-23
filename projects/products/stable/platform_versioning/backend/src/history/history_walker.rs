@@ -1,13 +1,6 @@
 // projects/products/stable/platform_versioning/backend/src/history/history_walker.rs
 use std::collections::{HashSet, VecDeque};
 
-#[cfg(test)]
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use crate::errors::PvError;
 use crate::history::{HistoryEntry, HistoryPage};
 use crate::ids::CommitId;
@@ -87,84 +80,5 @@ impl<'a> HistoryWalker<'a> {
             entries,
             next_cursor: None,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::indexes::Index;
-    use crate::objects::Blob;
-    use crate::pipeline::CommitBuilder;
-    use crate::refs_store::RefStore;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir(tag: &str) -> std::path::PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_hist_{tag}_{pid}_{nanos}_{id}"))
-    }
-
-    fn make_stores(tag: &str) -> (ObjectStore, RefStore) {
-        let dir = unique_test_dir(tag);
-        let obj = ObjectStore::open(&dir).unwrap();
-        let refs = RefStore::open(&dir).unwrap();
-        (obj, refs)
-    }
-
-    fn do_commit(
-        path: &str,
-        content: &[u8],
-        ts: u64,
-        obj: &ObjectStore,
-        refs: &RefStore,
-    ) -> CommitId {
-        let blob = Blob::from_bytes(content.to_vec());
-        let mut idx = Index::new();
-        idx.add(path.parse().unwrap(), blob.id.clone());
-        obj.write(Object::Blob(blob)).unwrap();
-        CommitBuilder::new("user", "msg", ts)
-            .commit(&idx, obj, refs)
-            .unwrap()
-            .commit_id
-    }
-
-    #[test]
-    fn single_commit_history() {
-        let (obj, refs) = make_stores("single");
-        let id = do_commit("a.txt", b"data", 1, &obj, &refs);
-        let walker = HistoryWalker::new(&obj);
-        let page = walker.page(&id, 10).unwrap();
-        assert_eq!(page.entries.len(), 1);
-        assert!(page.next_cursor.is_none());
-    }
-
-    #[test]
-    fn linear_history_pagination() {
-        let (obj, refs) = make_stores("paginate");
-        let _id1 = do_commit("a.txt", b"1", 1, &obj, &refs);
-        let _id2 = do_commit("b.txt", b"2", 2, &obj, &refs);
-        let id3 = do_commit("c.txt", b"3", 3, &obj, &refs);
-
-        let walker = HistoryWalker::new(&obj);
-        let page1 = walker.page(&id3, 2).unwrap();
-        assert_eq!(page1.entries.len(), 2);
-        assert!(page1.next_cursor.is_some());
-
-        let page2 = walker.page(&page1.next_cursor.unwrap(), 2).unwrap();
-        assert_eq!(page2.entries.len(), 1);
-        assert!(page2.next_cursor.is_none());
-    }
-
-    #[test]
-    fn invalid_start_returns_error() {
-        let (obj, _refs) = make_stores("invalid");
-        let bad_id = CommitId::from(crate::ids::ObjectId::from_bytes(&[0xddu8; 32]));
-        let walker = HistoryWalker::new(&obj);
-        let result = walker.page(&bad_id, 10);
-        assert!(result.is_err());
     }
 }

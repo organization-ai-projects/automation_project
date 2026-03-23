@@ -12,3 +12,6 @@ pub(crate) use agent_request::AgentRequest;
 pub(crate) use defaults::default_max_iters;
 pub(crate) use strategies::STRATEGIES;
 pub(crate) use strategy_fn::StrategyFn;
+
+#[cfg(test)]
+mod tests;

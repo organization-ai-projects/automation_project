@@ -1,0 +1,9 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/pipeline_moe/tests/mod.rs
+mod execution;
+mod governance_runtime;
+mod governance_runtime_state;
+mod moe_pipeline;
+mod observability;
+mod persistence;
+mod trainer_trigger_queue_state;
+mod training_runtime_state;

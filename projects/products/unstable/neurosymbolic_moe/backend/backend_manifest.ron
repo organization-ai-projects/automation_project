@@ -1,0 +1,9 @@
+(
+  schema_version: 1,
+  id: "neurosymbolic_moe_backend",
+  title: "Neurosymbolic MoE Backend",
+  entrypoint: "neurosymbolic_moe_backend",
+  kind: "backend_service",
+  transport: "stdio_cli",
+  version: "0.1.0",
+)

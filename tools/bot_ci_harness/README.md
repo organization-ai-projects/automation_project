@@ -7,7 +7,7 @@ This directory contains a local harness that tests the CI script for syncing mai
 This harness is responsible for validating the sync automation logic in a controlled, repeatable environment without external dependencies.
 It interacts mainly with:
 
-- Sync scripts under `scripts/versioning/file_versioning/orchestrators/read/`
+- Rust CLI sync command `versioning_automation automation sync-main-dev-ci`
 - Mocked GitHub CLI behaviors
 - Scenario definitions in `scenarios/`
 
@@ -54,7 +54,7 @@ tools/bot_ci_harness/run_all.sh
 ## Choose a different script
 
 ```bash
-SCRIPT_UNDER_TEST=./scripts/.../synch_main_dev_ci.sh tools/bot_ci_harness/run_all.sh
+SCRIPT_UNDER_TEST=./target/debug/versioning_automation tools/bot_ci_harness/run_all.sh
 ```
 
 ## Add a scenario

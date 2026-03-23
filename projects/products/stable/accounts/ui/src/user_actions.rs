@@ -8,6 +8,10 @@ use protocol_accounts::{
 };
 use std::str::FromStr;
 
+pub fn parse_user_id(value: &str) -> Result<ProtocolId, &'static str> {
+    ProtocolId::from_str(value).map_err(|_| "User ID must be 32 hex chars")
+}
+
 /// Reload users list from API with authentication token
 pub fn reload_users_with_token(
     token: String,
@@ -53,10 +57,10 @@ pub fn create_user_action(
         return;
     };
     let user_id_val = user_id.read().clone();
-    let user_id = match ProtocolId::from_str(&user_id_val) {
+    let user_id = match parse_user_id(&user_id_val) {
         Ok(id) => id,
-        Err(_) => {
-            msg.set("User ID must be 32 hex chars".to_string());
+        Err(message) => {
+            msg.set(message.to_string());
             return;
         }
     };
@@ -109,10 +113,10 @@ pub fn update_user_action(
         return;
     };
     let user_id_val = user_id.read().clone();
-    let user_id = match ProtocolId::from_str(&user_id_val) {
+    let user_id = match parse_user_id(&user_id_val) {
         Ok(id) => id,
-        Err(_) => {
-            msg.set("User ID must be 32 hex chars".to_string());
+        Err(message) => {
+            msg.set(message.to_string());
             return;
         }
     };
@@ -163,10 +167,10 @@ pub fn update_status_action(
         return;
     };
     let user_id_val = user_id.read().clone();
-    let user_id = match ProtocolId::from_str(&user_id_val) {
+    let user_id = match parse_user_id(&user_id_val) {
         Ok(id) => id,
-        Err(_) => {
-            msg.set("User ID must be 32 hex chars".to_string());
+        Err(message) => {
+            msg.set(message.to_string());
             return;
         }
     };
@@ -215,10 +219,10 @@ pub fn reset_password_action(
         return;
     };
     let user_id_val = user_id.read().clone();
-    let user_id = match ProtocolId::from_str(&user_id_val) {
+    let user_id = match parse_user_id(&user_id_val) {
         Ok(id) => id,
-        Err(_) => {
-            msg.set("User ID must be 32 hex chars".to_string());
+        Err(message) => {
+            msg.set(message.to_string());
             return;
         }
     };

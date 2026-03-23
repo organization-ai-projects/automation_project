@@ -15,7 +15,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 FILE_LIST="$TMP_DIR/files.txt"
 for i in $(seq 1 1200); do
-  printf 'projects/libraries/layers/domain/security/src/file_%04d.rs\n' "$i" >> "$FILE_LIST"
+	printf 'projects/libraries/layers/domain/security/src/file_%04d.rs\n' "$i" >>"$FILE_LIST"
 done
 
 FILES="$(cat "$FILE_LIST")"
@@ -23,7 +23,7 @@ START_NS="$(date +%s%N)"
 SCOPES="$(collect_scopes_from_files "$FILES")"
 END_NS="$(date +%s%N)"
 
-ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
+ELAPSED_MS=$(((END_NS - START_NS) / 1000000))
 THRESHOLD_MS="${SCOPE_RESOLVER_PERF_THRESHOLD_MS:-15000}"
 
 echo "scope_resolver_perf_smoke: ${ELAPSED_MS}ms (threshold: ${THRESHOLD_MS}ms)"
@@ -31,8 +31,8 @@ echo "resolved scopes:"
 printf '%s\n' "$SCOPES" | sed 's/^/  - /'
 
 if [[ "$ELAPSED_MS" -gt "$THRESHOLD_MS" ]]; then
-  echo "FAIL: scope resolver perf smoke exceeded threshold" >&2
-  exit 1
+	echo "FAIL: scope resolver perf smoke exceeded threshold" >&2
+	exit 1
 fi
 
 echo "PASS"

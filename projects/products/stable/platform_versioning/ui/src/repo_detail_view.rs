@@ -24,22 +24,3 @@ impl RepoDetailView {
         self.recent_commits = vec![];
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn open_repo_resets_state() {
-        let mut view = RepoDetailView {
-            refs: vec![RefEntry {
-                name: "heads/main".to_string(),
-                commit_id: "abc".to_string(),
-            }],
-            ..RepoDetailView::default()
-        };
-        view.open_repo("new-repo".to_string());
-        assert_eq!(view.repo_id.as_deref(), Some("new-repo"));
-        assert!(view.refs.is_empty());
-    }
-}

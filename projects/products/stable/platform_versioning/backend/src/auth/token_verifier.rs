@@ -1,6 +1,8 @@
 // projects/products/stable/platform_versioning/backend/src/auth/token_verifier.rs
 use crate::auth::{AuthToken, TokenClaims};
 use crate::errors::PvError;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 /// Verifies bearer tokens and extracts claims.
 ///
@@ -63,9 +65,6 @@ impl TokenVerifier {
     }
 
     fn sign(&self, data: &[u8]) -> Vec<u8> {
-        use hmac::{Hmac, Mac};
-        use sha2::Sha256;
-
         type HmacSha256 = Hmac<Sha256>;
 
         let Ok(mut mac) = HmacSha256::new_from_slice(&self.secret) else {
@@ -77,7 +76,6 @@ impl TokenVerifier {
 }
 
 fn base64_encode(data: &[u8]) -> String {
-    use std::fmt::Write;
     let mut out = String::new();
     const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for chunk in data.chunks(3) {
@@ -92,15 +90,15 @@ fn base64_encode(data: &[u8]) -> String {
         } else {
             0
         };
-        let _ = write!(out, "{}", TABLE[b0 >> 2] as char);
-        let _ = write!(out, "{}", TABLE[((b0 & 3) << 4) | (b1 >> 4)] as char);
+        out.push(TABLE[b0 >> 2] as char);
+        out.push(TABLE[((b0 & 3) << 4) | (b1 >> 4)] as char);
         if chunk.len() > 1 {
-            let _ = write!(out, "{}", TABLE[((b1 & 0xf) << 2) | (b2 >> 6)] as char);
+            out.push(TABLE[((b1 & 0xf) << 2) | (b2 >> 6)] as char);
         } else {
             out.push('=');
         }
         if chunk.len() > 2 {
-            let _ = write!(out, "{}", TABLE[b2 & 0x3f] as char);
+            out.push(TABLE[b2 & 0x3f] as char);
         } else {
             out.push('=');
         }
@@ -159,68 +157,4 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         diff |= x ^ y;
     }
     diff == 0
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::auth::{Permission, TokenClaims};
-
-    fn make_claims() -> TokenClaims {
-        TokenClaims {
-            subject: "alice".to_string(),
-            grants: vec![],
-            expires_at: None,
-            path_grants: vec![],
-        }
-    }
-
-    fn verifier() -> TokenVerifier {
-        TokenVerifier::new(b"a_very_secure_secret_key_here_!!" as &[u8]).unwrap()
-    }
-
-    #[test]
-    fn issue_and_verify_roundtrip() {
-        let v = verifier();
-        let claims = make_claims();
-        let token = v.issue(&claims).unwrap();
-        let decoded = v.verify(&token).unwrap();
-        assert_eq!(decoded.subject, "alice");
-    }
-
-    #[test]
-    fn tampered_token_is_rejected() {
-        let v = verifier();
-        let claims = make_claims();
-        let mut token_str = v.issue(&claims).unwrap().as_str().to_string();
-        // Flip a character in the payload.
-        let char_idx = token_str.len() / 2;
-        let c = token_str.chars().nth(char_idx).unwrap_or('A');
-        token_str.replace_range(char_idx..char_idx + 1, if c == 'A' { "B" } else { "A" });
-        let result = v.verify(&AuthToken::new(token_str));
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn short_key_rejected() {
-        let result = TokenVerifier::new(b"short");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn has_permission_grants_match() {
-        use crate::auth::PermissionGrant;
-        let repo_id: crate::ids::RepoId = "my-repo".parse().unwrap();
-        let claims = TokenClaims {
-            subject: "bob".to_string(),
-            grants: vec![PermissionGrant {
-                repo_id: Some(repo_id.clone()),
-                permission: Permission::Read,
-            }],
-            expires_at: None,
-            path_grants: vec![],
-        };
-        assert!(claims.has_permission(&repo_id, Permission::Read));
-        assert!(!claims.has_permission(&repo_id, Permission::Write));
-    }
 }

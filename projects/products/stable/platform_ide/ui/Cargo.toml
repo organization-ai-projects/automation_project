@@ -9,5 +9,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
+dioxus = { version = "0.7.3", features = ["web"] }
 
 [dev-dependencies]

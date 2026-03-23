@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "$HARNESS_DIR/../.." && pwd)"
 export GIT_TERMINAL_PROMPT=0
 export GIT_PAGER=cat
 
-SCRIPT_UNDER_TEST="${SCRIPT_UNDER_TEST:-$REPO_ROOT/scripts/versioning/file_versioning/orchestrators/read/synch_main_dev_ci.sh}"
+SCRIPT_UNDER_TEST="${SCRIPT_UNDER_TEST:-$REPO_ROOT/target/debug/versioning_automation}"
 
 source "$HARNESS_DIR/lib/assert.sh"
 source "$HARNESS_DIR/lib/git_sandbox.sh"
@@ -18,7 +18,7 @@ FILTER_PATTERN=""
 FAIL_FAST=0
 
 show_usage() {
-  cat << 'EOF'
+  cat <<'EOF'
 Usage: ./run_all.sh [OPTIONS]
 
 Options:
@@ -37,32 +37,32 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --verbose)
-      VERBOSE=1
-      export VERBOSE=1
-      shift
-      ;;
-    --scenario)
-      SINGLE_SCENARIO="$2"
-      shift 2
-      ;;
-    --filter)
-      FILTER_PATTERN="$2"
-      shift 2
-      ;;
-    --fail-fast)
-      FAIL_FAST=1
-      shift
-      ;;
-    --help|-h)
-      show_usage
-      exit 0
-      ;;
-    *)
-      error "Unknown option: $1"
-      show_usage
-      exit 1
-      ;;
+  --verbose)
+    VERBOSE=1
+    export VERBOSE=1
+    shift
+    ;;
+  --scenario)
+    SINGLE_SCENARIO="$2"
+    shift 2
+    ;;
+  --filter)
+    FILTER_PATTERN="$2"
+    shift 2
+    ;;
+  --fail-fast)
+    FAIL_FAST=1
+    shift
+    ;;
+  --help | -h)
+    show_usage
+    exit 0
+    ;;
+  *)
+    error "Unknown option: $1"
+    show_usage
+    exit 1
+    ;;
   esac
 done
 
@@ -119,16 +119,16 @@ run_one() {
 
   # Git setup
   case "${SETUP:-noop}" in
-    noop) ;;
-    main_ahead)
-      main_add_commit "main ahead commit"
-      ;;
-    conflict)
-      create_merge_conflict
-      ;;
-    *)
-      fail "unknown SETUP: $SETUP"
-      ;;
+  noop) ;;
+  main_ahead)
+    main_add_commit "main ahead commit"
+    ;;
+  conflict)
+    create_merge_conflict
+    ;;
+  *)
+    fail "unknown SETUP: $SETUP"
+    ;;
   esac
 
   # Background commits (optional)
@@ -162,7 +162,11 @@ run_one() {
   export APP_GH_TOKEN="mock_token"
 
   set +e
-  bash "$SCRIPT_UNDER_TEST" 2>&1 | tee "$SANDBOX/script_output.log"
+  "$SCRIPT_UNDER_TEST" automation sync-main-dev-ci \
+    --remote "$REMOTE" \
+    --main "$MAIN" \
+    --dev "$DEV" \
+    --sync-branch "sync/${MAIN}-into-${DEV}" 2>&1 | tee "$SANDBOX/script_output.log"
   local exit_code=$?
   set -e
 
@@ -193,34 +197,40 @@ run_one() {
   calls="$(cat "$GH_MOCK_LOG")"
 
   case "${SETUP:-noop}" in
-    noop)
-      if echo "$calls" | grep -Fq "pr create"; then
-        fail "noop should not create PR"
-        return 1
-      fi
-      ;;
-    main_ahead)
-      assert_contains "$calls" "pr" "should call gh" || return 1
-      assert_contains "$calls" "pr create" "should create PR" || return 1
-      if [[ "${EXPECT_EXIT:-0}" == "0" ]]; then
-        assert_contains "$calls" "pr merge" "should enable auto-merge" || return 1
-      fi
-      ;;
-    conflict)
-      # PR can be created even with conflicts, so we don't check for pr create
-      # The important thing is that the script should fail (checked via EXPECT_EXIT)
-      ;;
+  noop)
+    if echo "$calls" | grep -Fq "pr create"; then
+      fail "noop should not create PR"
+      return 1
+    fi
+    ;;
+  main_ahead)
+    assert_contains "$calls" "pr" "should call gh" || return 1
+    assert_contains "$calls" "pr create" "should create PR" || return 1
+    if [[ "${EXPECT_EXIT:-0}" == "0" ]]; then
+      assert_contains "$calls" "pr merge" "should enable auto-merge" || return 1
+    fi
+    ;;
+  conflict)
+    # PR can be created even with conflicts, so we don't check for pr create
+    # The important thing is that the script should fail (checked via EXPECT_EXIT)
+    ;;
   esac
 
   pushd "$WORKDIR" >/dev/null
   git fetch --prune origin >/dev/null 2>&1 || true
   case "${SETUP:-noop}" in
-    main_ahead)
-      assert_cmd_success git show-ref --verify --quiet refs/remotes/origin/sync/main-into-dev || { popd >/dev/null; return 1; }
-      if [[ -z "${BACKGROUND_MAIN_COMMIT_DELAY:-}" ]]; then
-        assert_cmd_success git merge-base --is-ancestor origin/main origin/sync/main-into-dev || { popd >/dev/null; return 1; }
-      fi
-      ;;
+  main_ahead)
+    assert_cmd_success git show-ref --verify --quiet refs/remotes/origin/sync/main-into-dev || {
+      popd >/dev/null
+      return 1
+    }
+    if [[ -z "${BACKGROUND_MAIN_COMMIT_DELAY:-}" ]]; then
+      assert_cmd_success git merge-base --is-ancestor origin/main origin/sync/main-into-dev || {
+        popd >/dev/null
+        return 1
+      }
+    fi
+    ;;
   esac
   popd >/dev/null
 
@@ -239,7 +249,7 @@ run_one() {
   fi
 
   end_time=$(date +%s%N)
-  duration_ms=$(( (end_time - start_time) / 1000000 ))
+  duration_ms=$(((end_time - start_time) / 1000000))
 
   info "✅ $SCENARIO_NAME (${duration_ms}ms)"
   cleanup_sandbox

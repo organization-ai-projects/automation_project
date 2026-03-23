@@ -1,3 +1,4 @@
+//! projects/products/stable/platform_ide/backend/src/changes/patch_entry.rs
 use serde::{Deserialize, Serialize};
 
 use crate::slices::AllowedPath;

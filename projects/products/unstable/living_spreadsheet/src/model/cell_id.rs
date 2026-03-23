@@ -17,9 +17,9 @@ impl CellId {
     pub fn from_a1(s: &str) -> Result<Self, SpreadsheetError> {
         let s = s.trim();
         if s.is_empty() {
-            return Err(SpreadsheetError::ParseError(format!(
-                "empty cell reference"
-            )));
+            return Err(SpreadsheetError::ParseError(
+                "empty cell reference".to_string(),
+            ));
         }
 
         let col_end = s.bytes().take_while(|b| b.is_ascii_alphabetic()).count();

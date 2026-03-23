@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/errors.rs
+//! projects/products/stable/platform_ide/backend/src/errors.rs
 use thiserror::Error;
 
 /// The canonical error type for the platform-IDE.

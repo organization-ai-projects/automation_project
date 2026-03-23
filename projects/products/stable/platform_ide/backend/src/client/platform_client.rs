@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/client/platform_client.rs
+//! projects/products/stable/platform_ide/backend/src/client/platform_client.rs
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 

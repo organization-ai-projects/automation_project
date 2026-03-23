@@ -25,11 +25,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || 'dev' }}
-          sparse-checkout: |
-            .github/issue_required_fields.conf
-            scripts/versioning/file_versioning/github/
-            scripts/common_lib/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure dependencies
         run: |
@@ -71,8 +72,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/issues/neutralize/run.sh
-          bash scripts/versioning/file_versioning/github/issues/neutralize/run.sh \
+          target/debug/versioning_automation issue neutralize \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"
 
@@ -87,8 +87,7 @@ jobs:
             echo "Invalid pr_number: '$PR_NUMBER'" >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/issues/neutralize/run.sh
-          bash scripts/versioning/file_versioning/github/issues/neutralize/run.sh \
+          target/debug/versioning_automation issue neutralize \
             --pr "$PR_NUMBER" \
             --repo "$GH_REPO"
 
@@ -100,11 +99,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: dev
-          sparse-checkout: |
-            .github/issue_required_fields.conf
-            scripts/versioning/file_versioning/github/
-            scripts/common_lib/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure dependencies
         run: |
@@ -122,7 +122,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/issues/reevaluate/run.sh
-          bash scripts/versioning/file_versioning/github/issues/reevaluate/run.sh \
+          target/debug/versioning_automation issue reevaluate \
             --issue "$ISSUE_NUMBER" \
             --repo "$GH_REPO"

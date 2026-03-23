@@ -1,0 +1,14 @@
+[package]
+name = "versioning_automation"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "va"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+regex = "1.11"
+common_json = { workspace = true }
+protocol = { workspace = true }

@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/auth/session.rs
+//! projects/products/stable/platform_ide/backend/src/auth/session.rs
 
 /// An authenticated IDE session.
 ///

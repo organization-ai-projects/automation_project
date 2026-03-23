@@ -1,29 +1,30 @@
-// projects/products/stable/accounts/backend/src/store/audit_buffer.rs
-use crate::store::account_store_error::AccountStoreError;
-use crate::store::audit_buffer_config::AuditBufferConfig;
-use crate::store::audit_entry::AuditEntry;
-use crate::store::in_flight_guard::InFlightGuard;
+//! projects/products/stable/accounts/backend/src/store/audit_buffer.rs
 use common_json::to_string;
-use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{path, sync};
+use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, interval};
 
+use crate::store::{AccountStoreError, AuditBufferConfig, AuditEntry, InFlightGuard};
+
 /// Buffered audit log writer that batches writes to reduce I/O overhead
 pub struct AuditBuffer {
-    audit_path: PathBuf,
-    buffer: Arc<Mutex<Vec<AuditEntry>>>,
-    flush_lock: Arc<Mutex<()>>,
-    pending_in_flight: Arc<AtomicUsize>,
+    audit_path: path::PathBuf,
+    buffer: sync::Arc<Mutex<Vec<AuditEntry>>>,
+    flush_lock: sync::Arc<Mutex<()>>,
+    pending_in_flight: sync::Arc<AtomicUsize>,
     config: AuditBufferConfig,
     flush_task: JoinHandle<()>,
 }
 
 impl AuditBuffer {
-    pub fn new(audit_path: PathBuf, config: AuditBufferConfig) -> Result<Self, AccountStoreError> {
+    pub fn new(
+        audit_path: path::PathBuf,
+        config: AuditBufferConfig,
+    ) -> Result<Self, AccountStoreError> {
         // Validate config
         if config.max_batch_size == 0 {
             return Err(AccountStoreError::InvalidConfig(
@@ -40,9 +41,9 @@ impl AuditBuffer {
                 "max_pending_entries must be greater than 0".to_string(),
             ));
         }
-        let buffer = Arc::new(Mutex::new(Vec::new()));
-        let flush_lock = Arc::new(Mutex::new(()));
-        let pending_in_flight = Arc::new(AtomicUsize::new(0));
+        let buffer = sync::Arc::new(Mutex::new(Vec::new()));
+        let flush_lock = sync::Arc::new(Mutex::new(()));
+        let pending_in_flight = sync::Arc::new(AtomicUsize::new(0));
 
         // Start periodic flush task
         let buffer_clone = buffer.clone();
@@ -113,10 +114,10 @@ impl AuditBuffer {
     }
 
     async fn flush_internal(
-        buffer: &Arc<Mutex<Vec<AuditEntry>>>,
-        flush_lock: &Arc<Mutex<()>>,
-        pending_in_flight: &Arc<AtomicUsize>,
-        audit_path: &PathBuf,
+        buffer: &sync::Arc<Mutex<Vec<AuditEntry>>>,
+        flush_lock: &sync::Arc<Mutex<()>>,
+        pending_in_flight: &sync::Arc<AtomicUsize>,
+        audit_path: &path::PathBuf,
     ) -> Result<(), AccountStoreError> {
         // Serialize all flushes while keeping buffer lock free for append().
         let flush_guard = flush_lock.lock().await;
@@ -145,7 +146,7 @@ impl AuditBuffer {
                 }
             };
 
-            let mut file = match tokio::fs::OpenOptions::new()
+            let mut file = match fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(audit_path)
@@ -185,7 +186,7 @@ impl AuditBuffer {
     }
 
     async fn requeue_from_index(
-        buffer: &Arc<Mutex<Vec<AuditEntry>>>,
+        buffer: &sync::Arc<Mutex<Vec<AuditEntry>>>,
         mut entries: Vec<AuditEntry>,
         start_idx: usize,
     ) {
