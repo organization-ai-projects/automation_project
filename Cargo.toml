@@ -31,7 +31,6 @@ members = [
   "projects/products/stable/code_agent_sandbox/ui",
   "projects/products/unstable/auto_manager_ai",
   "projects/products/unstable/autonomy_orchestrator_ai",
-  "projects/products/unstable/autonomous_dev_ai",
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
   "projects/products/unstable/colony_manager/backend",
@@ -118,6 +117,12 @@ tokio = { version = "1", default-features = false, features = ["full"] }
 lazy_static = "1.5"
 anyhow = "1.0.101"
 tracing-subscriber = "0.3"
+sha2 = "0.10.8"
+hex = "0.4.3"
+axum = { version = "0.8.1", features = ["json"] }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+dioxus = { version = "0.7.3", features = ["web"] }
 
 pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macros" }
 common = { path = "projects/libraries/core/foundation/common" }
@@ -144,9 +149,3 @@ ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
 runtime_core = { path = "projects/libraries/layers/domain/runtime_core" }
-
-sha2 = "0.10.8"
-hex = "0.4.3"
-axum = { version = "0.8.1", features = ["json"] }
-tower = { version = "0.5", features = ["util"] }
-http = "1"
