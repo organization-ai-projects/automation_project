@@ -1,5 +1,4 @@
 /// Utility functions for goal-related operations.
-
 use crate::ids::IssueNumber;
 
 /// Extracts an issue number from a goal string.

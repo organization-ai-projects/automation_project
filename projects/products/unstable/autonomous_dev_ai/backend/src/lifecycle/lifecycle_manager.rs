@@ -393,7 +393,10 @@ impl<'a> LifecycleManager<'a> {
 
         tracing::info!("=== Starting Agent Lifecycle ===");
         tracing::info!("Goal: {}", goal);
-        tracing::info!("Max iterations: {}", self.artifacts.max_iterations_limit.get());
+        tracing::info!(
+            "Max iterations: {}",
+            self.artifacts.max_iterations_limit.get()
+        );
         tracing::info!("Global timeout: {:?}", self.global_timeout);
 
         self.transition_to(AgentState::LoadConfig)
@@ -1592,8 +1595,6 @@ impl<'a> LifecycleManager<'a> {
 
         Ok(result)
     }
-
-
 
     fn verify_step(&mut self) -> AgentResult<()> {
         self.check_timeout()?;
