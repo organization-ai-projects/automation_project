@@ -1,9 +1,7 @@
-use regex::Regex;
+use crate::lazy_regex::PARENT_FIELD_REGEX;
 
 pub(crate) fn extract_parent_field(body: &str) -> Option<String> {
-    let re =
-        Regex::new(r"(?i)^\s*Parent:\s*(#?[0-9]+|none|base|epic|\(none\)|\(base\)|\(epic\))\s*$")
-            .ok()?;
+    let re = PARENT_FIELD_REGEX.as_ref().ok()?;
     let mut parent_value: Option<String> = None;
 
     for line in body.lines() {

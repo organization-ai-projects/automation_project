@@ -10,6 +10,7 @@ mod git_cli;
 mod issue_comment_upsert;
 mod issue_remote_snapshot;
 mod issues;
+mod lazy_regex;
 mod open_pr_issue_refs;
 mod parent_field;
 mod pr;
