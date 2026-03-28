@@ -1,9 +1,9 @@
-use crate::cli_action::{CliAction, parse};
+use crate::cli_action::CliAction;
 
 #[test]
 fn parse_without_subcommand_returns_help() {
     let args = vec!["va".to_string()];
-    let action = parse(&args).expect("parse should succeed");
+    let action = CliAction::parse(&args).expect("parse should succeed");
     match action {
         CliAction::ShowHelp(help) => assert!(help.contains("Usage:")),
         _ => panic!("expected help action"),
@@ -18,7 +18,7 @@ fn parse_pr_with_passthrough_args() {
         "--dry-run".to_string(),
         "--yes".to_string(),
     ];
-    let action = parse(&args).expect("parse should succeed");
+    let action = CliAction::parse(&args).expect("parse should succeed");
     match action {
         CliAction::RunPr(passthrough) => {
             assert_eq!(
@@ -39,7 +39,7 @@ fn parse_issue_with_passthrough_args() {
         "--issue".to_string(),
         "42".to_string(),
     ];
-    let action = parse(&args).expect("parse should succeed");
+    let action = CliAction::parse(&args).expect("parse should succeed");
     match action {
         CliAction::RunIssue(passthrough) => {
             assert_eq!(
@@ -54,7 +54,7 @@ fn parse_issue_with_passthrough_args() {
 #[test]
 fn parse_unknown_subcommand_fails() {
     let args = vec!["va".to_string(), "unknown".to_string()];
-    match parse(&args) {
+    match CliAction::parse(&args) {
         Ok(_) => panic!("parse should fail"),
         Err(err) => assert!(err.contains("Unknown subcommand")),
     }

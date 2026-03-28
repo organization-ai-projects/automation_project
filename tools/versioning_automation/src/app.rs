@@ -1,6 +1,6 @@
 //! tools/versioning_automation/src/app.rs
 use crate::automation;
-use crate::cli_action::{CliAction, parse};
+use crate::cli_action::CliAction;
 use crate::git;
 use crate::issues;
 use crate::pr;
@@ -15,7 +15,7 @@ pub(crate) fn run_with(args: Vec<String>) -> i32 {
         return code;
     }
 
-    match parse(&args) {
+    match CliAction::parse(&args) {
         Ok(CliAction::ShowHelp(help)) => {
             println!("{help}");
             0

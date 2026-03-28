@@ -1,4 +1,4 @@
-use crate::cli_action::{CliAction, parse};
+use crate::cli_action::CliAction;
 
 #[test]
 fn parse_routes_automation_subcommand() {
@@ -7,7 +7,7 @@ fn parse_routes_automation_subcommand() {
         "automation".to_string(),
         "labels-sync".to_string(),
     ];
-    let action = parse(&args).expect("parse should succeed");
+    let action = CliAction::parse(&args).expect("parse should succeed");
     match action {
         CliAction::RunAutomation(passthrough) => {
             assert_eq!(passthrough, vec!["labels-sync".to_string()]);
@@ -23,7 +23,7 @@ fn parse_routes_git_subcommand() {
         "git".to_string(),
         "push-branch".to_string(),
     ];
-    let action = parse(&args).expect("parse should succeed");
+    let action = CliAction::parse(&args).expect("parse should succeed");
     match action {
         CliAction::RunGit(passthrough) => {
             assert_eq!(passthrough, vec!["push-branch".to_string()]);
@@ -35,7 +35,7 @@ fn parse_routes_git_subcommand() {
 #[test]
 fn parse_rejects_unknown_subcommand() {
     let args = vec!["va".to_string(), "unknown".to_string()];
-    match parse(&args) {
+    match CliAction::parse(&args) {
         Ok(_) => panic!("parse should fail"),
         Err(err) => assert!(err.contains("Unknown subcommand")),
     }
