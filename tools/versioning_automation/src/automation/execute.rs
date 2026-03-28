@@ -6,8 +6,10 @@ use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::lazy_regex::{
+    BRANCH_NAME_REGEX, COMMIT_MESSAGE_FORMAT_REGEX, ISSUE_PREFIX_REGEX, SCOPE_EXTRACTION_REGEX,
+};
 use common_json::Json;
-use regex::Regex;
 
 use crate::automation::commands::{
     AuditSecurityOptions, AutomationAction, CiWatchPrOptions, CommitMsgCheckOptions,
@@ -148,9 +150,13 @@ fn run_commit_msg_check(opts: CommitMsgCheckOptions) -> i32 {
         }
     }
 
-    let format_re =
-        Regex::new(r"^(feature|feat|fix|doc|docs|refactor|test|tests|chore|perf)(\([a-zA-Z0-9_./,-]+\))?:[[:space:]].+$")
-            .expect("static regex must compile");
+    let format_re = match COMMIT_MESSAGE_FORMAT_REGEX.as_ref() {
+        Ok(re) => re,
+        Err(_) => {
+            eprintln!("Failed to compile commit message regex");
+            return RC_INVALID_FORMAT;
+        }
+    };
     if !format_re.is_match(subject) {
         eprintln!("Invalid commit message format: '{subject}'");
         return RC_INVALID_FORMAT;
@@ -285,8 +291,9 @@ fn run_pre_branch_create_check(opts: PreBranchCreateCheckOptions) -> Result<(), 
     if branch.is_empty() {
         return Err("No branch name provided.".to_string());
     }
-    let re = Regex::new(r"^(feature|fix|hotfix|release)/[a-zA-Z0-9_-]+$")
-        .map_err(|e| format!("Invalid branch regex: {e}"))?;
+    let re = BRANCH_NAME_REGEX
+        .as_ref()
+        .map_err(|e| format!("Regex error: {e}"))?;
     if !re.is_match(branch) {
         return Err(format!(
             "Invalid branch name '{branch}'. Expected (feature|fix|hotfix|release)/<name>"
@@ -466,19 +473,30 @@ fn common_path_scope(staged_files: &[String]) -> String {
 }
 
 fn extract_scopes_from_commit_subject(subject: &str) -> Vec<String> {
-    let re = Regex::new(r"^[a-z]+\(([^)]+)\):").expect("scope extraction regex must compile");
-    let Some(captures) = re.captures(subject) else {
-        return Vec::new();
+    let re = match SCOPE_EXTRACTION_REGEX.as_ref() {
+        Ok(re) => re,
+        Err(e) => {
+            eprintln!("Regex error: {e}");
+            return Vec::new();
+        }
     };
-    let Some(raw) = captures.get(1) else {
-        return Vec::new();
+    let captures = match re.captures(subject) {
+        Some(captures) => captures,
+        None => return Vec::new(),
     };
-    raw.as_str()
+
+    let raw: &str = match captures.get(1) {
+        Some(raw) => raw.as_str(),
+        None => return Vec::new(),
+    };
+
+    let scopes: Vec<String> = raw
         .split(',')
-        .map(str::trim)
+        .map(|scope| scope.trim().to_string())
         .filter(|scope| !scope.is_empty())
-        .map(ToString::to_string)
-        .collect()
+        .collect();
+
+    scopes
 }
 
 fn detect_commit_type_from_context(staged_files: &[String]) -> (String, Option<&'static str>) {
@@ -534,7 +552,7 @@ fn derive_description(branch: &str, staged_files: &[String]) -> String {
             break;
         }
     }
-    if let Ok(re) = Regex::new(r"^[A-Za-z]+-[0-9]+[-_/]")
+    if let Some(re) = ISSUE_PREFIX_REGEX.as_ref().ok()
         && let Some(m) = re.find(&name)
     {
         name = name[m.end()..].to_string();

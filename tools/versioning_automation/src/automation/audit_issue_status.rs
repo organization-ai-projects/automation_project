@@ -1,4 +1,5 @@
-use std::collections::BTreeSet;
+//! tools/versioning_automation/src/automation/audit_issue_status.rs
+use std::collections::{self, BTreeSet};
 use std::fs;
 
 use common_json::Json;
@@ -212,11 +213,11 @@ fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {
         .ok_or_else(|| format!("Expected JSON array for {context}"))
 }
 
-fn object_u64(object: &std::collections::HashMap<String, Json>, key: &str) -> u64 {
+fn object_u64(object: &collections::HashMap<String, Json>, key: &str) -> u64 {
     object.get(key).and_then(Json::as_u64).unwrap_or(0)
 }
 
-fn object_string(object: &std::collections::HashMap<String, Json>, key: &str) -> String {
+fn object_string(object: &collections::HashMap<String, Json>, key: &str) -> String {
     object
         .get(key)
         .and_then(Json::as_str)
