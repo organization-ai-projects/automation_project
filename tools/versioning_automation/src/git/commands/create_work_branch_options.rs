@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git/commands/create_work_branch_options.rs
 #[derive(Debug)]
 pub(crate) struct CreateWorkBranchOptions {
     pub(crate) branch_type: String,

@@ -1,7 +1,9 @@
+//! tools/versioning_automation/src/issues/required_fields/contract_values.rs
 use std::path::{Path, PathBuf};
 use std::{collections::HashMap, fs};
 
-use crate::issues::required_fields::key::Key;
+use crate::git_cli;
+use crate::issues::Key;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ContractValues {
@@ -13,14 +15,9 @@ pub(crate) struct ContractValues {
 
 impl ContractValues {
     pub(crate) fn load(profile: &str) -> Result<Self, String> {
-        let title_regex_key =
-            crate::issues::required_fields::contract_key_for_profile(profile, Key::TitleRegex);
-        let required_sections_key = crate::issues::required_fields::contract_key_for_profile(
-            profile,
-            Key::RequiredSections,
-        );
-        let required_fields_key =
-            crate::issues::required_fields::contract_key_for_profile(profile, Key::RequiredFields);
+        let title_regex_key = Key::contract_key_for_profile(profile, Key::TitleRegex);
+        let required_sections_key = Key::contract_key_for_profile(profile, Key::RequiredSections);
+        let required_fields_key = Key::contract_key_for_profile(profile, Key::RequiredFields);
 
         let path = contract_path();
         let values = load_contract_values_from_file(
@@ -40,7 +37,7 @@ impl ContractValues {
 }
 
 fn contract_path() -> PathBuf {
-    if let Ok(root) = crate::git_cli::output_trim(&["rev-parse", "--show-toplevel"]) {
+    if let Ok(root) = git_cli::output_trim(&["rev-parse", "--show-toplevel"]) {
         let candidate = Path::new(&root).join(".github/issue_required_fields.conf");
         if candidate.exists() {
             return candidate;

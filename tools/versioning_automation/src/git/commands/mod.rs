@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git/commands/mod.rs
 pub(crate) mod add_commit_push_options;
 pub(crate) mod branch_creation_check_options;
 pub(crate) mod clean_branches_options;

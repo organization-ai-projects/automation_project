@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git/commands/git_action.rs
 use crate::git::commands::add_commit_push_options::AddCommitPushOptions;
 use crate::git::commands::branch_creation_check_options::BranchCreationCheckOptions;
 use crate::git::commands::clean_branches_options::CleanBranchesOptions;

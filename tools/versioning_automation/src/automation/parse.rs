@@ -386,11 +386,11 @@ fn parse_labels_sync(args: &[String]) -> Result<AutomationAction, String> {
 
 fn parse_ci_watch_pr(args: &[String]) -> Result<AutomationAction, String> {
     let mut pr_number = None;
-    let mut poll_interval = std::env::var("POLL_INTERVAL")
+    let mut poll_interval = env::var("POLL_INTERVAL")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(10);
-    let mut max_wait = std::env::var("MAX_WAIT")
+    let mut max_wait = env::var("MAX_WAIT")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(3600);

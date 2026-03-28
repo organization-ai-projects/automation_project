@@ -1,5 +1,5 @@
 use crate::issue_remote_snapshot::{issue_labels_raw, load_issue_remote_snapshot};
-use crate::issues::non_compliance_reason_from_content;
+use crate::issues::Validation;
 use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
 use crate::pr::resolve_category::issue_category_from_title;
 
@@ -27,5 +27,5 @@ pub(crate) fn load_issue_context_payload(opts: &PrIssueContextOptions) -> (Strin
 }
 
 fn compute_non_compliance_reason(title: &str, body: &str, labels_raw: &str) -> String {
-    non_compliance_reason_from_content(title, body, labels_raw).unwrap_or_default()
+    Validation::non_compliance_reason_from_content(title, body, labels_raw).unwrap_or_default()
 }

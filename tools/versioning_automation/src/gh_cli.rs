@@ -7,6 +7,31 @@ pub(crate) fn command(args: &[&str]) -> Command {
     command
 }
 
+pub(crate) fn gh_command(prefix: &[&str]) -> Vec<String> {
+    prefix.iter().map(|value| (*value).to_string()).collect()
+}
+
+pub(crate) fn push_arg<T: Into<String>>(cmd: &mut Vec<String>, value: T) {
+    cmd.push(value.into());
+}
+
+pub(crate) fn add_repo_arg(cmd: &mut Vec<String>, repo: Option<&str>) {
+    if let Some(repo_name) = repo {
+        push_arg(cmd, "-R");
+        push_arg(cmd, repo_name);
+    }
+}
+
+pub(crate) fn gh_issue_target_command(
+    action: &str,
+    issue: &str,
+    repo: Option<&str>,
+) -> Vec<String> {
+    let mut cmd = gh_command(&["issue", action, issue]);
+    add_repo_arg(&mut cmd, repo);
+    cmd
+}
+
 pub(crate) fn output_trim(args: &[&str]) -> Result<String, String> {
     output_with_transform(args, |stdout| stdout.trim().to_string())
 }

@@ -1,8 +1,7 @@
 //! tools/versioning_automation/src/git/execute.rs
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-
-use regex::Regex;
 
 use crate::git::commands::{
     AddCommitPushOptions, BranchCreationCheckOptions, CleanBranchesOptions, CleanLocalGoneOptions,
@@ -11,6 +10,8 @@ use crate::git::commands::{
 };
 use crate::git::parse::parse;
 use crate::git::render::print_usage;
+use crate::git_cli;
+use crate::lazy_regex::COMMIT_MESSAGE_FORMAT_REGEX;
 
 pub(crate) fn run(args: &[String]) -> i32 {
     match parse(args) {
@@ -429,17 +430,15 @@ fn current_branch() -> Result<String, String> {
 }
 
 fn run_git(args: &[&str]) -> Result<(), String> {
-    crate::git_cli::status(args)
-        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
+    git_cli::status(args).map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
 }
 
 fn run_git_output(args: &[&str]) -> Result<String, String> {
-    crate::git_cli::output_trim(args)
-        .map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
+    git_cli::output_trim(args).map_err(|err| format!("Failed to run git {}: {err}", args.join(" ")))
 }
 
 fn run_git_output_allow_failure(args: &[&str]) -> Option<String> {
-    crate::git_cli::output_trim(args).ok()
+    git_cli::output_trim(args).ok()
 }
 
 fn git_fetch_prune(remote: &str) -> Result<(), String> {
@@ -447,7 +446,7 @@ fn git_fetch_prune(remote: &str) -> Result<(), String> {
 }
 
 fn branch_exists_local(branch_name: &str) -> bool {
-    crate::git_cli::status_success(&[
+    git_cli::status_success(&[
         "show-ref",
         "--verify",
         "--quiet",
@@ -456,7 +455,7 @@ fn branch_exists_local(branch_name: &str) -> bool {
 }
 
 fn branch_exists_remote(remote: &str, branch_name: &str) -> bool {
-    crate::git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
+    git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
 }
 
 fn is_protected_branch(branch_name: &str) -> bool {
@@ -531,8 +530,8 @@ fn sanitize_description(description: &str) -> String {
 }
 
 fn require_clean_tree() -> Result<(), String> {
-    let unstaged_clean = crate::git_cli::status_success(&["diff", "--quiet"]);
-    let staged_clean = crate::git_cli::status_success(&["diff", "--cached", "--quiet"]);
+    let unstaged_clean = git_cli::status_success(&["diff", "--quiet"]);
+    let staged_clean = git_cli::status_success(&["diff", "--cached", "--quiet"]);
 
     if unstaged_clean && staged_clean {
         Ok(())
@@ -542,15 +541,14 @@ fn require_clean_tree() -> Result<(), String> {
 }
 
 fn has_upstream() -> bool {
-    crate::git_cli::status_success(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    git_cli::status_success(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
 }
 
 fn validate_commit_message(message: &str) -> Result<(), String> {
-    let regex = Regex::new(
-        r"^(feature|feat|fix|doc|docs|refactor|test|tests|chore|perf)(\([a-zA-Z0-9_./,-]+\))?:\s.+$",
-    )
-    .map_err(|err| format!("Invalid regex: {err}"))?;
-
+    let regex = match COMMIT_MESSAGE_FORMAT_REGEX.as_ref() {
+        Ok(re) => re,
+        Err(err) => return Err(format!("Invalid regex: {err}")),
+    };
     if regex.is_match(message) {
         Ok(())
     } else {
@@ -594,15 +592,15 @@ fn save_last_deleted_branch(branch_name: &str) -> Result<(), String> {
     };
 
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| format!("Cannot create state dir: {err}"))?;
+        fs::create_dir_all(parent).map_err(|err| format!("Cannot create state dir: {err}"))?;
     }
 
-    std::fs::write(path, branch_name).map_err(|err| format!("Cannot write state file: {err}"))
+    fs::write(path, branch_name).map_err(|err| format!("Cannot write state file: {err}"))
 }
 
 fn load_last_deleted_branch() -> Option<String> {
     let path = last_deleted_branch_file()?;
-    let content = std::fs::read_to_string(path).ok()?;
+    let content = fs::read_to_string(path).ok()?;
     let value = content.trim().to_string();
     if value.is_empty() { None } else { Some(value) }
 }

@@ -2,9 +2,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use regex::Regex;
+use crate::lazy_regex::SEMVER_REGEX;
 
 use crate::automation::commands::ReleasePrepareOptions;
+use crate::git_cli;
 
 use super::execute::{
     command_available, ensure_git_repo, repo_root, run_command_status, run_git, run_git_output,
@@ -68,8 +69,8 @@ pub(crate) fn run_release_prepare(opts: ReleasePrepareOptions) -> Result<(), Str
 }
 
 fn require_clean_tree() -> Result<(), String> {
-    let unstaged_clean = crate::git_cli::status_success(&["diff", "--quiet"]);
-    let staged_clean = crate::git_cli::status_success(&["diff", "--cached", "--quiet"]);
+    let unstaged_clean = git_cli::status_success(&["diff", "--quiet"]);
+    let staged_clean = git_cli::status_success(&["diff", "--cached", "--quiet"]);
     if unstaged_clean && staged_clean {
         Ok(())
     } else {
@@ -78,8 +79,10 @@ fn require_clean_tree() -> Result<(), String> {
 }
 
 fn validate_semver(version: &str) -> Result<(), String> {
-    let re = Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$")
-        .map_err(|e| format!("Failed to compile semver regex: {e}"))?;
+    let re = match SEMVER_REGEX.as_ref() {
+        Ok(re) => re,
+        Err(e) => return Err(format!("Failed to compile semver regex: {e}")),
+    };
     if re.is_match(version) {
         Ok(())
     } else {

@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/issues/commands/done_status_options.rs
 use crate::issues::commands::done_status_mode::DoneStatusMode;
 
 #[derive(Debug, Clone)]

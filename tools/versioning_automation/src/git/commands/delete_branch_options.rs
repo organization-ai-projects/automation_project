@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git/commands/delete_branch_options.rs
 #[derive(Debug)]
 pub(crate) struct DeleteBranchOptions {
     pub(crate) branch_name: String,

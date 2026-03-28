@@ -1,5 +1,7 @@
-use crate::issues::required_fields::gh_issue_label::GhIssueLabel;
+//! tools/versioning_automation/src/issues/required_fields/gh_issue_payload.rs
 use serde::Deserialize;
+
+use crate::issues::required_fields::gh_issue_label::GhIssueLabel;
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct GhIssuePayload {

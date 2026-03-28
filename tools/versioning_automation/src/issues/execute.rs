@@ -6,31 +6,27 @@ use regex::Regex;
 use serde::Deserialize;
 
 use crate::gh_cli::{
-    output_trim_or_empty as gh_output_or_empty, status_code_owned as execute_command,
+    add_repo_arg, gh_command, gh_issue_target_command, output_trim_or_empty, push_arg,
+    status_code_owned,
 };
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::issue_remote_snapshot::{
     IssueRemoteSnapshot, issue_labels_raw, load_issue_remote_snapshot,
 };
-use crate::issues;
 use crate::issues::commands::{
     AssigneeLoginsOptions, AutoLinkOptions, CloseOptions, ClosureHygieneOptions, CreateOptions,
     DoneStatusMode, DoneStatusOptions, ExtractRefsOptions, ExtractRefsProfile,
     FetchNonComplianceReasonOptions, HasLabelOptions, IsRootParentOptions, IssueFieldName,
     IssueFieldOptions, IssueTarget, LabelExistsOptions, ListByLabelOptions, NeutralizeOptions,
     NonComplianceReasonOptions, OpenNumbersOptions, OpenSnapshotsOptions, ParentGuardOptions,
-    ReadOptions, ReevaluateOptions, ReopenOnDevOptions, RequiredFieldsValidateOptions,
-    RequiredFieldsValidationMode, StateOptions, SubissueRefsOptions, TasklistRefsOptions,
-    UpdateOptions, UpsertMarkerCommentOptions, ValidateFooterOptions,
+    ReadOptions, ReevaluateOptions, RequiredFieldsValidateOptions, RequiredFieldsValidationMode,
+    StateOptions, SubissueRefsOptions, TasklistRefsOptions, UpdateOptions,
+    UpsertMarkerCommentOptions, ValidateFooterOptions,
 };
-use crate::issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments};
-use crate::issues::issue_sync_plan::{plan_done_in_dev_sync, plan_reopen_sync};
+use crate::issues::issue_sync_plan::plan_done_in_dev_sync;
 use crate::issues::render::render_direct_issue_body;
-use crate::issues::required_fields::{
-    fetch_non_compliance_reason, non_compliance_reason_from_content, validate_body,
-    validate_content, validate_title,
-};
-use crate::issues::sync_project_status::run_sync_project_status;
+use crate::issues::{self, Validation};
+
 use crate::issues::tasklist_refs::extract_tasklist_refs;
 use crate::open_pr_issue_refs::load_open_pr_numbers_referencing_issue;
 use crate::parent_field::extract_parent_field;
@@ -63,7 +59,7 @@ pub(crate) fn run_create(opts: CreateOptions) -> i32 {
         push_arg(&mut cmd, "--assignee");
         push_arg(&mut cmd, assignee);
     }
-    execute_command(cmd)
+    status_code_owned(cmd)
 }
 
 pub(crate) fn run_read(opts: ReadOptions) -> i32 {
@@ -87,7 +83,7 @@ pub(crate) fn run_read(opts: ReadOptions) -> i32 {
         push_arg(&mut cmd, "--template");
         push_arg(&mut cmd, template);
     }
-    execute_command(cmd)
+    status_code_owned(cmd)
 }
 
 pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
@@ -100,7 +96,7 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
     };
     let label_name = opts.label;
 
-    let label_exists = gh_output_or_empty(&[
+    let label_exists = output_trim_or_empty(&[
         "label", "list", "-R", &repo_name, "--limit", "1000", "--json", "name", "--jq", ".[].name",
     ])
     .lines()
@@ -113,7 +109,7 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 return 2;
             };
 
-            let pr_state = gh_output_or_empty(&[
+            let pr_state = output_trim_or_empty(&[
                 "pr",
                 "view",
                 &pr_number,
@@ -198,7 +194,7 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
                 return 0;
             }
 
-            let has_label = gh_output_or_empty(&[
+            let has_label = output_trim_or_empty(&[
                 "issue",
                 "view",
                 &issue_number,
@@ -232,111 +228,11 @@ pub(crate) fn run_done_status(opts: DoneStatusOptions) -> i32 {
     }
 }
 
-pub(crate) fn run_reopen_on_dev(opts: ReopenOnDevOptions) -> i32 {
-    let repo_name = match resolve_repo_name(opts.repo.clone()) {
-        Ok(repo) => repo,
-        Err(message) => {
-            eprintln!("{message}");
-            return 3;
-        }
-    };
-    let label_name = opts.label;
-    let pr_number = opts.pr;
-
-    let pr_snapshot = match load_pr_remote_snapshot(&pr_number, &repo_name) {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", pr_number);
-            return 4;
-        }
-    };
-    let pr_state = pr_snapshot.state;
-    let pr_base = pr_snapshot.base_ref_name;
-    if pr_base != "dev" {
-        println!("PR #{} does not target dev; nothing to do.", pr_number);
-        return 0;
-    }
-    if !pr_state_allows_reopen_sync(&pr_state) {
-        println!(
-            "PR #{} state={} is not eligible; nothing to do.",
-            pr_number, pr_state
-        );
-        return 0;
-    }
-
-    let (_, reopen_issue_numbers) =
-        match load_effective_issue_action_numbers_for_pr(&pr_number, &repo_name) {
-            Ok(value) => value,
-            Err(code) => return code,
-        };
-    if reopen_issue_numbers.is_empty() {
-        println!("No reopen issue refs found for PR #{}.", pr_number);
-        return 0;
-    }
-
-    let label_exists = gh_output_or_empty(&[
-        "label", "list", "-R", &repo_name, "--limit", "1000", "--json", "name", "--jq", ".[].name",
-    ])
-    .lines()
-    .any(|value| value.trim() == label_name);
-
-    let reopen_status =
-        std::env::var("PROJECT_STATUS_REOPEN_NAME").unwrap_or_else(|_| "Todo".to_string());
-
-    for issue_number in reopen_issue_numbers {
-        let snapshot = issue_remote_snapshot_or_default(&repo_name, &issue_number);
-        if snapshot.state.is_empty() {
-            println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
-            continue;
-        }
-        let labels_raw = issue_labels_raw(&snapshot);
-        let state = snapshot.state;
-        let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
-
-        if sync_plan.reopen_issue {
-            let status = run_reopen(IssueTarget {
-                issue: issue_number.clone(),
-                repo: Some(repo_name.clone()),
-            });
-            if status != 0 {
-                return status;
-            }
-        } else {
-            println!(
-                "Issue #{}: state={}; no reopen needed.",
-                issue_number, state
-            );
-        }
-
-        if label_exists && sync_plan.remove_done_in_dev_label {
-            let status = run_update(UpdateOptions {
-                issue: issue_number.clone(),
-                repo: Some(repo_name.clone()),
-                edit_args: vec![("--remove-label".to_string(), label_name.clone())],
-            });
-            if status != 0 {
-                return status;
-            }
-        }
-
-        let status = run_sync_project_status(issues::commands::SyncProjectStatusOptions {
-            repo: repo_name.clone(),
-            issue: issue_number.clone(),
-            status: reopen_status.clone(),
-        });
-        if status != 0 {
-            return status;
-        }
-    }
-
-    0
-}
-
 pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
     matches!(state, "OPEN" | "MERGED")
 }
 
-fn load_effective_issue_action_numbers_for_pr(
+pub(crate) fn load_effective_issue_action_numbers_for_pr(
     pr_number: &str,
     repo_name: &str,
 ) -> Result<(collections::BTreeSet<String>, collections::BTreeSet<String>), i32> {
@@ -351,7 +247,7 @@ fn load_effective_issue_action_numbers_for_pr(
     Ok(extract_effective_action_issue_numbers(&payload))
 }
 
-fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
+pub(crate) fn has_label_named(labels_raw: &str, expected_label: &str) -> bool {
     labels_raw
         .split('|')
         .map(str::trim)
@@ -429,7 +325,7 @@ pub(crate) fn run_neutralize(opts: NeutralizeOptions) -> i32 {
     }
 
     if updated_body != original_body {
-        let status = execute_command({
+        let status = status_code_owned({
             let mut cmd = gh_command(&["pr", "edit", &opts.pr]);
             add_repo_arg(&mut cmd, Some(repo_name.as_str()));
             push_arg(&mut cmd, "--body");
@@ -481,7 +377,8 @@ pub(crate) fn run_auto_link(opts: AutoLinkOptions) -> i32 {
     }
 
     let contract_errors =
-        validate_content(&issue_title, &issue_body, &issue_labels_raw).unwrap_or_default();
+        Validation::validate_content(&issue_title, &issue_body, &issue_labels_raw)
+            .unwrap_or_default();
     if !contract_errors.is_empty() {
         let mut summary_lines = String::new();
         for entry in contract_errors {
@@ -927,13 +824,15 @@ fn auto_link_set_validation_error_state(
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n❌ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
-        repo: repo_name.to_string(),
-        issue: issue_number.to_string(),
-        marker: marker.to_string(),
-        body,
-        announce: false,
-    })
+    UpsertMarkerCommentOptions::run_upsert_marker_comment(
+        issues::commands::UpsertMarkerCommentOptions {
+            repo: repo_name.to_string(),
+            issue: issue_number.to_string(),
+            marker: marker.to_string(),
+            body,
+            announce: false,
+        },
+    )
 }
 
 fn auto_link_set_runtime_error_state(
@@ -947,7 +846,7 @@ fn auto_link_set_runtime_error_state(
     auto_link_add_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n⚠️ {message}\n\n{help_text}\n");
-    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
+    UpsertMarkerCommentOptions::run_upsert_marker_comment(UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -967,7 +866,7 @@ fn auto_link_set_success_state(
     auto_link_remove_label(repo_name, issue_number, required_missing_label);
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body = format!("{marker}\n### Parent Field Autolink Status\n\n✅ {message}\n");
-    run_upsert_marker_comment(issues::commands::UpsertMarkerCommentOptions {
+    UpsertMarkerCommentOptions::run_upsert_marker_comment(UpsertMarkerCommentOptions {
         repo: repo_name.to_string(),
         issue: issue_number.to_string(),
         marker: marker.to_string(),
@@ -977,7 +876,7 @@ fn auto_link_set_success_state(
 }
 
 fn auto_link_add_label(repo_name: &str, issue_number: &str, label: &str) {
-    let _ = execute_command({
+    let _ = status_code_owned({
         let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
         push_arg(&mut cmd, "--add-label");
         push_arg(&mut cmd, label);
@@ -986,7 +885,7 @@ fn auto_link_add_label(repo_name: &str, issue_number: &str, label: &str) {
 }
 
 fn auto_link_remove_label(repo_name: &str, issue_number: &str, label: &str) {
-    let _ = execute_command({
+    let _ = status_code_owned({
         let mut cmd = gh_issue_target_command("edit", issue_number, Some(repo_name));
         push_arg(&mut cmd, "--remove-label");
         push_arg(&mut cmd, label);
@@ -1006,7 +905,7 @@ fn auto_link_query_child_parent_relation(
     repo_short_name: &str,
     issue_number: &str,
 ) -> String {
-    gh_output_or_empty(&[
+    output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -1026,7 +925,7 @@ fn auto_link_query_parent_child_relation(
     child_issue_number: &str,
     parent_issue_number: &str,
 ) -> String {
-    gh_output_or_empty(&[
+    output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -1043,7 +942,7 @@ fn auto_link_query_parent_child_relation(
 }
 
 fn auto_link_remove_sub_issue_relation(parent_node_id: &str, child_node_id: &str) -> String {
-    gh_output_or_empty(&[
+    output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -1056,7 +955,7 @@ fn auto_link_remove_sub_issue_relation(parent_node_id: &str, child_node_id: &str
 }
 
 fn auto_link_add_sub_issue_relation(parent_node_id: &str, child_node_id: &str) -> String {
-    gh_output_or_empty(&[
+    output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -1215,7 +1114,10 @@ fn is_issue_key(value: &str) -> bool {
     trimmed.starts_with('#') && trimmed[1..].chars().all(|ch| ch.is_ascii_digit())
 }
 
-fn issue_remote_snapshot_or_default(repo_name: &str, issue_number: &str) -> IssueRemoteSnapshot {
+pub(crate) fn issue_remote_snapshot_or_default(
+    repo_name: &str,
+    issue_number: &str,
+) -> IssueRemoteSnapshot {
     load_issue_remote_snapshot(issue_number, Some(repo_name)).unwrap_or_default()
 }
 
@@ -1278,7 +1180,8 @@ fn neutralize_reason_for_issue_cached(
     if let Some(value) = cache.get(&cache_key) {
         return value.clone();
     }
-    let reason = fetch_non_compliance_reason(issue_number, Some(repo_name)).unwrap_or_default();
+    let reason =
+        Validation::fetch_non_compliance_reason(issue_number, Some(repo_name)).unwrap_or_default();
     cache.insert(cache_key, reason.clone());
     reason
 }
@@ -1379,7 +1282,7 @@ pub(crate) fn run_update(opts: UpdateOptions) -> i32 {
         push_arg(&mut cmd, flag);
         push_arg(&mut cmd, value);
     }
-    let status = execute_command(cmd);
+    let status = status_code_owned(cmd);
     if status == 0 {
         println!("Issue #{} updated.", opts.issue);
     }
@@ -1391,7 +1294,7 @@ pub(crate) fn run_repo_name() -> i32 {
 }
 
 pub(crate) fn run_current_login() -> i32 {
-    let login = gh_output_or_empty(&["api", "user", "--jq", ".login"]);
+    let login = output_trim_or_empty(&["api", "user", "--jq", ".login"]);
     print_non_empty_lines(&login);
     0
 }
@@ -1583,7 +1486,7 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
         return RC_ROOT_PARENT;
     }
 
-    let current_login = gh_output_or_empty(&["api", "user", "--jq", ".login"]);
+    let current_login = output_trim_or_empty(&["api", "user", "--jq", ".login"]);
     if current_login.trim().is_empty() {
         return RC_ASSIGNMENT_POLICY;
     }
@@ -1604,7 +1507,7 @@ pub(crate) fn run_validate_footer(opts: ValidateFooterOptions) -> i32 {
         if has_closing.contains(issue_number) {
             continue;
         }
-        let assignees = gh_output_or_empty(&[
+        let assignees = output_trim_or_empty(&[
             "issue",
             "view",
             issue_number,
@@ -1699,7 +1602,7 @@ pub(crate) fn run_close(opts: CloseOptions) -> i32 {
         push_arg(&mut cmd, "--comment");
         push_arg(&mut cmd, comment);
     }
-    let status = execute_command(cmd);
+    let status = status_code_owned(cmd);
     if status == 0 {
         println!("Issue #{} closed (reason: {}).", opts.issue, opts.reason);
     }
@@ -1708,7 +1611,7 @@ pub(crate) fn run_close(opts: CloseOptions) -> i32 {
 
 pub(crate) fn run_reopen(opts: IssueTarget) -> i32 {
     let cmd = gh_issue_target_command("reopen", &opts.issue, opts.repo.as_deref());
-    let status = execute_command(cmd);
+    let status = status_code_owned(cmd);
     if status == 0 {
         println!("Issue #{} reopened.", opts.issue);
     }
@@ -1718,7 +1621,7 @@ pub(crate) fn run_reopen(opts: IssueTarget) -> i32 {
 pub(crate) fn run_delete(opts: IssueTarget) -> i32 {
     let mut cmd = gh_command(&["issue", "close", &opts.issue, "--reason", "not_planned"]);
     add_repo_arg(&mut cmd, opts.repo.as_deref());
-    let status = execute_command(cmd);
+    let status = status_code_owned(cmd);
     if status == 0 {
         println!(
             "Issue #{} soft-deleted (closed with reason: not_planned).",
@@ -1822,7 +1725,7 @@ pub(crate) fn run_closure_hygiene(opts: ClosureHygieneOptions) -> i32 {
     };
     let (repo_owner, repo_short_name) = split_repo_name(&repo_name);
 
-    let open_issue_numbers = gh_output_or_empty(&[
+    let open_issue_numbers = output_trim_or_empty(&[
         "issue",
         "list",
         "--state",
@@ -1853,7 +1756,7 @@ pub(crate) fn run_closure_hygiene(opts: ClosureHygieneOptions) -> i32 {
         }
     }
 
-    let milestones_tsv = gh_output_or_empty(&[
+    let milestones_tsv = output_trim_or_empty(&[
         "api",
         &format!("repos/{repo_name}/milestones?state=open"),
         "--paginate",
@@ -1868,7 +1771,7 @@ pub(crate) fn run_closure_hygiene(opts: ClosureHygieneOptions) -> i32 {
         if number.is_empty() || open_issues != "0" {
             continue;
         }
-        let status = execute_command({
+        let status = status_code_owned({
             let mut cmd = gh_command(&[
                 "api",
                 "-X",
@@ -1945,13 +1848,14 @@ fn evaluate_parent_issue(
         open_count,
         &open_lines,
     );
-    let status = run_upsert_marker_comment(UpsertMarkerCommentOptions {
-        repo: repo_name.to_string(),
-        issue: parent_number.to_string(),
-        marker,
-        body: comment_body,
-        announce: true,
-    });
+    let status =
+        UpsertMarkerCommentOptions::run_upsert_marker_comment(UpsertMarkerCommentOptions {
+            repo: repo_name.to_string(),
+            issue: parent_number.to_string(),
+            marker,
+            body: comment_body,
+            announce: true,
+        });
     if status != 0 {
         return status;
     }
@@ -1996,7 +1900,7 @@ fn extract_subissue_refs_for_parent(
     repo_short_name: &str,
     parent_number: &str,
 ) -> Vec<String> {
-    let output = gh_output_or_empty(&[
+    let output = output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -2027,7 +1931,7 @@ fn collect_parent_candidates(
     let mut out: Vec<String> = Vec::new();
     let mut seen = HashSet::new();
 
-    let direct = gh_output_or_empty(&[
+    let direct = output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -2053,7 +1957,7 @@ fn collect_parent_candidates(
     }
 
     if out.is_empty() {
-        let search = gh_output_or_empty(&[
+        let search = output_trim_or_empty(&[
             "api",
             "search/issues",
             "-f",
@@ -2105,10 +2009,14 @@ fn build_parent_guard_status_comment(
 
 pub(crate) fn run_required_fields_validate(opts: RequiredFieldsValidateOptions) -> i32 {
     let result = match opts.mode {
-        RequiredFieldsValidationMode::Title => validate_title(&opts.title, &opts.labels_raw),
-        RequiredFieldsValidationMode::Body => validate_body(&opts.body, &opts.labels_raw),
+        RequiredFieldsValidationMode::Title => {
+            Validation::validate_title(&opts.title, &opts.labels_raw)
+        }
+        RequiredFieldsValidationMode::Body => {
+            Validation::validate_body(&opts.body, &opts.labels_raw)
+        }
         RequiredFieldsValidationMode::Content => {
-            validate_content(&opts.title, &opts.body, &opts.labels_raw)
+            Validation::validate_content(&opts.title, &opts.body, &opts.labels_raw)
         }
     };
 
@@ -2128,20 +2036,20 @@ pub(crate) fn run_required_fields_validate(opts: RequiredFieldsValidateOptions) 
 
 pub(crate) fn run_non_compliance_reason(opts: NonComplianceReasonOptions) -> i32 {
     print_string_result(
-        non_compliance_reason_from_content(&opts.title, &opts.body, &opts.labels_raw),
+        Validation::non_compliance_reason_from_content(&opts.title, &opts.body, &opts.labels_raw),
         1,
     )
 }
 
 pub(crate) fn run_fetch_non_compliance_reason(opts: FetchNonComplianceReasonOptions) -> i32 {
     print_string_result(
-        fetch_non_compliance_reason(&opts.issue, opts.repo.as_deref()),
+        Validation::fetch_non_compliance_reason(&opts.issue, opts.repo.as_deref()),
         1,
     )
 }
 
 pub(crate) fn run_label_exists(opts: LabelExistsOptions) -> i32 {
-    let labels = gh_output_or_empty(&[
+    let labels = output_trim_or_empty(&[
         "label", "list", "-R", &opts.repo, "--limit", "1000", "--json", "name", "--jq", ".[].name",
     ]);
     let exists = labels.lines().any(|name| name.trim() == opts.label);
@@ -2166,7 +2074,7 @@ pub(crate) fn run_open_numbers(opts: OpenNumbersOptions) -> i32 {
         args.push("-R");
         args.push(repo);
     }
-    print_non_empty_lines(&gh_output_or_empty(&args));
+    print_non_empty_lines(&output_trim_or_empty(&args));
     0
 }
 
@@ -2188,7 +2096,7 @@ pub(crate) fn run_open_snapshots(opts: OpenSnapshotsOptions) -> i32 {
         args.push("-R");
         args.push(repo);
     }
-    print_non_empty_lines(&gh_output_or_empty(&args));
+    print_non_empty_lines(&output_trim_or_empty(&args));
     0
 }
 
@@ -2256,7 +2164,7 @@ pub(crate) fn run_assignee_logins(opts: AssigneeLoginsOptions) -> i32 {
         args.push("-R");
         args.push(repo);
     }
-    print_non_empty_lines(&gh_output_or_empty(&args));
+    print_non_empty_lines(&output_trim_or_empty(&args));
     0
 }
 
@@ -2282,7 +2190,7 @@ pub(crate) fn run_has_label(opts: HasLabelOptions) -> i32 {
         args.push("-R");
         args.push(repo);
     }
-    let labels = gh_output_or_empty(&args);
+    let labels = output_trim_or_empty(&args);
     let exists = labels.lines().any(|name| name.trim() == opts.label);
     println!("{}", if exists { "true" } else { "false" });
     0
@@ -2307,7 +2215,7 @@ pub(crate) fn run_list_by_label(opts: ListByLabelOptions) -> i32 {
         args.push("-R");
         args.push(repo);
     }
-    print_non_empty_lines(&gh_output_or_empty(&args));
+    print_non_empty_lines(&output_trim_or_empty(&args));
     0
 }
 
@@ -2334,7 +2242,7 @@ pub(crate) fn run_tasklist_refs(opts: TasklistRefsOptions) -> i32 {
 pub(crate) fn run_subissue_refs(opts: SubissueRefsOptions) -> i32 {
     let query = "query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){issue(number:$number){subIssues(first:100){nodes{number}}}}}";
     let number_as_int = opts.issue.parse::<u32>().unwrap_or_default().to_string();
-    let output = gh_output_or_empty(&[
+    let output = output_trim_or_empty(&[
         "api",
         "graphql",
         "-f",
@@ -2352,35 +2260,6 @@ pub(crate) fn run_subissue_refs(opts: SubissueRefsOptions) -> i32 {
     0
 }
 
-pub(crate) fn run_upsert_marker_comment(opts: UpsertMarkerCommentOptions) -> i32 {
-    let comments_endpoint = format!("repos/{}/issues/{}/comments", opts.repo, opts.issue);
-    let comments_json = gh_output_or_empty(&["api", &comments_endpoint]);
-    let comments = parse_issue_comments(&comments_json);
-    let had_existing_comment = find_latest_matching_comment_id(&comments, &opts.marker).is_some();
-    let status =
-        match upsert_issue_comment_by_marker(&opts.repo, &opts.issue, &opts.marker, &opts.body) {
-            Ok(_) => 0,
-            Err(err) => {
-                eprintln!("{err}");
-                1
-            }
-        };
-
-    if status != 0 {
-        return status;
-    }
-
-    if opts.announce {
-        if had_existing_comment {
-            println!("Updated parent status comment on #{}.", opts.issue);
-        } else {
-            println!("Posted parent status comment on #{}.", opts.issue);
-        }
-    }
-
-    0
-}
-
 fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
     match result {
         Ok(value) => {
@@ -2394,29 +2273,8 @@ fn print_string_result(result: Result<String, String>, error_code: i32) -> i32 {
     }
 }
 
-fn gh_command(prefix: &[&str]) -> Vec<String> {
-    prefix.iter().map(|value| (*value).to_string()).collect()
-}
-
-fn add_repo_arg(cmd: &mut Vec<String>, repo: Option<&str>) {
-    if let Some(repo_name) = repo {
-        push_arg(cmd, "-R");
-        push_arg(cmd, repo_name);
-    }
-}
-
-fn gh_issue_target_command(action: &str, issue: &str, repo: Option<&str>) -> Vec<String> {
-    let mut cmd = gh_command(&["issue", action, issue]);
-    add_repo_arg(&mut cmd, repo);
-    cmd
-}
-
 fn print_non_empty_lines(text: &str) {
     for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
         println!("{line}");
     }
-}
-
-fn push_arg<T: Into<String>>(cmd: &mut Vec<String>, value: T) {
-    cmd.push(value.into());
 }

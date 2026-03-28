@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git/commands/finish_branch_options.rs
 #[derive(Debug)]
 pub(crate) struct FinishBranchOptions {
     pub(crate) branch_name: Option<String>,
