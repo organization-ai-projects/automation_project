@@ -1,22 +1,5 @@
+//! tools/versioning_automation/src/pr/breaking_detect.rs
 use regex::Regex;
-
-use crate::pr::commands::PrBreakingDetectOptions;
-
-pub(crate) fn run_breaking_detect(opts: PrBreakingDetectOptions) -> i32 {
-    let detected = opts
-        .labels_raw
-        .as_deref()
-        .is_some_and(labels_indicate_breaking)
-        || (!opts.text.is_empty() && text_indicates_breaking(&opts.text));
-
-    if detected {
-        println!("true");
-    } else {
-        println!("false");
-    }
-
-    0
-}
 
 pub(crate) fn labels_indicate_breaking(labels_raw: &str) -> bool {
     labels_raw

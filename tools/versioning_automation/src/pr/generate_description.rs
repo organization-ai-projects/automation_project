@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::gh_cli::{output_trim_cmd, status_cmd};
 use crate::git_cli;
 use crate::pr::group_by_category::GroupByCategory;
-use crate::pr_remote_snapshot::load_pr_remote_snapshot;
+use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name_optional;
 
 pub(crate) fn render_issue_outcome_entries(entries: &[(String, String)], action: &str) -> String {
@@ -215,7 +215,7 @@ pub(crate) fn gh_read_pr_body(pr_number: &str) -> Result<String, String> {
     let Some(repo) = resolve_repo_name_optional(None) else {
         return Err("Error: unable to determine repository.".to_string());
     };
-    load_pr_remote_snapshot(pr_number, &repo).map(|snapshot| snapshot.body)
+    PrRemoteSnapshot::load_pr_remote_snapshot(pr_number, &repo).map(|snapshot| snapshot.body)
 }
 
 pub(crate) fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String> {

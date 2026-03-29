@@ -12,7 +12,7 @@ use crate::issues::{self, AutoLinkRelationSnapshot, Validation, extract_tasklist
 
 use crate::parent_field::extract_parent_field;
 use crate::pr::{extract_effective_action_issue_numbers, load_pr_text_payload};
-use crate::pr_remote_snapshot::load_pr_remote_snapshot;
+use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn pr_state_allows_reopen_sync(state: &str) -> bool {
@@ -674,7 +674,7 @@ fn normalize_issue_state(value: &str) -> Option<&str> {
 }
 
 pub(crate) fn gh_pr_body_or_empty(repo_name: &str, pr_number: &str) -> String {
-    load_pr_remote_snapshot(pr_number, repo_name)
+    PrRemoteSnapshot::load_pr_remote_snapshot(pr_number, repo_name)
         .map(|snapshot| snapshot.body)
         .unwrap_or_default()
 }

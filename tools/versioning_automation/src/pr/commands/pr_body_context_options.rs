@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/pr/commands/pr_body_context_options.rs
-use crate::{pr_remote_snapshot::load_pr_remote_snapshot, repo_name::resolve_repo_name};
+use crate::{pr_remote_snapshot::PrRemoteSnapshot, repo_name::resolve_repo_name};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrBodyContextOptions {
@@ -13,7 +13,8 @@ impl PrBodyContextOptions {
             return 0;
         };
 
-        let Ok(snapshot) = load_pr_remote_snapshot(&self.pr_number, &repo_name) else {
+        let Ok(snapshot) = PrRemoteSnapshot::load_pr_remote_snapshot(&self.pr_number, &repo_name)
+        else {
             return 0;
         };
 

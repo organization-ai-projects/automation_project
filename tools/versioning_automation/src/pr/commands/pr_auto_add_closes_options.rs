@@ -7,7 +7,7 @@ use crate::{
         build_managed_block, collapse_blank_runs, collect_refs_from_payload, extract_issue_numbers,
         should_close_issue_for_author, strip_managed_block,
     },
-    pr_remote_snapshot::load_pr_remote_snapshot,
+    pr_remote_snapshot::PrRemoteSnapshot,
     repo_name::resolve_repo_name,
 };
 
@@ -27,13 +27,14 @@ impl PrAutoAddClosesOptions {
             }
         };
 
-        let pr_snapshot = match load_pr_remote_snapshot(&self.pr_number, &repo_name) {
-            Ok(snapshot) => snapshot,
-            Err(_) => {
-                eprintln!("Error: unable to read PR #{}.", self.pr_number);
-                return 3;
-            }
-        };
+        let pr_snapshot =
+            match PrRemoteSnapshot::load_pr_remote_snapshot(&self.pr_number, &repo_name) {
+                Ok(snapshot) => snapshot,
+                Err(_) => {
+                    eprintln!("Error: unable to read PR #{}.", self.pr_number);
+                    return 3;
+                }
+            };
         let pr_state = pr_snapshot.state;
         let pr_base = pr_snapshot.base_ref_name;
         let pr_title = pr_snapshot.title;

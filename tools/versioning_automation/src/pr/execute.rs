@@ -1,11 +1,9 @@
 //! tools/versioning_automation/src/pr/execute.rs
-use crate::pr::breaking_detect::run_breaking_detect;
-use crate::pr::child_pr_refs::run_child_pr_refs;
-use crate::pr::closure_marker::run_closure_marker;
 use crate::pr::closure_refs::run_closure_refs;
 use crate::pr::commands::{
-    PrAction, PrAutoAddClosesOptions, PrBodyContextOptions, PrDirectivesFormat,
-    PrDirectivesOptions, PrEffectiveCategoryOptions, PrFieldOptions, PrGenerateDescriptionOptions,
+    PrAction, PrAutoAddClosesOptions, PrBodyContextOptions, PrBreakingDetectOptions,
+    PrChildPrRefsOptions, PrClosureMarkerOptions, PrDirectivesFormat, PrDirectivesOptions,
+    PrEffectiveCategoryOptions, PrFieldOptions, PrGenerateDescriptionOptions,
     PrGroupByCategoryOptions, PrIssueViewOptions, PrNonClosingRefsOptions,
     PrOpenReferencingIssueOptions, PrResolveCategoryOptions,
 };
@@ -37,9 +35,9 @@ pub(crate) fn run(args: &[String]) -> i32 {
             print_usage();
             0
         }
-        Ok(PrAction::BreakingDetect(opts)) => run_breaking_detect(opts),
+        Ok(PrAction::BreakingDetect(opts)) => PrBreakingDetectOptions::run_breaking_detect(opts),
         Ok(PrAction::BodyContext(opts)) => PrBodyContextOptions::run_body_context(opts),
-        Ok(PrAction::ChildPrRefs(opts)) => run_child_pr_refs(opts),
+        Ok(PrAction::ChildPrRefs(opts)) => PrChildPrRefsOptions::run_child_pr_refs(opts),
         Ok(PrAction::Directives(opts)) => run_directives(opts),
         Ok(PrAction::DirectivesApply(opts)) => run_directives_apply(opts),
         Ok(PrAction::Details(opts)) => run_details(opts),
@@ -71,7 +69,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
             PrOpenReferencingIssueOptions::run_open_referencing_issue(opts)
         }
         Ok(PrAction::IssueDecision(opts)) => run_issue_decision(opts),
-        Ok(PrAction::ClosureMarker(opts)) => run_closure_marker(opts),
+        Ok(PrAction::ClosureMarker(opts)) => PrClosureMarkerOptions::run_closure_marker(opts),
         Ok(PrAction::NonClosingRefs(opts)) => PrNonClosingRefsOptions::run_non_closing_refs(opts),
         Ok(PrAction::ResolveCategory(opts)) => PrResolveCategoryOptions::run_resolve_category(opts),
         Ok(PrAction::SortBullets(opts)) => run_sort_bullets(opts),

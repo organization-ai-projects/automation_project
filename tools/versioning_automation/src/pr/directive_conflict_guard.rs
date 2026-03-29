@@ -8,7 +8,7 @@ use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::pr::closure_marker::apply_marker;
 use crate::pr::commands::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
-use crate::pr_remote_snapshot::load_pr_remote_snapshot;
+use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name;
 
 const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
@@ -23,7 +23,7 @@ pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions
         }
     };
 
-    let pr_snapshot = match load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
+    let pr_snapshot = match PrRemoteSnapshot::load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
         Ok(snapshot) => snapshot,
         Err(_) => {
             eprintln!("Error: unable to read PR #{}.", opts.pr_number);

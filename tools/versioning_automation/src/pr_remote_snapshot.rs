@@ -28,29 +28,35 @@ pub(crate) struct PrRemoteSnapshot {
     pub(crate) commit_messages: String,
 }
 
-pub(crate) fn load_pr_remote_snapshot(
-    pr_number: &str,
-    repo_name: &str,
-) -> Result<PrRemoteSnapshot, String> {
-    let snapshot_json = output_trim(&[
-        "pr",
-        "view",
-        pr_number,
-        "-R",
-        repo_name,
-        "--json",
-        "number,url,state,baseRefName,headRefName,title,body,labels,author",
-    ])?;
-    let mut snapshot = parse_pr_remote_snapshot(&snapshot_json)?;
-    snapshot.commit_messages = fetch_pr_commit_messages(pr_number, repo_name)?;
-    Ok(snapshot)
-}
+impl PrRemoteSnapshot {
+    pub(crate) fn load_pr_remote_snapshot(
+        pr_number: &str,
+        repo_name: &str,
+    ) -> Result<Self, String> {
+        let snapshot_json = output_trim(&[
+            "pr",
+            "view",
+            pr_number,
+            "-R",
+            repo_name,
+            "--json",
+            "number,url,state,baseRefName,headRefName,title,body,labels,author",
+        ])?;
+        let mut snapshot = Self::parse_pr_remote_snapshot(&snapshot_json)?;
+        snapshot.commit_messages = fetch_pr_commit_messages(pr_number, repo_name)?;
+        Ok(snapshot)
+    }
 
-pub(crate) fn pr_text_payload_from_snapshot(snapshot: &PrRemoteSnapshot) -> String {
-    format!(
-        "{}\n{}\n{}",
-        snapshot.title, snapshot.body, snapshot.commit_messages
-    )
+    pub(crate) fn pr_text_payload_from_snapshot(snapshot: &PrRemoteSnapshot) -> String {
+        format!(
+            "{}\n{}\n{}",
+            snapshot.title, snapshot.body, snapshot.commit_messages
+        )
+    }
+
+    fn parse_pr_remote_snapshot(json: &str) -> Result<Self, String> {
+        common_json::from_json_str::<Self>(json).map_err(|err| err.to_string())
+    }
 }
 
 fn fetch_pr_commit_messages(pr_number: &str, repo_name: &str) -> Result<String, String> {
@@ -61,10 +67,6 @@ fn fetch_pr_commit_messages(pr_number: &str, repo_name: &str) -> Result<String, 
         "--jq",
         ".[].commit.message",
     ])
-}
-
-fn parse_pr_remote_snapshot(json: &str) -> Result<PrRemoteSnapshot, String> {
-    common_json::from_json_str::<PrRemoteSnapshot>(json).map_err(|err| err.to_string())
 }
 
 fn deserialize_author_login<'de, D>(deserializer: D) -> Result<String, D::Error>

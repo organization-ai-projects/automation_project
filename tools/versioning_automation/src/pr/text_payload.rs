@@ -8,7 +8,7 @@ use crate::pr::domain::directives::directive_record::DirectiveRecord;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::scan_directives;
 use crate::pr::state::build_state;
-use crate::pr_remote_snapshot::{load_pr_remote_snapshot, pr_text_payload_from_snapshot};
+use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
@@ -23,8 +23,8 @@ pub(crate) fn run_text_payload(opts: PrTextPayloadOptions) -> i32 {
 }
 
 pub(crate) fn load_pr_text_payload(pr_number: &str, repo_name: &str) -> Result<String, String> {
-    let snapshot = load_pr_remote_snapshot(pr_number, repo_name)?;
-    Ok(pr_text_payload_from_snapshot(&snapshot))
+    let snapshot = PrRemoteSnapshot::load_pr_remote_snapshot(pr_number, repo_name)?;
+    Ok(PrRemoteSnapshot::pr_text_payload_from_snapshot(&snapshot))
 }
 
 pub(crate) fn extract_effective_action_issue_numbers(

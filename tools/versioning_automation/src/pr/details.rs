@@ -2,7 +2,7 @@
 use serde::Serialize;
 
 use crate::pr::commands::PrDetailsOptions;
-use crate::pr_remote_snapshot::load_pr_remote_snapshot;
+use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_details(opts: PrDetailsOptions) -> i32 {
@@ -11,7 +11,8 @@ pub(crate) fn run_details(opts: PrDetailsOptions) -> i32 {
         return 0;
     };
 
-    let pr_snapshot = load_pr_remote_snapshot(&opts.pr_number, &repo_name).unwrap_or_default();
+    let pr_snapshot =
+        PrRemoteSnapshot::load_pr_remote_snapshot(&opts.pr_number, &repo_name).unwrap_or_default();
     #[derive(Debug, Serialize)]
     struct DetailsOutput {
         number: u64,

@@ -13,7 +13,7 @@ use crate::{
         },
         run_sync_project_status,
     },
-    pr_remote_snapshot::load_pr_remote_snapshot,
+    pr_remote_snapshot::PrRemoteSnapshot,
     repo_name::resolve_repo_name,
 };
 #[derive(Debug, Clone)]
@@ -35,7 +35,7 @@ impl ReopenOnDevOptions {
         let label_name = self.label;
         let pr_number = self.pr;
 
-        let pr_snapshot = match load_pr_remote_snapshot(&pr_number, &repo_name) {
+        let pr_snapshot = match PrRemoteSnapshot::load_pr_remote_snapshot(&pr_number, &repo_name) {
             Ok(value) => value,
             Err(_) => {
                 eprintln!("Error: unable to read PR #{}.", pr_number);

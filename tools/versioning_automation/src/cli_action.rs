@@ -10,15 +10,15 @@ pub enum CliAction {
 impl CliAction {
     pub fn parse(args: &[String]) -> Result<Self, String> {
         if args.len() <= 1 {
-            return Ok(CliAction::ShowHelp(Self::help_text()));
+            return Ok(Self::ShowHelp(Self::help_text()));
         }
 
         match args[1].as_str() {
-            "help" | "--help" | "-h" => Ok(CliAction::ShowHelp(Self::help_text())),
-            "automation" => Ok(CliAction::RunAutomation(args[2..].to_vec())),
-            "git" => Ok(CliAction::RunGit(args[2..].to_vec())),
-            "pr" => Ok(CliAction::RunPr(args[2..].to_vec())),
-            "issue" => Ok(CliAction::RunIssue(args[2..].to_vec())),
+            "help" | "--help" | "-h" => Ok(Self::ShowHelp(Self::help_text())),
+            "automation" => Ok(Self::RunAutomation(args[2..].to_vec())),
+            "git" => Ok(Self::RunGit(args[2..].to_vec())),
+            "pr" => Ok(Self::RunPr(args[2..].to_vec())),
+            "issue" => Ok(Self::RunIssue(args[2..].to_vec())),
             unknown => Err(format!(
                 "Unknown subcommand: {unknown}\n\n{}",
                 Self::help_text()
