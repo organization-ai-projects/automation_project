@@ -8,8 +8,8 @@ use crate::pr::domain::conflicts::resolved_conflict::ResolvedConflict;
 use crate::pr::domain::conflicts::unresolved_conflict::UnresolvedConflict;
 use crate::pr::generate_description::{
     render_directive_resolution_line, render_issue_outcome_entries,
-    render_issue_outcome_groups_with_mode,
 };
+use crate::pr::group_by_category::GroupByCategory;
 use crate::pr::{extract_effective_action_issue_numbers, scan_directives};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,7 +31,7 @@ impl IssueOutcomesSnapshot {
     pub(crate) fn build_issue_outcomes_snapshot<F>(
         commits: &[CommitInfo],
         mut resolve_category: F,
-    ) -> IssueOutcomesSnapshot
+    ) -> Self
     where
         F: FnMut(&str, &str) -> String,
     {
@@ -88,7 +88,7 @@ impl IssueOutcomesSnapshot {
             .map(|entry| unresolved_entry(entry, &default_categories, &mut resolve_category))
             .collect::<Vec<_>>();
 
-        IssueOutcomesSnapshot {
+        Self {
             close_only,
             reopen_only,
             resolved_conflicts,
@@ -96,7 +96,7 @@ impl IssueOutcomesSnapshot {
         }
     }
 
-    pub(crate) fn render_issue_outcomes(snapshot: &IssueOutcomesSnapshot) -> String {
+    pub(crate) fn render_issue_outcomes(snapshot: &Self) -> String {
         if snapshot.is_empty() {
             return "- No issues processed in this PR.".to_string();
         }
@@ -107,7 +107,7 @@ impl IssueOutcomesSnapshot {
             .resolved_conflicts
             .iter()
             .map(|entry| {
-                (
+                GroupByCategory(
                     entry
                         .0
                         .trim_start_matches('#')
@@ -120,12 +120,12 @@ impl IssueOutcomesSnapshot {
                     0usize,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<GroupByCategory>>();
         let unresolved_conflict_records = snapshot
             .unresolved_conflicts
             .iter()
             .map(|entry| {
-                (
+                GroupByCategory(
                     entry
                         .0
                         .trim_start_matches('#')
@@ -136,15 +136,19 @@ impl IssueOutcomesSnapshot {
                     0usize,
                 )
             })
-            .collect::<Vec<_>>();
-        let directive_rendered =
-            render_issue_outcome_groups_with_mode(&directive_resolution_records, "directive")
-                .trim()
-                .to_string();
-        let unresolved_rendered =
-            render_issue_outcome_groups_with_mode(&unresolved_conflict_records, "conflict")
-                .trim()
-                .to_string();
+            .collect::<Vec<GroupByCategory>>();
+        let directive_rendered = GroupByCategory::render_issue_outcome_groups_with_mode(
+            &directive_resolution_records,
+            "directive",
+        )
+        .trim()
+        .to_string();
+        let unresolved_rendered = GroupByCategory::render_issue_outcome_groups_with_mode(
+            &unresolved_conflict_records,
+            "conflict",
+        )
+        .trim()
+        .to_string();
 
         let mut out = String::new();
         out.push_str("#### Category 1: Issues Without Conflicts\n\n");

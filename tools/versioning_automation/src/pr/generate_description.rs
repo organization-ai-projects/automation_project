@@ -1,38 +1,17 @@
 //! tools/versioning_automation/src/pr/generate_description.rs
 use std::collections::BTreeMap;
 
-use crate::errors_code::E_USAGE;
 use crate::gh_cli::{output_trim_cmd, status_cmd};
-use crate::pr::commands::PrGenerateDescriptionOptions;
-use crate::pr::generate_options::GenerateOptions;
-use crate::pr::group_by_category::CATEGORIES;
-use crate::pr::render::print_usage;
+use crate::git_cli;
+use crate::pr::group_by_category::GroupByCategory;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name_optional;
-use crate::{git_cli, pr};
-
-pub(crate) fn run_generate_description(opts: PrGenerateDescriptionOptions) -> i32 {
-    let parsed = match GenerateOptions::parse_generate_options(&opts.passthrough) {
-        Ok(value) => value,
-        Err(msg) => {
-            eprintln!("{msg}");
-            return E_USAGE;
-        }
-    };
-
-    if parsed.help {
-        print_usage();
-        return 0;
-    }
-
-    GenerateOptions::run_generate_flow(parsed)
-}
 
 pub(crate) fn render_issue_outcome_entries(entries: &[(String, String)], action: &str) -> String {
     let records = entries
         .iter()
         .map(|entry| {
-            (
+            GroupByCategory(
                 entry
                     .0
                     .trim_start_matches('#')
@@ -43,9 +22,9 @@ pub(crate) fn render_issue_outcome_entries(entries: &[(String, String)], action:
                 0usize,
             )
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<GroupByCategory>>();
 
-    let rendered = render_issue_outcome_groups(&records);
+    let rendered = GroupByCategory::render_issue_outcome_groups(&records);
     if rendered.trim().is_empty() {
         entries
             .iter()
@@ -55,46 +34,6 @@ pub(crate) fn render_issue_outcome_entries(entries: &[(String, String)], action:
     } else {
         rendered
     }
-}
-
-fn render_issue_outcome_groups(records: &[pr::group_by_category::GroupByCategory]) -> String {
-    render_issue_outcome_groups_with_mode(records, "resolved")
-}
-
-pub(crate) fn render_issue_outcome_groups_with_mode(
-    records: &[pr::group_by_category::GroupByCategory],
-    mode: &str,
-) -> String {
-    let mut out = String::new();
-    for category in CATEGORIES {
-        let matching = records
-            .iter()
-            .filter(|record| record.1 == category)
-            .collect::<Vec<_>>();
-        if matching.is_empty() {
-            continue;
-        }
-
-        out.push_str("#### ");
-        out.push_str(category);
-        out.push('\n');
-
-        for record in matching {
-            let action = record.2.first().cloned().unwrap_or_default();
-            let issue_key = record.2.get(1).cloned().unwrap_or_default();
-            let line = if mode == "conflict" {
-                format!("- {action} - {issue_key}")
-            } else if mode == "directive" {
-                format!("- {action}")
-            } else {
-                format!("- {action} {issue_key}")
-            };
-            out.push_str(&line);
-            out.push('\n');
-        }
-        out.push('\n');
-    }
-    out
 }
 
 pub(crate) fn render_directive_resolution_line(

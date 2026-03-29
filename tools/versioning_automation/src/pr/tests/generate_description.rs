@@ -1,7 +1,5 @@
 //! tools/versioning_automation/src/pr/tests/generate_description.rs
-use crate::pr::generate_description::render_issue_outcome_groups_with_mode;
-use crate::pr::generate_options::GenerateOptions;
-use crate::pr::group_by_category::parse_records;
+use crate::pr::{generate_options::GenerateOptions, group_by_category::GroupByCategory};
 
 #[test]
 fn test_generate_description() {
@@ -11,9 +9,10 @@ fn test_generate_description() {
 
 #[test]
 fn render_issue_outcome_records_groups_by_real_category() {
-    let mut records = parse_records("12|Bug Fixes|Closes|#12\n8|Security|Closes|#8");
+    let mut records =
+        GroupByCategory::parse_records("12|Bug Fixes|Closes|#12\n8|Security|Closes|#8");
     records.sort_by_key(|record| (record.0, record.3));
-    let rendered = render_issue_outcome_groups_with_mode(&records, "resolved")
+    let rendered = GroupByCategory::render_grouped_output(&records, "resolved")
         .trim()
         .to_string();
 
@@ -24,9 +23,9 @@ fn render_issue_outcome_records_groups_by_real_category() {
 
 #[test]
 fn render_issue_outcome_records_renders_reopen_with_issue_key() {
-    let mut records = parse_records("1077|Features|Reopen|#1077");
+    let mut records = GroupByCategory::parse_records("1077|Features|Reopen|#1077");
     records.sort_by_key(|record| (record.0, record.3));
-    let rendered = render_issue_outcome_groups_with_mode(&records, "reopen")
+    let rendered = GroupByCategory::render_grouped_output(&records, "reopen")
         .trim()
         .to_string();
 

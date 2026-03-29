@@ -5,16 +5,15 @@ use crate::pr::closure_marker::run_closure_marker;
 use crate::pr::closure_refs::run_closure_refs;
 use crate::pr::commands::{
     PrAction, PrAutoAddClosesOptions, PrBodyContextOptions, PrDirectivesFormat,
-    PrDirectivesOptions, PrEffectiveCategoryOptions, PrFieldOptions, PrIssueViewOptions,
-    PrNonClosingRefsOptions, PrOpenReferencingIssueOptions, PrResolveCategoryOptions,
+    PrDirectivesOptions, PrEffectiveCategoryOptions, PrFieldOptions, PrGenerateDescriptionOptions,
+    PrGroupByCategoryOptions, PrIssueViewOptions, PrNonClosingRefsOptions,
+    PrOpenReferencingIssueOptions, PrResolveCategoryOptions,
 };
 use crate::pr::conflicts::run_directive_conflicts;
 use crate::pr::details::run_details;
 use crate::pr::directive_conflict_guard::run_directive_conflict_guard;
 use crate::pr::directives_apply::run_directives_apply;
 use crate::pr::duplicate_actions::run_duplicate_actions;
-use crate::pr::generate_description::run_generate_description;
-use crate::pr::group_by_category::run_group_by_category;
 use crate::pr::issue_close_policy::run_issue_close_policy;
 use crate::pr::issue_context::run_issue_context;
 use crate::pr::issue_decision::run_issue_decision;
@@ -53,8 +52,12 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(PrAction::EffectiveCategory(opts)) => {
             PrEffectiveCategoryOptions::run_effective_category(opts)
         }
-        Ok(PrAction::GenerateDescription(opts)) => run_generate_description(opts),
-        Ok(PrAction::GroupByCategory(opts)) => run_group_by_category(opts),
+        Ok(PrAction::GenerateDescription(opts)) => {
+            PrGenerateDescriptionOptions::run_generate_description(opts)
+        }
+        Ok(PrAction::GroupByCategory(opts)) => {
+            PrGroupByCategoryOptions::run_group_by_category(opts)
+        }
         Ok(PrAction::IssueCategoryFromLabels(opts)) => run_issue_category_from_labels(opts),
         Ok(PrAction::IssueCategoryFromTitle(opts)) => run_issue_category_from_title(opts),
         Ok(PrAction::IssueClosePolicy(opts)) => run_issue_close_policy(opts),

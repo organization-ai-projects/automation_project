@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/pr/tests/group_by_category.rs
-use crate::pr::{commands::PrGroupByCategoryOptions, group_by_category::run_group_by_category};
+use crate::pr::commands::PrGroupByCategoryOptions;
 
 #[test]
 fn group_by_category_command_runs_for_resolved_mode() {
@@ -7,7 +7,7 @@ fn group_by_category_command_runs_for_resolved_mode() {
         text: "2|Bug Fixes|Closes|#2\n1|Security|Closes|#1".to_string(),
         mode: "resolved".to_string(),
     };
-    let code = run_group_by_category(opts);
+    let code = PrGroupByCategoryOptions::run_group_by_category(opts);
     assert_eq!(code, 0);
 }
 
@@ -17,6 +17,6 @@ fn group_by_category_command_rejects_unknown_mode() {
         text: "1|Unknown|x|y".to_string(),
         mode: "invalid".to_string(),
     };
-    let code = run_group_by_category(opts);
+    let code = PrGroupByCategoryOptions::run_group_by_category(opts);
     assert_eq!(code, 2);
 }
