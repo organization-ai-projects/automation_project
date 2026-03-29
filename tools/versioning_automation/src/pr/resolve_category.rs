@@ -1,35 +1,7 @@
+//! tools/versioning_automation/src/pr/resolve_category.rs
 use regex::Regex;
 
-use crate::pr::commands::pr_effective_category_options::PrEffectiveCategoryOptions;
-use crate::pr::commands::pr_issue_category_from_labels_options::PrIssueCategoryFromLabelsOptions;
-use crate::pr::commands::pr_issue_category_from_title_options::PrIssueCategoryFromTitleOptions;
-use crate::pr::commands::pr_resolve_category_options::PrResolveCategoryOptions;
-
-pub(crate) fn run_resolve_category(opts: PrResolveCategoryOptions) -> i32 {
-    let effective = resolve_effective_category(
-        &opts.label_category,
-        &opts.title_category,
-        &opts.default_category,
-    );
-
-    println!("{effective}");
-    0
-}
-
-pub(crate) fn run_effective_category(opts: PrEffectiveCategoryOptions) -> i32 {
-    let label_category = issue_category_from_labels(&opts.labels_raw);
-    let title_category = if let Some(title) = &opts.title {
-        issue_category_from_title(title)
-    } else if let Some(title_category) = &opts.title_category {
-        title_category.as_str()
-    } else {
-        "Unknown"
-    };
-    let effective =
-        resolve_effective_category(label_category, title_category, &opts.default_category);
-    println!("{effective}");
-    0
-}
+use crate::pr::commands::{PrIssueCategoryFromLabelsOptions, PrIssueCategoryFromTitleOptions};
 
 pub(crate) fn run_issue_category_from_labels(opts: PrIssueCategoryFromLabelsOptions) -> i32 {
     println!("{}", issue_category_from_labels(&opts.labels_raw));

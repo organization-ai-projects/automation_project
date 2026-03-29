@@ -1,4 +1,5 @@
-use crate::pr::commands::pr_pr_state_options::PrPrStateOptions;
+//! tools/versioning_automation/src/pr/pr_state.rs
+use crate::pr::commands::PrPrStateOptions;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 

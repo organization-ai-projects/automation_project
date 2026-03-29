@@ -1,6 +1,7 @@
+//! tools/versioning_automation/src/pr/closure_marker.rs
 use regex::Regex;
 
-use crate::pr::commands::pr_closure_marker_options::PrClosureMarkerOptions;
+use crate::pr::commands::PrClosureMarkerOptions;
 
 pub(crate) fn run_closure_marker(opts: PrClosureMarkerOptions) -> i32 {
     let result = match opts.mode.as_str() {

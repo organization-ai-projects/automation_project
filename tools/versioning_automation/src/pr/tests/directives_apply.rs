@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
-use crate::pr::directives_apply::run_directives_apply;
+//! tools/versioning_automation/src/pr/tests/directives_apply.rs
+use crate::pr::{commands::PrDirectivesApplyOptions, directives_apply::run_directives_apply};
 
 #[test]
 fn directives_apply_runs_with_close_and_reopen() {

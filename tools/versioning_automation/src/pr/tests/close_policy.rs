@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_issue_close_policy_options::PrIssueClosePolicyOptions;
-use crate::pr::issue_close_policy::decide_close_policy;
+//! tools/versioning_automation/src/pr/tests/close_policy.rs
+use crate::pr::{commands::PrIssueClosePolicyOptions, issue_close_policy::decide_close_policy};
 
 #[test]
 fn close_policy_skips_pr_ref() {

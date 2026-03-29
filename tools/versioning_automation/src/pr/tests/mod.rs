@@ -1,10 +1,11 @@
+//! tools/versioning_automation/src/pr/tests/mod.rs
 mod auto_add;
-mod body_context;
 mod breaking_detect;
 mod child_pr_refs;
 mod close_policy;
 mod closure_marker;
 mod closure_refs;
+mod commit_info;
 mod conflicts;
 mod details;
 mod directive_conflict_guard;
@@ -12,10 +13,13 @@ mod directives_apply;
 mod duplicate_actions;
 mod execute;
 mod generate_description;
+mod generate_options;
+mod gh_cli;
 mod group_by_category;
 mod issue_context;
 mod issue_decision;
 mod issue_outcomes_snapshot;
+mod main_pr_ref_snapshot;
 mod non_closing_refs;
 mod normalize_issue_key;
 mod open_referencing_issue;

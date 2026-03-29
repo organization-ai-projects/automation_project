@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_issue_context_options::PrIssueContextOptions;
-use crate::pr::issue_context::run_issue_context;
+//! tools/versioning_automation/src/pr/tests/issue_context.rs
+use crate::pr::{commands::PrIssueContextOptions, issue_context::run_issue_context};
 
 #[test]
 fn issue_context_command_returns_success_with_unresolvable_issue() {

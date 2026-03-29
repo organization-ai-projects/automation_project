@@ -1,6 +1,5 @@
 //! tools/versioning_automation/src/issues/tests/sync_project_status.rs
-use crate::issues::commands::SyncProjectStatusOptions;
-use crate::issues::sync_project_status::run_sync_project_status;
+use crate::issues::{commands::SyncProjectStatusOptions, run_sync_project_status};
 
 // Mock to replace external calls
 fn mock_gh_graphql(args: &[(&str, &str)]) -> Option<String> {

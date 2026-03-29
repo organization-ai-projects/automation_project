@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
-use crate::pr::issue_decision::decide;
+//! tools/versioning_automation/src/pr/tests/issue_decision.rs
+use crate::pr::{commands::PrIssueDecisionOptions, issue_decision::decide};
 
 fn base_opts() -> PrIssueDecisionOptions {
     PrIssueDecisionOptions {

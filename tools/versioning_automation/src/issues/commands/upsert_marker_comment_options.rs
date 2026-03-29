@@ -2,7 +2,7 @@
 use crate::{
     gh_cli::output_trim_or_empty,
     issue_comment_upsert::upsert_issue_comment_by_marker,
-    issues::issue_comments::{find_latest_matching_comment_id, parse_issue_comments},
+    issues::{find_latest_matching_comment_id, parse_issue_comments},
 };
 
 #[derive(Debug, Clone)]

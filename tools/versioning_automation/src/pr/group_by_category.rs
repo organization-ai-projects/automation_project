@@ -1,4 +1,4 @@
-use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
+use crate::pr::commands::PrGroupByCategoryOptions;
 
 pub(crate) const CATEGORIES: [&str; 9] = [
     "Security",

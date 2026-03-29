@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/pr/tests/gh_cli.rs
 use crate::gh_cli::{output_trim_cmd, status_cmd};
 
 #[test]

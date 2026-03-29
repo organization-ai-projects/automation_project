@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/pr/directive_conflict_guard.rs
 use std::collections::BTreeSet;
 
 use regex::Regex;
@@ -5,7 +6,7 @@ use regex::Regex;
 use crate::gh_cli::status_cmd;
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::pr::closure_marker::apply_marker;
-use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
+use crate::pr::commands::PrDirectiveConflictGuardOptions;
 use crate::pr::conflicts::build_conflict_report;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;

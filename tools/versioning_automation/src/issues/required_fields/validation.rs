@@ -1,5 +1,9 @@
-use crate::issues::required_fields::{
-    ContractValues, GhIssuePayload, body_has_section, extract_field_value, labels, trim_whitespace,
+use crate::{
+    gh_cli,
+    issues::required_fields::{
+        ContractValues, GhIssuePayload, body_has_section, extract_field_value, labels,
+        trim_whitespace,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,7 +85,7 @@ impl Validation {
         }
 
         let borrowed = args.iter().map(String::as_str).collect::<Vec<&str>>();
-        let Ok(payload) = crate::gh_cli::output_preserve(&borrowed) else {
+        let Ok(payload) = gh_cli::output_preserve(&borrowed) else {
             return Ok(String::new());
         };
         let parsed = common_json::from_json_str::<GhIssuePayload>(&payload)

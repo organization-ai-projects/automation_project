@@ -1,8 +1,9 @@
+//! tools/versioning_automation/src/pr/child_pr_refs.rs
 use regex::Regex;
 use std::collections::BTreeSet;
 
 use crate::gh_cli::output_trim_cmd;
-use crate::pr::commands::pr_child_pr_refs_options::PrChildPrRefsOptions;
+use crate::pr::commands::PrChildPrRefsOptions;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 

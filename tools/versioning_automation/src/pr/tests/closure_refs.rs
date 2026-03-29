@@ -1,5 +1,5 @@
-use crate::pr::closure_refs::run_closure_refs;
-use crate::pr::commands::pr_closure_refs_options::PrClosureRefsOptions;
+//! tools/versioning_automation/src/pr/tests/closure_refs.rs
+use crate::pr::{closure_refs::run_closure_refs, commands::PrClosureRefsOptions};
 
 #[test]
 fn closure_refs_command_runs() {

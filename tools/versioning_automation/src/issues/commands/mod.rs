@@ -35,6 +35,9 @@ mod update_options;
 mod upsert_marker_comment_options;
 mod validate_footer_options;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) use assignee_logins_options::AssigneeLoginsOptions;
 pub(crate) use auto_link_options::AutoLinkOptions;
 pub(crate) use close_options::CloseOptions;

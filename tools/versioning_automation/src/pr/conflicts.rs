@@ -1,11 +1,12 @@
+//! tools/versioning_automation/src/pr/conflicts.rs
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::commands::pr_directive_conflicts_options::PrDirectiveConflictsOptions;
+use crate::pr::commands::PrDirectiveConflictsOptions;
 use crate::pr::domain::conflicts::conflict_report::ConflictReport;
 use crate::pr::domain::conflicts::resolved_conflict::ResolvedConflict;
 use crate::pr::domain::conflicts::unresolved_conflict::UnresolvedConflict;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::scan::scan_directives;
+use crate::pr::scan_directives;
 
 pub(crate) fn run_directive_conflicts(opts: PrDirectiveConflictsOptions) -> i32 {
     let report = build_conflict_report(&opts.text, opts.source_branch_count);

@@ -1,4 +1,5 @@
-use crate::issues::tasklist_refs::extract_tasklist_refs;
+//! tools/versioning_automation/src/issues/tests/tasklist_refs.rs
+use crate::issues::extract_tasklist_refs;
 
 #[test]
 fn extract_tasklist_refs_returns_unique_sorted_issue_refs() {

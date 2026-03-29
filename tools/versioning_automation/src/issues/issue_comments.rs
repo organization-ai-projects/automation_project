@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/issues/issue_comments.rs
-use crate::issues::issue_comment_payload::IssueCommentPayload;
+use crate::issues::IssueCommentPayload;
 
 pub(crate) fn parse_issue_comments(json: &str) -> Vec<IssueCommentPayload> {
     if json.trim().is_empty() {

@@ -1,21 +1,21 @@
 //! tools/versioning_automation/src/pr/tests/issue_outcomes_snapshot.rs
-use crate::pr::issue_outcomes_snapshot::build_issue_outcomes_snapshot;
+use crate::pr::{IssueOutcomesSnapshot, commit_info};
 
 #[test]
 fn build_issue_outcomes_snapshot_splits_conflicts_and_effective_actions() {
-    let snapshot = build_issue_outcomes_snapshot(
+    let snapshot = IssueOutcomesSnapshot::build_issue_outcomes_snapshot(
         &[
-            crate::pr::commit_info::CommitInfo {
+            commit_info::CommitInfo {
                 short_hash: "1".to_string(),
                 subject: "feat(test): reopen simple issue".to_string(),
                 body: "Closes #12\nCancel-Closes #12\nReopen #12".to_string(),
             },
-            crate::pr::commit_info::CommitInfo {
+            commit_info::CommitInfo {
                 short_hash: "2".to_string(),
                 subject: "fix(test): close issue".to_string(),
                 body: "Closes #34".to_string(),
             },
-            crate::pr::commit_info::CommitInfo {
+            commit_info::CommitInfo {
                 short_hash: "3".to_string(),
                 subject: "feat(test): resolve conflict".to_string(),
                 body: "Closes #56\nReopen #56".to_string(),

@@ -1,4 +1,4 @@
-use crate::pr::commands::pr_issue_close_policy_options::PrIssueClosePolicyOptions;
+use crate::pr::commands::PrIssueClosePolicyOptions;
 
 pub(crate) fn run_issue_close_policy(opts: PrIssueClosePolicyOptions) -> i32 {
     let outcome = decide_close_policy(opts);

@@ -2,7 +2,7 @@
 use serde::Deserialize;
 
 use crate::gh_cli::{output_trim_end_newline_cmd, status_cmd};
-use crate::pr::commands::pr_refresh_validation_options::PrRefreshValidationOptions;
+use crate::pr::commands::PrRefreshValidationOptions;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 

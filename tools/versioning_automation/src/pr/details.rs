@@ -1,6 +1,7 @@
+//! tools/versioning_automation/src/pr/details.rs
 use serde::Serialize;
 
-use crate::pr::commands::pr_details_options::PrDetailsOptions;
+use crate::pr::commands::PrDetailsOptions;
 use crate::pr_remote_snapshot::load_pr_remote_snapshot;
 use crate::repo_name::resolve_repo_name;
 

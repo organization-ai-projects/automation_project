@@ -1,9 +1,10 @@
+//! tools/versioning_automation/src/pr/state.rs
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::commands::pr_directives_state_options::PrDirectivesStateOptions;
+use crate::pr::commands::PrDirectivesStateOptions;
 use crate::pr::domain::directives::directive_record::DirectiveRecord;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::scan::scan_directives;
+use crate::pr::scan_directives;
 
 pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {
     let state = build_state(&opts.text);

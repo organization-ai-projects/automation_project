@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/issue_remote_snapshot.rs
 use serde::{Deserialize, Serialize};
 
 use crate::gh_cli::output_trim;
@@ -14,33 +15,35 @@ pub(crate) struct IssueRemoteSnapshot {
     pub(crate) labels: Vec<String>,
 }
 
-pub(crate) fn load_issue_remote_snapshot(
-    issue_number: &str,
-    repo: Option<&str>,
-) -> Result<IssueRemoteSnapshot, String> {
-    let mut args = vec![
-        "issue",
-        "view",
-        issue_number,
-        "--json",
-        "title,body,labels,state",
-    ];
-    if let Some(repo_name) = repo {
-        args.extend(["-R", repo_name]);
+impl IssueRemoteSnapshot {
+    pub(crate) fn load_issue_remote_snapshot(
+        issue_number: &str,
+        repo: Option<&str>,
+    ) -> Result<Self, String> {
+        let mut args = vec![
+            "issue",
+            "view",
+            issue_number,
+            "--json",
+            "title,body,labels,state",
+        ];
+        if let Some(repo_name) = repo {
+            args.extend(["-R", repo_name]);
+        }
+
+        let json = output_trim(&args)?;
+        common_json::from_json_str::<Self>(&json).map_err(|err| err.to_string())
     }
 
-    let json = output_trim(&args)?;
-    common_json::from_json_str::<IssueRemoteSnapshot>(&json).map_err(|err| err.to_string())
-}
-
-pub(crate) fn issue_labels_raw(snapshot: &IssueRemoteSnapshot) -> String {
-    snapshot
-        .labels
-        .iter()
-        .filter(|name| !name.trim().is_empty())
-        .cloned()
-        .collect::<Vec<_>>()
-        .join("||")
+    pub(crate) fn issue_labels_raw(snapshot: &Self) -> String {
+        snapshot
+            .labels
+            .iter()
+            .filter(|name| !name.trim().is_empty())
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("||")
+    }
 }
 
 fn deserialize_labels<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>

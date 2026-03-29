@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use crate::lazy_regex::{
     BRANCH_NAME_REGEX, COMMIT_MESSAGE_FORMAT_REGEX, ISSUE_PREFIX_REGEX, SCOPE_EXTRACTION_REGEX,
 };
+use crate::pr::extract_effective_issue_ref_records;
 use common_json::Json;
 
 use crate::automation::commands::{
@@ -23,7 +24,6 @@ use crate::automation::{
     install_hooks, pre_add_review, ui_build,
 };
 use crate::parent_field::extract_parent_field;
-use crate::pr::text_payload::extract_effective_issue_ref_records;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{gh_cli, git_cli};
 
@@ -1090,7 +1090,7 @@ fn split_repo_owner_name(repo: &str) -> Result<(String, String), String> {
     Ok((owner.to_string(), name.to_string()))
 }
 
-fn extract_subissue_refs_for_parent(
+pub(crate) fn extract_subissue_refs_for_parent(
     repo_owner: &str,
     repo_short_name: &str,
     parent_number: &str,

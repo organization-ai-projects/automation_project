@@ -3,10 +3,10 @@ use std::collections::BTreeSet;
 
 use regex::Regex;
 
-use crate::pr::commands::pr_text_payload_options::PrTextPayloadOptions;
+use crate::pr::commands::PrTextPayloadOptions;
 use crate::pr::domain::directives::directive_record::DirectiveRecord;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::scan::scan_directives;
+use crate::pr::scan_directives;
 use crate::pr::state::build_state;
 use crate::pr_remote_snapshot::{load_pr_remote_snapshot, pr_text_payload_from_snapshot};
 use crate::repo_name::resolve_repo_name;

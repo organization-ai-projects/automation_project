@@ -1,0 +1,9 @@
+//! tools/versioning_automation/src/pr/commands/tests/mod.rs
+mod pr_auto_add_closes_options;
+mod pr_body_context_options;
+mod pr_effective_category_options;
+mod pr_field_options;
+mod pr_issue_view_options;
+mod pr_non_closing_refs_options;
+mod pr_open_referencing_issue_options;
+mod pr_resolve_category_options;

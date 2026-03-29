@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_group_by_category_options::PrGroupByCategoryOptions;
-use crate::pr::group_by_category::run_group_by_category;
+//! tools/versioning_automation/src/pr/tests/group_by_category.rs
+use crate::pr::{commands::PrGroupByCategoryOptions, group_by_category::run_group_by_category};
 
 #[test]
 fn group_by_category_command_runs_for_resolved_mode() {

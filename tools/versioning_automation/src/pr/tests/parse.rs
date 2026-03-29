@@ -1,6 +1,8 @@
-use crate::pr::commands::pr_action::PrAction;
-use crate::pr::commands::pr_field_name::PrFieldName;
-use crate::pr::parse::parse;
+//! tools/versioning_automation/src/pr/tests/parse.rs
+use crate::pr::{
+    commands::{PrAction, PrFieldName},
+    parse::parse,
+};
 
 fn to_args(values: &[&str]) -> Vec<String> {
     values.iter().map(|v| (*v).to_string()).collect()

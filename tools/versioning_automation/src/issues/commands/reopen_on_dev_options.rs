@@ -3,16 +3,15 @@ use std::env;
 
 use crate::{
     gh_cli::output_trim_or_empty,
-    issue_remote_snapshot::issue_labels_raw,
+    issue_remote_snapshot::IssueRemoteSnapshot,
     issues::{
+        IssueSyncPlan,
         commands::{IssueTarget, SyncProjectStatusOptions, UpdateOptions},
         execute::{
             has_label_named, issue_remote_snapshot_or_default,
-            load_effective_issue_action_numbers_for_pr, pr_state_allows_reopen_sync, run_reopen,
-            run_update,
+            load_effective_issue_action_numbers_for_pr, pr_state_allows_reopen_sync,
         },
-        issue_sync_plan::plan_reopen_sync,
-        sync_project_status::run_sync_project_status,
+        run_sync_project_status,
     },
     pr_remote_snapshot::load_pr_remote_snapshot,
     repo_name::resolve_repo_name,
@@ -83,12 +82,13 @@ impl ReopenOnDevOptions {
                 println!("Issue #{}: unreadable; skipping reopen sync.", issue_number);
                 continue;
             }
-            let labels_raw = issue_labels_raw(&snapshot);
+            let labels_raw = IssueRemoteSnapshot::issue_labels_raw(&snapshot);
             let state = snapshot.state;
-            let sync_plan = plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
+            let sync_plan =
+                IssueSyncPlan::plan_reopen_sync(&state, has_label_named(&labels_raw, &label_name));
 
             if sync_plan.reopen_issue {
-                let status = run_reopen(IssueTarget {
+                let status = IssueTarget::run_reopen(IssueTarget {
                     issue: issue_number.clone(),
                     repo: Some(repo_name.clone()),
                 });
@@ -103,7 +103,7 @@ impl ReopenOnDevOptions {
             }
 
             if label_exists && sync_plan.remove_done_in_dev_label {
-                let status = run_update(UpdateOptions {
+                let status = UpdateOptions::run_update(UpdateOptions {
                     issue: issue_number.clone(),
                     repo: Some(repo_name.clone()),
                     edit_args: vec![("--remove-label".to_string(), label_name.clone())],

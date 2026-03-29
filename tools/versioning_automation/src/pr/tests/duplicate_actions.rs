@@ -1,5 +1,5 @@
-use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
-use crate::pr::duplicate_actions::run_duplicate_actions;
+//! tools/versioning_automation/src/pr/tests/duplicate_actions.rs
+use crate::pr::{commands::PrDuplicateActionsOptions, duplicate_actions::run_duplicate_actions};
 
 #[test]
 fn duplicate_actions_rejects_invalid_mode() {

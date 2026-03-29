@@ -821,7 +821,7 @@ fn parse_issue_and_optional_repo(
     Ok((issue, repo))
 }
 
-fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {
+pub(crate) fn take_value(flag: &str, args: &[String], index: &mut usize) -> Result<String, String> {
     let value_index = *index + 1;
     if value_index >= args.len() {
         return Err(format!("{flag} requires a value"));

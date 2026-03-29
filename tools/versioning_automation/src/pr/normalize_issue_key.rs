@@ -1,6 +1,7 @@
+//! tools/versioning_automation/src/pr/normalize_issue_key.rs
 use regex::Regex;
 
-use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
+use crate::pr::commands::PrNormalizeIssueKeyOptions;
 
 pub(crate) fn run_normalize_issue_key(opts: PrNormalizeIssueKeyOptions) -> i32 {
     if let Some(issue_key) = normalize_issue_key(&opts.raw) {

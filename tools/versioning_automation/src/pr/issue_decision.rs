@@ -1,4 +1,4 @@
-use crate::pr::commands::pr_issue_decision_options::PrIssueDecisionOptions;
+use crate::pr::commands::PrIssueDecisionOptions;
 
 pub(crate) fn run_issue_decision(opts: PrIssueDecisionOptions) -> i32 {
     let outcome = decide(opts);

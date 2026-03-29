@@ -1,5 +1,6 @@
+//! tools/versioning_automation/src/pr/upsert_comment.rs
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
-use crate::pr::commands::pr_upsert_comment_options::PrUpsertCommentOptions;
+use crate::pr::commands::PrUpsertCommentOptions;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_upsert_comment(opts: PrUpsertCommentOptions) -> i32 {

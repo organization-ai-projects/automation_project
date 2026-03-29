@@ -1,7 +1,7 @@
+//! tools/versioning_automation/src/pr/duplicate_actions.rs
 use std::collections::BTreeMap;
 
-use crate::gh_cli::status_cmd;
-use crate::pr::commands::pr_duplicate_actions_options::PrDuplicateActionsOptions;
+use crate::{gh_cli::status_cmd, pr::commands::PrDuplicateActionsOptions};
 
 pub(crate) fn run_duplicate_actions(opts: PrDuplicateActionsOptions) -> i32 {
     let mode = opts.mode.trim();

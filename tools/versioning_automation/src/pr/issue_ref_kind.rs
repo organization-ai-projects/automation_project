@@ -1,5 +1,5 @@
 use crate::gh_cli::status_cmd;
-use crate::pr::commands::pr_issue_ref_kind_options::PrIssueRefKindOptions;
+use crate::pr::commands::PrIssueRefKindOptions;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_issue_ref_kind(opts: PrIssueRefKindOptions) -> i32 {

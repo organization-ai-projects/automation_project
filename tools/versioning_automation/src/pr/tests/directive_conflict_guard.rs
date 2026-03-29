@@ -1,4 +1,5 @@
-use crate::pr::commands::pr_directive_conflict_guard_options::PrDirectiveConflictGuardOptions;
+//! tools/versioning_automation/src/pr/tests/directive_conflict_guard.rs
+use crate::pr::commands::PrDirectiveConflictGuardOptions;
 use crate::pr::directive_conflict_guard::{build_directive_payload, run_directive_conflict_guard};
 use crate::pr::state::build_state;
 

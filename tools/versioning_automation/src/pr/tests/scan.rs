@@ -1,4 +1,5 @@
-use crate::pr::scan::scan_directives;
+//! tools/versioning_automation/src/pr/tests/scan.rs
+use crate::pr::scan_directives;
 
 #[test]
 fn scan_directives_extracts_event_decision_duplicate() {

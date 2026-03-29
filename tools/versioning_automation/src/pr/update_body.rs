@@ -1,5 +1,6 @@
+//! tools/versioning_automation/src/pr/update_body.rs
 use crate::gh_cli::status_cmd;
-use crate::pr::commands::pr_update_body_options::PrUpdateBodyOptions;
+use crate::pr::commands::PrUpdateBodyOptions;
 use crate::repo_name::resolve_repo_name;
 
 pub(crate) fn run_update_body(opts: PrUpdateBodyOptions) -> i32 {

@@ -1,8 +1,7 @@
 //! tools/versioning_automation/src/open_pr_issue_refs.rs
 use std::collections::BTreeSet;
 
-use crate::gh_cli;
-use crate::pr::text_payload::extract_effective_issue_ref_records;
+use crate::{gh_cli, pr::extract_effective_issue_ref_records};
 
 pub(crate) fn load_open_pr_numbers_referencing_issue(
     issue_number: &str,

@@ -1,5 +1,7 @@
-use crate::pr::commands::pr_normalize_issue_key_options::PrNormalizeIssueKeyOptions;
-use crate::pr::normalize_issue_key::run_normalize_issue_key;
+//! tools/versioning_automation/src/pr/tests/normalize_issue_key.rs
+use crate::pr::{
+    commands::PrNormalizeIssueKeyOptions, normalize_issue_key::run_normalize_issue_key,
+};
 
 #[test]
 fn normalize_issue_key_command_runs_with_valid_ref() {

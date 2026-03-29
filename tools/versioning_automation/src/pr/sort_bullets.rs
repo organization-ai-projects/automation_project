@@ -1,8 +1,9 @@
+//! tools/versioning_automation/src/pr/sort_bullets.rs
 use std::fs;
 
 use regex::Regex;
 
-use crate::pr::commands::pr_sort_bullets_options::PrSortBulletsOptions;
+use crate::pr::commands::PrSortBulletsOptions;
 
 pub(crate) fn run_sort_bullets(opts: PrSortBulletsOptions) -> i32 {
     let content = match fs::read_to_string(&opts.input_file) {

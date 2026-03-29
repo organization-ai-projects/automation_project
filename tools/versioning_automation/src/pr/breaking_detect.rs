@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use crate::pr::commands::pr_breaking_detect_options::PrBreakingDetectOptions;
+use crate::pr::commands::PrBreakingDetectOptions;
 
 pub(crate) fn run_breaking_detect(opts: PrBreakingDetectOptions) -> i32 {
     let detected = opts

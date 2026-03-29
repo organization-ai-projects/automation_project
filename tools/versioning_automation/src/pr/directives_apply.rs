@@ -1,4 +1,5 @@
-use crate::pr::commands::pr_directives_apply_options::PrDirectivesApplyOptions;
+//! tools/versioning_automation/src/pr/directives_apply.rs
+use crate::pr::commands::PrDirectivesApplyOptions;
 use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
 use crate::pr::state::build_state;
 

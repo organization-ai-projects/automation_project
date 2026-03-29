@@ -1,10 +1,11 @@
+//! tools/versioning_automation/src/issues/tests/execute.rs
 use crate::issues::commands::{CreateOptions, NonComplianceReasonOptions};
-use crate::issues::execute::{pr_state_allows_reopen_sync, run_create, run_non_compliance_reason};
-use crate::pr::text_payload::extract_effective_action_issue_numbers;
+use crate::issues::execute::pr_state_allows_reopen_sync;
+use crate::pr::extract_effective_action_issue_numbers;
 
 #[test]
 fn execute_create_dry_run_still_works_after_refactor() {
-    let code = run_create(CreateOptions {
+    let code = CreateOptions {
         title: "feat(example): dry run".to_string(),
         context: "ctx".to_string(),
         problem: "problem".to_string(),
@@ -16,13 +17,14 @@ fn execute_create_dry_run_still_works_after_refactor() {
         related_prs: vec![],
         repo: None,
         dry_run: true,
-    });
+    }
+    .run_create();
     assert_eq!(code, 0);
 }
 
 #[test]
 fn execute_create_dry_run_accepts_related_refs_and_assignee() {
-    let code = run_create(CreateOptions {
+    let code = CreateOptions {
         title: "feat(example): dry run refs".to_string(),
         context: "ctx".to_string(),
         problem: "problem".to_string(),
@@ -34,17 +36,19 @@ fn execute_create_dry_run_accepts_related_refs_and_assignee() {
         related_prs: vec!["#34".to_string()],
         repo: None,
         dry_run: true,
-    });
+    }
+    .run_create();
     assert_eq!(code, 0);
 }
 
 #[test]
 fn execute_non_compliance_reason_runs() {
-    let code = run_non_compliance_reason(NonComplianceReasonOptions {
+    let code = NonComplianceReasonOptions {
         title: "feat(scope): summary".to_string(),
         body: String::new(),
         labels_raw: "issue-required-missing".to_string(),
-    });
+    }
+    .run_non_compliance_reason();
     assert_eq!(code, 0);
 }
 

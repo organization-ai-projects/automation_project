@@ -7,7 +7,7 @@ use common_json::Json;
 use crate::automation::commands::AuditIssueStatusOptions;
 use crate::gh_cli;
 use crate::parent_field::extract_parent_field;
-use crate::pr::text_payload::extract_effective_issue_ref_sets;
+use crate::pr::extract_effective_issue_ref_sets;
 use crate::repo_name::resolve_repo_name;
 
 use super::execute::{ensure_git_repo, run_git_output_preserve};

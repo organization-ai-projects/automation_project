@@ -1,5 +1,5 @@
-use crate::issues::commands::CreateOptions;
-use crate::issues::render::{print_usage, render_direct_issue_body};
+//! tools/versioning_automation/src/issues/tests/render.rs
+use crate::issues::{commands::CreateOptions, print_usage, render_direct_issue_body};
 
 #[test]
 fn render_usage_prints_without_panic() {

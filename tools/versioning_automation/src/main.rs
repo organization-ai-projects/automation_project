@@ -4,6 +4,7 @@ mod automation;
 mod category_resolver;
 mod cli_action;
 mod compare_snapshot;
+mod errors_code;
 mod gh_cli;
 mod git;
 mod git_cli;

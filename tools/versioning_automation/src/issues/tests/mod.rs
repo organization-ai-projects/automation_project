@@ -1,6 +1,9 @@
+mod auto_link_relation_snapshot;
 mod commands;
+mod dispatch;
 mod execute;
 mod issue_sync_plan;
+mod neutralize_ref_buckets;
 mod parse;
 mod render;
 mod sync_project_status;
