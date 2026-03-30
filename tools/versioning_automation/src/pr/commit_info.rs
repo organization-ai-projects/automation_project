@@ -1,5 +1,5 @@
 //! tools/versioning_automation/src/pr/commit_info.rs
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{self, BTreeMap, BTreeSet};
 
 use common_json::Json;
 use regex::Regex;
@@ -8,8 +8,8 @@ use crate::{
     category_resolver::classify_title,
     gh_cli::output_trim,
     pr::{
-        DirectiveRecordType, IssueOutcomesSnapshot, generate_description::render_change_footprint,
-        scan_directives, text_indicates_breaking,
+        DirectiveRecord, DirectiveRecordType, IssueOutcomesSnapshot,
+        generate_description::render_change_footprint, text_indicates_breaking,
     },
     repo_name::resolve_repo_name_optional,
 };
@@ -142,7 +142,7 @@ impl CommitInfo {
             .join("\n\n");
 
         let mut targets = BTreeMap::new();
-        for record in scan_directives(&text, true) {
+        for record in DirectiveRecord::scan_directives(&text, true) {
             if record.record_type != DirectiveRecordType::Duplicate {
                 continue;
             }
@@ -283,5 +283,28 @@ impl CommitInfo {
         };
 
         format!("Merge {head_ref} into {base_ref}: {summary}")
+    }
+
+    pub(crate) fn collect_default_categories(
+        commits: &[Self],
+    ) -> collections::BTreeMap<String, String> {
+        let mut out = collections::BTreeMap::new();
+
+        for commit in commits.iter().rev() {
+            let category = classify_title(&commit.subject).to_string();
+            let text = format!("{}\n{}", commit.subject, commit.body);
+            for record in DirectiveRecord::scan_directives(&text, false) {
+                if record.first != "Closes" && record.first != "Reopen" {
+                    continue;
+                }
+                let issue = record.second.trim_start_matches('#');
+                if issue.is_empty() {
+                    continue;
+                }
+                out.insert(issue.to_string(), category.clone());
+            }
+        }
+
+        out
     }
 }

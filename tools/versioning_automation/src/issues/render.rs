@@ -1,48 +1,4 @@
 //! tools/versioning_automation/src/issues/render.rs
-use crate::issues::commands::CreateOptions;
-
-pub(crate) fn render_direct_issue_body(opts: &CreateOptions) -> String {
-    let mut body = String::new();
-    body.push_str("## Context\n\n");
-    body.push_str(&opts.context);
-    body.push_str("\n\n## Problem\n\n");
-    body.push_str(&opts.problem);
-    body.push_str("\n\n## Acceptance Criteria\n\nDone when :\n\n");
-    for acceptance in &opts.acceptances {
-        body.push_str("- [ ] ");
-        body.push_str(acceptance);
-        body.push('\n');
-    }
-    body.push_str("\n## Hierarchy\n\nParent: ");
-    body.push_str(&opts.parent);
-
-    let related_issues = opts
-        .related_issues
-        .iter()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-    let related_prs = opts
-        .related_prs
-        .iter()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>();
-
-    if !related_issues.is_empty() || !related_prs.is_empty() {
-        body.push_str("\n\n## References\n");
-        if !related_issues.is_empty() {
-            body.push_str("\nRelated issue(s): ");
-            body.push_str(&related_issues.join(" "));
-        }
-        if !related_prs.is_empty() {
-            body.push_str("\nRelated PR(s): ");
-            body.push_str(&related_prs.join(" "));
-        }
-    }
-
-    body
-}
 
 pub(crate) fn print_usage() {
     println!("Usage:");

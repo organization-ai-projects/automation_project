@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/lazy_regex.rs
 use regex::Regex;
 use std::sync::LazyLock;
 

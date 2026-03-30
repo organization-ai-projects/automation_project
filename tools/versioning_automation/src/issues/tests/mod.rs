@@ -1,7 +1,8 @@
+//! tools/versioning_automation/src/issues/tests/mod.rs
 mod auto_link_relation_snapshot;
-mod commands;
 mod dispatch;
 mod execute;
+mod issue_comment_payload;
 mod issue_sync_plan;
 mod neutralize_ref_buckets;
 mod parse;

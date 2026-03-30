@@ -1,16 +1,13 @@
 //! tools/versioning_automation/src/pr/issue_outcomes_snapshot.rs
 use std::collections::{self, BTreeSet};
 
-use crate::category_resolver::classify_title;
 use crate::pr::commit_info::CommitInfo;
-use crate::pr::conflicts::build_conflict_report;
-use crate::pr::domain::conflicts::resolved_conflict::ResolvedConflict;
-use crate::pr::domain::conflicts::unresolved_conflict::UnresolvedConflict;
+use crate::pr::domain::conflicts::{ConflictReport, ResolvedConflict, UnresolvedConflict};
+use crate::pr::extract_effective_action_issue_numbers;
 use crate::pr::generate_description::{
     render_directive_resolution_line, render_issue_outcome_entries,
 };
 use crate::pr::group_by_category::GroupByCategory;
-use crate::pr::{extract_effective_action_issue_numbers, scan_directives};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IssueOutcomesSnapshot {
@@ -41,8 +38,8 @@ impl IssueOutcomesSnapshot {
             .collect::<Vec<String>>()
             .join("\n\n");
         let (closes, reopens) = extract_effective_action_issue_numbers(&text);
-        let conflict_report = build_conflict_report(&text, 1);
-        let default_categories = collect_default_categories(commits);
+        let conflict_report = ConflictReport::build_conflict_report(&text, 1);
+        let default_categories = CommitInfo::collect_default_categories(commits);
         let resolved_conflict_keys = conflict_report
             .resolved
             .iter()
@@ -229,27 +226,6 @@ where
         resolve_category(&issue, default_category),
         entry.reason.clone(),
     )
-}
-
-fn collect_default_categories(commits: &[CommitInfo]) -> collections::BTreeMap<String, String> {
-    let mut out = collections::BTreeMap::new();
-
-    for commit in commits.iter().rev() {
-        let category = classify_title(&commit.subject).to_string();
-        let text = format!("{}\n{}", commit.subject, commit.body);
-        for record in scan_directives(&text, false) {
-            if record.first != "Closes" && record.first != "Reopen" {
-                continue;
-            }
-            let issue = record.second.trim_start_matches('#');
-            if issue.is_empty() {
-                continue;
-            }
-            out.insert(issue.to_string(), category.clone());
-        }
-    }
-
-    out
 }
 
 fn issue_key(issue: &str) -> String {

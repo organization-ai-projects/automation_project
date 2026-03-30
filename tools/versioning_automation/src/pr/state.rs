@@ -1,16 +1,7 @@
 //! tools/versioning_automation/src/pr/state.rs
 use std::collections::{HashMap, HashSet};
 
-use crate::pr::commands::PrDirectivesStateOptions;
-use crate::pr::domain::directives::directive_record::DirectiveRecord;
-use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::scan_directives;
-
-pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {
-    let state = build_state(&opts.text);
-    emit_plain(&state);
-    0
-}
+use crate::pr::{DirectiveRecord, DirectiveRecordType, commands::PrDirectivesStateOptions};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct State {
@@ -19,16 +10,46 @@ pub(crate) struct State {
     pub(crate) action_records: Vec<DirectiveRecord>,
 }
 
-pub(crate) fn build_state(text: &str) -> State {
-    let records = scan_directives(text, false);
-    let explicit_decisions = collect_explicit_decisions(&records);
-    let inferred_decisions = collect_inferred_decisions(&records, &explicit_decisions);
-    let action_records = collect_action_records(&records);
+impl State {
+    pub(crate) fn build_state(text: &str) -> Self {
+        let records = DirectiveRecord::scan_directives(text, false);
+        let explicit_decisions = collect_explicit_decisions(&records);
+        let inferred_decisions = collect_inferred_decisions(&records, &explicit_decisions);
+        let action_records = collect_action_records(&records);
 
-    State {
-        explicit_decisions,
-        inferred_decisions,
-        action_records,
+        State {
+            explicit_decisions,
+            inferred_decisions,
+            action_records,
+        }
+    }
+
+    pub(crate) fn emit_plain(&self) {
+        let mut explicit_keys: Vec<String> = self.explicit_decisions.keys().cloned().collect();
+        explicit_keys.sort_by_key(|issue| issue_number(issue));
+        for issue in explicit_keys {
+            if let Some(decision) = self.explicit_decisions.get(&issue) {
+                println!("DEC|{}|{}", issue, decision);
+            }
+        }
+
+        let mut inferred_keys: Vec<String> = self.inferred_decisions.keys().cloned().collect();
+        inferred_keys.sort_by_key(|issue| issue_number(issue));
+        for issue in inferred_keys {
+            if let Some(decision) = self.inferred_decisions.get(&issue) {
+                println!("INF|{}|{}", issue, decision);
+            }
+        }
+
+        for record in &self.action_records {
+            match record.record_type {
+                DirectiveRecordType::Event => println!("EV|{}|{}", record.first, record.second),
+                DirectiveRecordType::Duplicate => {
+                    println!("DUP|{}|{}", record.first, record.second)
+                }
+                DirectiveRecordType::Decision => {}
+            }
+        }
     }
 }
 
@@ -125,35 +146,15 @@ fn collect_action_records(records: &[DirectiveRecord]) -> Vec<DirectiveRecord> {
     out
 }
 
-fn emit_plain(state: &State) {
-    let mut explicit_keys: Vec<String> = state.explicit_decisions.keys().cloned().collect();
-    explicit_keys.sort_by_key(|issue| issue_number(issue));
-    for issue in explicit_keys {
-        if let Some(decision) = state.explicit_decisions.get(&issue) {
-            println!("DEC|{}|{}", issue, decision);
-        }
-    }
-
-    let mut inferred_keys: Vec<String> = state.inferred_decisions.keys().cloned().collect();
-    inferred_keys.sort_by_key(|issue| issue_number(issue));
-    for issue in inferred_keys {
-        if let Some(decision) = state.inferred_decisions.get(&issue) {
-            println!("INF|{}|{}", issue, decision);
-        }
-    }
-
-    for record in &state.action_records {
-        match record.record_type {
-            DirectiveRecordType::Event => println!("EV|{}|{}", record.first, record.second),
-            DirectiveRecordType::Duplicate => println!("DUP|{}|{}", record.first, record.second),
-            DirectiveRecordType::Decision => {}
-        }
-    }
-}
-
 fn issue_number(issue_key: &str) -> u32 {
     issue_key
         .trim_start_matches('#')
         .parse::<u32>()
         .unwrap_or(u32::MAX)
+}
+
+pub(crate) fn run_directives_state(opts: PrDirectivesStateOptions) -> i32 {
+    let state = State::build_state(&opts.text);
+    state.emit_plain();
+    0
 }

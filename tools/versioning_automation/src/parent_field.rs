@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/parent_field.rs
 use crate::lazy_regex::PARENT_FIELD_REGEX;
 
 pub(crate) fn extract_parent_field(body: &str) -> Option<String> {

@@ -4,6 +4,7 @@ mod pr_body_context_options;
 mod pr_breaking_detect_options;
 mod pr_child_pr_refs_options;
 mod pr_closure_marker_options;
+mod pr_closure_refs_options;
 mod pr_effective_category_options;
 mod pr_field_options;
 mod pr_generate_description_options;

@@ -8,7 +8,7 @@ use crate::gh_cli::{gh_issue_target_command, output_trim_or_empty, push_arg, sta
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
 use crate::issue_remote_snapshot::IssueRemoteSnapshot;
 use crate::issues::commands::{CloseOptions, IssueTarget, UpsertMarkerCommentOptions};
-use crate::issues::{self, AutoLinkRelationSnapshot, Validation, extract_tasklist_refs};
+use crate::issues::{AutoLinkRelationSnapshot, Validation, extract_tasklist_refs};
 
 use crate::parent_field::extract_parent_field;
 use crate::pr::{extract_effective_action_issue_numbers, load_pr_text_payload};
@@ -413,15 +413,13 @@ pub(crate) fn auto_link_set_validation_error_state(
     auto_link_remove_label(repo_name, issue_number, automation_failed_label);
     let body =
         format!("{marker}\n### Parent Field Autolink Status\n\n❌ {message}\n\n{help_text}\n");
-    UpsertMarkerCommentOptions::run_upsert_marker_comment(
-        issues::commands::UpsertMarkerCommentOptions {
-            repo: repo_name.to_string(),
-            issue: issue_number.to_string(),
-            marker: marker.to_string(),
-            body,
-            announce: false,
-        },
-    )
+    UpsertMarkerCommentOptions::run_upsert_marker_comment(UpsertMarkerCommentOptions {
+        repo: repo_name.to_string(),
+        issue: issue_number.to_string(),
+        marker: marker.to_string(),
+        body,
+        announce: false,
+    })
 }
 
 pub(crate) fn auto_link_set_runtime_error_state(

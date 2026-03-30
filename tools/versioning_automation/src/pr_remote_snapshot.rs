@@ -47,11 +47,8 @@ impl PrRemoteSnapshot {
         Ok(snapshot)
     }
 
-    pub(crate) fn pr_text_payload_from_snapshot(snapshot: &PrRemoteSnapshot) -> String {
-        format!(
-            "{}\n{}\n{}",
-            snapshot.title, snapshot.body, snapshot.commit_messages
-        )
+    pub(crate) fn pr_text_payload_from_snapshot(&self) -> String {
+        format!("{}\n{}\n{}", self.title, self.body, self.commit_messages)
     }
 
     fn parse_pr_remote_snapshot(json: &str) -> Result<Self, String> {

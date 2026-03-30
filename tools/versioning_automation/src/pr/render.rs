@@ -1,6 +1,4 @@
-use common_json::to_string_pretty;
-
-use crate::pr::domain::directives::directive_record::DirectiveRecord;
+//! tools/versioning_automation/src/pr/render.rs
 
 pub(crate) fn print_usage() {
     println!("Usage:");
@@ -59,29 +57,4 @@ pub(crate) fn print_usage() {
     println!(
         "  va pr upsert-comment --pr <number> [--repo owner/name] --marker \"...\" --body \"...\""
     );
-}
-
-pub(crate) fn emit_plain(records: &[DirectiveRecord]) {
-    for record in records {
-        let record_type = match record.record_type {
-            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Event => "EV",
-            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Decision => "DEC",
-            crate::pr::domain::directives::directive_record_type::DirectiveRecordType::Duplicate => "DUP",
-        };
-        println!("{}|{}|{}", record_type, record.first, record.second);
-    }
-}
-
-pub(crate) fn emit_json(records: &[DirectiveRecord]) -> i32 {
-    let payload = records.to_vec();
-    match to_string_pretty(&payload) {
-        Ok(json) => {
-            println!("{json}");
-            0
-        }
-        Err(err) => {
-            eprintln!("failed to serialize directives as json: {err}");
-            1
-        }
-    }
 }

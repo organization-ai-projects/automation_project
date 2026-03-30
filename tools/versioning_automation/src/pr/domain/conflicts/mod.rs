@@ -1,3 +1,8 @@
-pub(crate) mod conflict_report;
-pub(crate) mod resolved_conflict;
-pub(crate) mod unresolved_conflict;
+//! tools/versioning_automation/src/pr/domain/conflicts/mod.rs
+mod conflict_report;
+mod resolved_conflict;
+mod unresolved_conflict;
+
+pub(crate) use conflict_report::ConflictReport;
+pub(crate) use resolved_conflict::ResolvedConflict;
+pub(crate) use unresolved_conflict::UnresolvedConflict;

@@ -4,10 +4,7 @@ use std::collections::BTreeSet;
 use regex::Regex;
 
 use crate::pr::commands::PrTextPayloadOptions;
-use crate::pr::domain::directives::directive_record::DirectiveRecord;
-use crate::pr::domain::directives::directive_record_type::DirectiveRecordType;
-use crate::pr::scan_directives;
-use crate::pr::state::build_state;
+use crate::pr::{DirectiveRecord, DirectiveRecordType, State};
 use crate::pr_remote_snapshot::PrRemoteSnapshot;
 use crate::repo_name::resolve_repo_name;
 
@@ -60,7 +57,7 @@ pub(crate) fn extract_effective_issue_ref_sets(
     let legacy_re =
         Regex::new(r"(?i)(fixes|resolves|related\s+to|reopens)\s+#([0-9]+)").expect("valid regex");
 
-    for record in scan_directives(payload, false) {
+    for record in DirectiveRecord::scan_directives(payload, false) {
         if record.first == "Part of" {
             let issue_number = record.second.trim_start_matches('#').to_string();
             if !issue_number.is_empty() {
@@ -95,7 +92,7 @@ pub(crate) fn extract_effective_issue_ref_sets(
         }
     }
 
-    for record in build_state(payload).action_records {
+    for record in State::build_state(payload).action_records {
         let issue_number = record.second.trim_start_matches('#').to_string();
         if issue_number.is_empty() {
             continue;

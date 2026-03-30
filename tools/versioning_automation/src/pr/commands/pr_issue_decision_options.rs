@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/pr/commands/pr_issue_decision_options.rs
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PrIssueDecisionOptions {
     pub(crate) action: String,

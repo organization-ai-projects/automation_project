@@ -1,8 +1,7 @@
 //! tools/versioning_automation/src/issues/commands/upsert_marker_comment_options.rs
 use crate::{
-    gh_cli::output_trim_or_empty,
-    issue_comment_upsert::upsert_issue_comment_by_marker,
-    issues::{find_latest_matching_comment_id, parse_issue_comments},
+    gh_cli::output_trim_or_empty, issue_comment_upsert::upsert_issue_comment_by_marker,
+    issues::IssueCommentPayload,
 };
 
 #[derive(Debug, Clone)]
@@ -18,9 +17,9 @@ impl UpsertMarkerCommentOptions {
     pub(crate) fn run_upsert_marker_comment(self) -> i32 {
         let comments_endpoint = format!("repos/{}/issues/{}/comments", self.repo, self.issue);
         let comments_json = output_trim_or_empty(&["api", &comments_endpoint]);
-        let comments = parse_issue_comments(&comments_json);
+        let comments = IssueCommentPayload::parse_issue_comments(&comments_json);
         let had_existing_comment =
-            find_latest_matching_comment_id(&comments, &self.marker).is_some();
+            IssueCommentPayload::find_latest_matching_comment_id(&comments, &self.marker).is_some();
         let status =
             match upsert_issue_comment_by_marker(&self.repo, &self.issue, &self.marker, &self.body)
             {

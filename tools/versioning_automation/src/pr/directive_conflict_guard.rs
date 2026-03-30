@@ -3,120 +3,16 @@ use std::collections::BTreeSet;
 
 use regex::Regex;
 
-use crate::gh_cli::status_cmd;
 use crate::issue_comment_upsert::upsert_issue_comment_by_marker;
-use crate::pr::closure_marker::apply_marker;
-use crate::pr::commands::PrDirectiveConflictGuardOptions;
-use crate::pr::conflicts::build_conflict_report;
-use crate::pr_remote_snapshot::PrRemoteSnapshot;
-use crate::repo_name::resolve_repo_name;
 
-const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
-const BLOCK_END: &str = "<!-- directive-conflicts:end -->";
-
-pub(crate) fn run_directive_conflict_guard(opts: PrDirectiveConflictGuardOptions) -> i32 {
-    let repo_name = match resolve_repo_name(opts.repo) {
-        Ok(repo) => repo,
-        Err(msg) => {
-            eprintln!("{msg}");
-            return 3;
-        }
-    };
-
-    let pr_snapshot = match PrRemoteSnapshot::load_pr_remote_snapshot(&opts.pr_number, &repo_name) {
-        Ok(snapshot) => snapshot,
-        Err(_) => {
-            eprintln!("Error: unable to read PR #{}.", opts.pr_number);
-            return 4;
-        }
-    };
-    let original_body = pr_snapshot.body;
-    let mut updated_body = original_body.clone();
-    let commit_messages = pr_snapshot.commit_messages;
-    let source_branch_count = detect_source_branch_count(&commit_messages);
-    let directive_payload = build_directive_payload(&original_body, &commit_messages);
-
-    let report = build_conflict_report(&directive_payload, source_branch_count);
-    let resolved_count = report.resolved.len();
-    let unresolved_count = report.unresolved.len();
-
-    for entry in &report.resolved {
-        if entry.decision != "close" {
-            continue;
-        }
-        match apply_marker(&updated_body, "reopen|reopens", &entry.issue) {
-            Ok(next) => updated_body = next,
-            Err(err) => {
-                eprintln!("{err}");
-                return 2;
-            }
-        }
-    }
-
-    let marker = format!("<!-- directive-conflict-guard:{} -->", opts.pr_number);
-    let conflict_block = build_conflict_block(&report);
-    updated_body = upsert_conflict_block_in_body(&updated_body, conflict_block.as_deref());
-
-    if updated_body != original_body {
-        let status = match status_cmd(
-            "pr",
-            &[
-                "edit",
-                &opts.pr_number,
-                "-R",
-                &repo_name,
-                "--body",
-                &updated_body,
-            ],
-        ) {
-            Ok(()) => 0,
-            Err(err) => {
-                eprintln!("Failed to execute gh pr: {err}");
-                1
-            }
-        };
-        if status != 0 {
-            return status;
-        }
-    }
-
-    if unresolved_count > 0 {
-        let comment_body = format!(
-            "{marker}\n### Directive Conflict Guard\n\n❌ Unresolved Closes/Reopen conflicts detected. Add explicit directive decisions in PR body."
-        );
-        let status = upsert_pr_comment(&repo_name, &opts.pr_number, &marker, &comment_body);
-        if status != 0 {
-            return status;
-        }
-        eprintln!(
-            "Unresolved directive conflicts detected for PR #{}.",
-            opts.pr_number
-        );
-        return 8;
-    }
-
-    if resolved_count > 0 {
-        let comment_body = format!(
-            "{marker}\n### Directive Conflict Guard\n\n✅ Directive conflicts resolved via explicit decisions."
-        );
-        let status = upsert_pr_comment(&repo_name, &opts.pr_number, &marker, &comment_body);
-        if status != 0 {
-            return status;
-        }
-    }
-
-    println!(
-        "Directive conflict guard evaluated for PR #{}.",
-        opts.pr_number
-    );
-    0
-}
+pub(crate) const BLOCK_START: &str = "<!-- directive-conflicts:start -->";
+pub(crate) const BLOCK_END: &str = "<!-- directive-conflicts:end -->";
 
 pub(crate) fn build_directive_payload(body: &str, commit_messages: &str) -> String {
     format!("{body}\n{commit_messages}")
 }
 
-fn detect_source_branch_count(commit_messages: &str) -> u32 {
+pub(crate) fn detect_source_branch_count(commit_messages: &str) -> u32 {
     let merge_re =
         Regex::new(r"(?m)^Merge pull request #[0-9]+ from [^/]+/(.+)$").expect("valid regex");
     let mut branches = BTreeSet::new();
@@ -135,60 +31,7 @@ fn detect_source_branch_count(commit_messages: &str) -> u32 {
     }
 }
 
-fn build_conflict_block(
-    report: &crate::pr::domain::conflicts::conflict_report::ConflictReport,
-) -> Option<String> {
-    if report.resolved.is_empty() && report.unresolved.is_empty() {
-        return None;
-    }
-
-    let mut out = String::new();
-    out.push_str(BLOCK_START);
-    out.push('\n');
-    out.push_str("### Issue Directive Decisions");
-    out.push('\n');
-
-    if !report.resolved.is_empty() {
-        out.push('\n');
-        out.push_str("Resolved decisions:");
-        out.push('\n');
-        let mut keys = report.resolved.iter().collect::<Vec<_>>();
-        keys.sort_by_key(|entry| issue_number(&entry.issue));
-        for entry in keys {
-            out.push_str("- ");
-            out.push_str(&entry.issue);
-            out.push_str(" => ");
-            out.push_str(&entry.decision);
-            out.push_str(" (");
-            out.push_str(&entry.origin);
-            out.push_str(")\n");
-        }
-    }
-
-    if !report.unresolved.is_empty() {
-        out.push('\n');
-        out.push_str("❌ Unresolved conflicts (merge blocked):");
-        out.push('\n');
-        let mut keys = report.unresolved.iter().collect::<Vec<_>>();
-        keys.sort_by_key(|entry| issue_number(&entry.issue));
-        for entry in keys {
-            out.push_str("- ");
-            out.push_str(&entry.issue);
-            out.push_str(": ");
-            out.push_str(&entry.reason);
-            out.push('\n');
-        }
-        out.push('\n');
-        out.push_str("Required decision format:\n");
-        out.push_str("- `Directive Decision: #<issue> => close`\n");
-        out.push_str("- `Directive Decision: #<issue> => reopen`\n");
-    }
-
-    out.push_str(BLOCK_END);
-    Some(out)
-}
-
-fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
+pub(crate) fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
     let block_re = Regex::new(&format!(
         r"\n?{}\n.*?\n{}\n?",
         regex::escape(BLOCK_START),
@@ -203,7 +46,7 @@ fn upsert_conflict_block_in_body(body: &str, block: Option<&str>) -> String {
     }
 }
 
-fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
+pub(crate) fn upsert_pr_comment(repo_name: &str, pr_number: &str, marker: &str, body: &str) -> i32 {
     match upsert_issue_comment_by_marker(repo_name, pr_number, marker, body) {
         Ok(_) => 0,
         Err(err) => {

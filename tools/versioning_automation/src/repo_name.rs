@@ -1,5 +1,8 @@
+//! tools/versioning_automation/src/repo_name.rs
+use std::env;
+
 pub(crate) fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
-    if explicit_repo.is_none() && std::env::var("GH_REPO").is_err() {
+    if explicit_repo.is_none() && env::var("GH_REPO").is_err() {
         return Err("Error: unable to determine repository.".to_string());
     }
 
@@ -12,7 +15,7 @@ pub(crate) fn resolve_repo_name_optional(explicit_repo: Option<&str>) -> Option<
         return Some(repo.to_string());
     }
 
-    if let Ok(env_repo) = std::env::var("GH_REPO")
+    if let Ok(env_repo) = env::var("GH_REPO")
         && let Some(repo) = non_empty(&env_repo)
     {
         return Some(repo.to_string());

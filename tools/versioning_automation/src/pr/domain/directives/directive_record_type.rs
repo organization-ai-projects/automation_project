@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/pr/domain/directives/directive_record_type.rs
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]

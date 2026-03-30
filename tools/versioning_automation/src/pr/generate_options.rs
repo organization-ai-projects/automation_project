@@ -7,7 +7,6 @@ use crate::{
     pr::{
         CommitInfo, MainPrRefSnapshot,
         commands::PrDuplicateActionsOptions,
-        duplicate_actions::run_duplicate_actions,
         generate_description::{
             current_branch_name, gh_create_pr, gh_edit_pr_body, gh_read_pr_body,
             render_duplicate_mode_message, replace_validation_gate,
@@ -327,12 +326,13 @@ impl GenerateOptions {
                     .map(|(dup, canonical)| format!("{dup}|{canonical}"))
                     .collect::<Vec<String>>()
                     .join("\n");
-                let duplicate_status = run_duplicate_actions(PrDuplicateActionsOptions {
-                    text: payload,
-                    mode: mode.to_string(),
-                    repo,
-                    assume_yes: self.assume_yes,
-                });
+                let duplicate_status =
+                    PrDuplicateActionsOptions::run_duplicate_actions(PrDuplicateActionsOptions {
+                        text: payload,
+                        mode: mode.to_string(),
+                        repo,
+                        assume_yes: self.assume_yes,
+                    });
                 if duplicate_status != 0 {
                     return duplicate_status;
                 }

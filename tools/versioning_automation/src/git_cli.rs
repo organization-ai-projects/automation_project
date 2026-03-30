@@ -1,3 +1,4 @@
+//! tools/versioning_automation/src/git_cli.rs
 use std::process::Command;
 
 pub(crate) fn output_trim(args: &[&str]) -> Result<String, String> {
