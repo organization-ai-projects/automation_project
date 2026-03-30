@@ -44,7 +44,14 @@ impl SnapshotCodec {
         match json {
             common_json::Json::Null => "null".to_string(),
             common_json::Json::Bool(b) => if *b { "true" } else { "false" }.to_string(),
-            common_json::Json::Number(n) => n.as_f64().to_string(),
+            common_json::Json::Number(n) => {
+                let value = n.as_f64();
+                if value.fract() == 0.0 && value.abs() < (i64::MAX as f64) {
+                    (value as i64).to_string()
+                } else {
+                    value.to_string()
+                }
+            }
             common_json::Json::String(s) => Self::escape_json_string(s),
             common_json::Json::Array(arr) => {
                 let items: Vec<String> = arr.iter().map(|v| Self::canonical_json(v)).collect();
