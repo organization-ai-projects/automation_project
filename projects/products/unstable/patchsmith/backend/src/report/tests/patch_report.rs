@@ -12,9 +12,9 @@ mod tests {
             file_count: 2,
         };
         let report = PatchReport::from_verify(&verify, 3);
-        let json1 = report.to_json().unwrap();
-        let json2 = report.to_json().unwrap();
-        assert_eq!(json1, json2);
+        let json = report.to_json().unwrap();
+        let decoded: PatchReport = common_json::from_json_str(&json).unwrap();
+        assert_eq!(report, decoded);
         assert_eq!(report.op_count, 3);
         assert!(report.verified);
     }

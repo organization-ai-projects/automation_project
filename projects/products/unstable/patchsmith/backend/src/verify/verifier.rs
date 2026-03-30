@@ -11,6 +11,7 @@ pub struct VerifyResult {
     pub ok: bool,
     pub plan_hash: String,
     pub content_hash: String,
+    #[serde(deserialize_with = "crate::diagnostics::deserialize_usize_from_number")]
     pub file_count: usize,
 }
 

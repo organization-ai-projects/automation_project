@@ -7,7 +7,9 @@ use crate::verify::verifier::VerifyResult;
 pub struct PatchReport {
     pub plan_hash: String,
     pub content_hash: String,
+    #[serde(deserialize_with = "crate::diagnostics::deserialize_usize_from_number")]
     pub file_count: usize,
+    #[serde(deserialize_with = "crate::diagnostics::deserialize_usize_from_number")]
     pub op_count: usize,
     pub verified: bool,
 }

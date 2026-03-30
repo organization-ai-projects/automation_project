@@ -35,10 +35,12 @@ impl Applier {
                 end,
                 text,
             } => {
+                let start = *start as usize;
+                let end = *end as usize;
                 let content = files
                     .get(file)
                     .ok_or_else(|| PatchsmithError::Apply(format!("file not found: {file}")))?;
-                if *end > content.len() {
+                if end > content.len() {
                     return Err(PatchsmithError::Apply(format!(
                         "ReplaceRange: end ({end}) exceeds file length ({})",
                         content.len()
@@ -46,9 +48,9 @@ impl Applier {
                 }
                 let mut result =
                     String::with_capacity(content.len() - (end - start) + text.len());
-                result.push_str(&content[..*start]);
+                result.push_str(&content[..start]);
                 result.push_str(text);
-                result.push_str(&content[*end..]);
+                result.push_str(&content[end..]);
                 files.insert(file.clone(), result);
             }
             DslOp::ReplaceFirst {
@@ -94,18 +96,20 @@ impl Applier {
                 }
             }
             DslOp::DeleteRange { file, start, end } => {
+                let start = *start as usize;
+                let end = *end as usize;
                 let content = files
                     .get(file)
                     .ok_or_else(|| PatchsmithError::Apply(format!("file not found: {file}")))?;
-                if *end > content.len() {
+                if end > content.len() {
                     return Err(PatchsmithError::Apply(format!(
                         "DeleteRange: end ({end}) exceeds file length ({})",
                         content.len()
                     )));
                 }
                 let mut result = String::with_capacity(content.len() - (end - start));
-                result.push_str(&content[..*start]);
-                result.push_str(&content[*end..]);
+                result.push_str(&content[..start]);
+                result.push_str(&content[end..]);
                 files.insert(file.clone(), result);
             }
         }
