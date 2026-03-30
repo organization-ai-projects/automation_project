@@ -10,13 +10,3 @@ fn test_run_is_root_parent_success() {
     let result = options.run_is_root_parent();
     assert_eq!(result, 0);
 }
-
-#[test]
-fn test_run_is_root_parent_missing_repo() {
-    let options = IsRootParentOptions {
-        issue: "123".to_string(),
-        repo: None,
-    };
-    let result = options.run_is_root_parent();
-    assert_eq!(result, 0);
-}

@@ -1,4 +1,8 @@
 pub(crate) fn resolve_repo_name(explicit_repo: Option<String>) -> Result<String, String> {
+    if explicit_repo.is_none() && std::env::var("GH_REPO").is_err() {
+        return Err("Error: unable to determine repository.".to_string());
+    }
+
     resolve_repo_name_optional(explicit_repo.as_deref())
         .ok_or_else(|| "Error: unable to determine repository.".to_string())
 }

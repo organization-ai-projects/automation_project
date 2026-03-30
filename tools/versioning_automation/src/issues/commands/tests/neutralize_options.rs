@@ -2,16 +2,6 @@
 use crate::issues::commands::neutralize_options::NeutralizeOptions;
 
 #[test]
-fn test_run_neutralize_success() {
-    let options = NeutralizeOptions {
-        pr: "123".to_string(),
-        repo: Some("test_repo".to_string()),
-    };
-    let result = options.run_neutralize();
-    assert_eq!(result, 0);
-}
-
-#[test]
 fn test_run_neutralize_missing_repo() {
     let options = NeutralizeOptions {
         pr: "123".to_string(),

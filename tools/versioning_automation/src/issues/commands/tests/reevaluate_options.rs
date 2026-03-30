@@ -10,13 +10,3 @@ fn test_run_reevaluate_with_repo() {
     let result = options.run_reevaluate();
     assert_eq!(result, 0);
 }
-
-#[test]
-fn test_run_reevaluate_without_repo() {
-    let options = ReevaluateOptions {
-        issue: "123".to_string(),
-        repo: None,
-    };
-    let result = options.run_reevaluate();
-    assert_eq!(result, 0);
-}

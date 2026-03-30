@@ -33,7 +33,13 @@ pub(crate) fn run(args: &[String]) -> i32 {
         Ok(IssueAction::Delete(opts)) => IssueTarget::run_delete(opts),
         Ok(IssueAction::Reevaluate(opts)) => ReevaluateOptions::run_reevaluate(opts),
         Ok(IssueAction::Neutralize(opts)) => NeutralizeOptions::run_neutralize(opts),
-        Ok(IssueAction::AutoLink(opts)) => AutoLinkOptions::run_auto_link(opts),
+        Ok(IssueAction::AutoLink(opts)) => match AutoLinkOptions::run_auto_link(opts) {
+            Ok(_) => 0,
+            Err(err) => {
+                eprintln!("[ERROR] {err}");
+                1
+            }
+        },
         Ok(IssueAction::ParentGuard(opts)) => ParentGuardOptions::run_parent_guard(opts),
         Ok(IssueAction::ClosureHygiene(opts)) => ClosureHygieneOptions::run_closure_hygiene(opts),
         Ok(IssueAction::RequiredFieldsValidate(opts)) => {

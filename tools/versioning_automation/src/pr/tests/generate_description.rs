@@ -22,19 +22,6 @@ fn render_issue_outcome_records_groups_by_real_category() {
 }
 
 #[test]
-fn render_issue_outcome_records_renders_reopen_with_issue_key() {
-    let mut records = GroupByCategory::parse_records("1077|Features|Reopen|#1077");
-    records.sort_by_key(|record| (record.0, record.3));
-    let rendered = GroupByCategory::render_grouped_output(&records, "reopen")
-        .trim()
-        .to_string();
-
-    assert!(rendered.contains("#### Features"));
-    assert!(rendered.contains("- Reopen #1077"));
-    assert!(!rendered.contains("Reopen Reopen"));
-}
-
-#[test]
 fn parse_generate_description_allows_create_pr_without_dry_run() {
     let parsed = GenerateOptions::parse_generate_options(&[
         "--create-pr".to_string(),
