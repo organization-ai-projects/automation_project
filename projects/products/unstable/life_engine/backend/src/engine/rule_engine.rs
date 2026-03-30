@@ -1,6 +1,4 @@
-use crate::model::{
-    Aspirations, EventType, LifeEvent, Profile, RecommendationOutput,
-};
+use crate::model::{Aspirations, EventType, LifeEvent, Profile, RecommendationOutput};
 
 pub struct RuleEngine;
 
@@ -24,9 +22,7 @@ impl RuleEngine {
     ) -> RecommendationOutput {
         let mut output = RecommendationOutput::default();
 
-        output
-            .actions
-            .push("Declare situation to CAF".to_string());
+        output.actions.push("Declare situation to CAF".to_string());
         output
             .actions
             .push("Prepare France Travail registration".to_string());

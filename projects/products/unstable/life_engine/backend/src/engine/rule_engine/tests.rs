@@ -31,10 +31,7 @@ fn job_loss_produces_actions() {
 
     assert!(!output.actions.is_empty());
     assert!(output.actions.iter().any(|a| a.contains("CAF")));
-    assert!(output
-        .actions
-        .iter()
-        .any(|a| a.contains("France Travail")));
+    assert!(output.actions.iter().any(|a| a.contains("France Travail")));
     assert!(output.actions.iter().any(|a| a.contains("mutuelle")));
 }
 
@@ -45,10 +42,12 @@ fn job_loss_produces_estimations_with_income() {
     let output = RuleEngine::evaluate(&profile, &None, &event);
 
     assert!(!output.estimations.is_empty());
-    assert!(output
-        .estimations
-        .iter()
-        .any(|e| e.contains("unemployment benefit")));
+    assert!(
+        output
+            .estimations
+            .iter()
+            .any(|e| e.contains("unemployment benefit"))
+    );
     assert!(output.estimations.iter().any(|e| e.contains("1710.00")));
 }
 
@@ -78,10 +77,12 @@ fn job_loss_produces_opportunities() {
     let output = RuleEngine::evaluate(&profile, &None, &event);
 
     assert!(!output.opportunities.is_empty());
-    assert!(output
-        .opportunities
-        .iter()
-        .any(|o| o.contains("training") || o.contains("Training")));
+    assert!(
+        output
+            .opportunities
+            .iter()
+            .any(|o| o.contains("training") || o.contains("Training"))
+    );
 }
 
 #[test]
@@ -90,14 +91,13 @@ fn job_loss_inaptitude_adds_specific_actions() {
     let event = make_job_loss_event(Some("inaptitude"));
     let output = RuleEngine::evaluate(&profile, &None, &event);
 
-    assert!(output
-        .actions
-        .iter()
-        .any(|a| a.contains("inaptitude certificate")));
-    assert!(output
-        .warnings
-        .iter()
-        .any(|w| w.contains("Inaptitude")));
+    assert!(
+        output
+            .actions
+            .iter()
+            .any(|a| a.contains("inaptitude certificate"))
+    );
+    assert!(output.warnings.iter().any(|w| w.contains("Inaptitude")));
 }
 
 #[test]
@@ -113,10 +113,12 @@ fn job_loss_with_aspirations_adds_goal_opportunity() {
     });
     let output = RuleEngine::evaluate(&profile, &aspirations, &event);
 
-    assert!(output
-        .opportunities
-        .iter()
-        .any(|o| o.contains("freelancer")));
+    assert!(
+        output
+            .opportunities
+            .iter()
+            .any(|o| o.contains("freelancer"))
+    );
 }
 
 #[test]

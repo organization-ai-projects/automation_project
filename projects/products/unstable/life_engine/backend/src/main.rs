@@ -6,9 +6,7 @@ mod model;
 use crate::diagnostics::AppError;
 use crate::engine::RuleEngine;
 use crate::io::JsonCodec;
-use crate::model::{
-    Aspirations, EventMetadata, EventType, LifeEvent, Profile,
-};
+use crate::model::{Aspirations, EventMetadata, EventType, LifeEvent, Profile};
 
 fn main() -> Result<(), AppError> {
     let args: Vec<String> = std::env::args().collect();
@@ -51,9 +49,7 @@ fn parse_profile(args: &[String]) -> Result<Profile, AppError> {
             "--income" => {
                 i += 1;
                 if i < args.len() {
-                    profile.income_before = args[i]
-                        .parse()
-                        .ok();
+                    profile.income_before = args[i].parse().ok();
                 }
             }
             "--location" => {
@@ -160,7 +156,9 @@ fn print_usage() {
     println!("life_engine_backend - life event decision engine");
     println!();
     println!("Commands:");
-    println!("  evaluate --event <type> [--income <amount>] [--location <loc>] [--goal <goal>] [--reason <reason>]");
+    println!(
+        "  evaluate --event <type> [--income <amount>] [--location <loc>] [--goal <goal>] [--reason <reason>]"
+    );
     println!("  demo     Run a demonstration scenario");
     println!();
     println!("Event types: job_loss, new_job, health_issue");
