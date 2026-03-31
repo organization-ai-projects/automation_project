@@ -14,17 +14,17 @@ use dioxus::launch;
 use std::{env, process};
 
 fn main() {
-    let mut application = app::App::new();
-    application.update_status("Application started".to_string());
-    println!("Status: {:?}", application.state().status());
-
     let args: Vec<String> = env::args().collect();
     let command = args.get(1).map(String::as_str).unwrap_or("help");
 
-    let result = match command {
-        "run" => RunScreen::execute(&args[2..]),
-        "replay" => ReplayScreen::execute(&args[2..]),
-        "scenario" => ScenarioScreen::execute(&args[2..]),
+    let result: Result<(), String> = match command {
+        "run" => RunScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string()),
+        "replay" => {
+            ReplayScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string())
+        }
+        "scenario" => {
+            ScenarioScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string())
+        }
         "ui" => {
             launch(app);
             Ok(())
