@@ -115,6 +115,7 @@ members = [
   "projects/products/unstable/econ_sandbox/ui",
   "projects/products/unstable/tactics_grid/backend",
   "projects/products/unstable/tactics_grid/ui",
+  "projects/products/unstable/weather_reasoning_sandbox/backend",
 ]
 resolver = "2"
 
