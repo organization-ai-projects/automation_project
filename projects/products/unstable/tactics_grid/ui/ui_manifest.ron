@@ -1,0 +1,6 @@
+(
+  product_id: "tactics_grid",
+  title: "Tactics Grid",
+  version: "0.1.0",
+  entry: "index.html",
+)
