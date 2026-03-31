@@ -1,0 +1,17 @@
+pub enum Action {
+    LoadScenario(String),
+    NewRun { seed: u64 },
+    EncounterStep,
+    StartEncounter,
+    CaptureAttempt,
+    StartBattle,
+    BattleAction(String),
+    BattleStep,
+    EndBattle,
+    GetSnapshot,
+    GetReport,
+    SaveReplay,
+    LoadReplay(String),
+    ReplayToEnd,
+    Quit,
+}
