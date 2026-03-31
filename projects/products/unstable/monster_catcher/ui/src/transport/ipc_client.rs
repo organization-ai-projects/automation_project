@@ -42,12 +42,26 @@ mod wire {
     #[serde(tag = "type", rename_all = "camelCase")]
     pub enum ResponsePayload {
         Ok,
-        Error { message: String },
-        EncounterState { encounter_json: String },
-        BattleState { battle_json: String },
-        Snapshot { hash: String, state_json: String },
-        Report { run_hash: String, report_json: String },
-        ReplayData { replay: String },
+        Error {
+            message: String,
+        },
+        EncounterState {
+            encounter_json: String,
+        },
+        BattleState {
+            battle_json: String,
+        },
+        Snapshot {
+            hash: String,
+            state_json: String,
+        },
+        Report {
+            run_hash: String,
+            report_json: String,
+        },
+        ReplayData {
+            replay: String,
+        },
     }
 }
 
@@ -158,10 +172,7 @@ impl IpcClient {
         }
     }
 
-    fn request(
-        &mut self,
-        payload: wire::RequestPayload,
-    ) -> Result<wire::ResponsePayload, UiError> {
+    fn request(&mut self, payload: wire::RequestPayload) -> Result<wire::ResponsePayload, UiError> {
         let backend = self
             .backend
             .as_mut()
@@ -171,8 +182,7 @@ impl IpcClient {
             id: Some(format!("ui-{}", self.request_index)),
             payload,
         };
-        let line =
-            common_json::to_string(&request).map_err(|e| UiError::Ipc(e.to_string()))?;
+        let line = common_json::to_string(&request).map_err(|e| UiError::Ipc(e.to_string()))?;
         backend.send_line(&line)?;
 
         let response_line = backend.read_line()?;

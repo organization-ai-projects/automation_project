@@ -92,10 +92,7 @@ impl BackendSession {
         Response { id, payload }
     }
 
-    fn handle_payload(
-        &mut self,
-        payload: RequestPayload,
-    ) -> Result<ResponsePayload, BackendError> {
+    fn handle_payload(&mut self, payload: RequestPayload) -> Result<ResponsePayload, BackendError> {
         match payload {
             RequestPayload::LoadScenario { scenario: source } => {
                 let scenario = if let Some(ref path) = self.scenario_path {
@@ -144,8 +141,7 @@ impl BackendSession {
                     species: monster.species_id.0.clone(),
                     level: monster.level,
                 });
-                let encounter_json =
-                    to_canonical_string(&monster).map_err(BackendError::Codec)?;
+                let encounter_json = to_canonical_string(&monster).map_err(BackendError::Codec)?;
                 self.current_encounter = Some(monster);
                 Ok(ResponsePayload::EncounterState { encounter_json })
             }
@@ -163,9 +159,7 @@ impl BackendSession {
 
                 let pokeball = ItemId("pokeball".to_string());
                 if !self.inventory.use_item(&pokeball) {
-                    return Err(BackendError::Capture(
-                        "no pokeballs available".to_string(),
-                    ));
+                    return Err(BackendError::Capture("no pokeballs available".to_string()));
                 }
 
                 let mut draws = Vec::new();
@@ -205,9 +199,7 @@ impl BackendSession {
                 let player = self
                     .party
                     .first_alive()
-                    .ok_or_else(|| {
-                        BackendError::Combat("no alive monster in party".to_string())
-                    })?
+                    .ok_or_else(|| BackendError::Combat("no alive monster in party".to_string()))?
                     .clone();
 
                 self.next_battle_index += 1;
@@ -221,9 +213,7 @@ impl BackendSession {
                 self.current_battle = Some(battle);
                 Ok(ResponsePayload::BattleState { battle_json })
             }
-            RequestPayload::BattleAction {
-                action: action_str,
-            } => {
+            RequestPayload::BattleAction { action: action_str } => {
                 let action = parse_battle_action(&action_str)?;
                 self.execute_battle_turn(action)
             }
@@ -249,13 +239,11 @@ impl BackendSession {
                     .take()
                     .ok_or_else(|| BackendError::Combat("no active battle".to_string()))?;
                 let player_won = battle.player_won.unwrap_or(false);
-                self.event_log
-                    .push(GameEvent::BattleEnded { player_won });
+                self.event_log.push(GameEvent::BattleEnded { player_won });
 
                 let mut xp_gained = 0u64;
                 if player_won {
-                    let enemy_species =
-                        self.data.get_species(&battle.enemy_monster.species_id);
+                    let enemy_species = self.data.get_species(&battle.enemy_monster.species_id);
                     if let Some(species) = enemy_species {
                         let base_yield = species.base_xp_yield;
                         let enemy_level = battle.enemy_monster.level;
@@ -294,8 +282,7 @@ impl BackendSession {
                     events: self.event_log.clone(),
                 };
                 let hash = SnapshotHash::compute(&snapshot)?;
-                let state_json =
-                    to_canonical_string(&snapshot).map_err(BackendError::Codec)?;
+                let state_json = to_canonical_string(&snapshot).map_err(BackendError::Codec)?;
                 Ok(ResponsePayload::Snapshot { hash, state_json })
             }
             RequestPayload::GetReport => {
@@ -307,8 +294,7 @@ impl BackendSession {
                     &self.battle_reports,
                 );
                 let run_hash = RunHash::compute(&report)?;
-                let report_json =
-                    to_canonical_string(&report).map_err(BackendError::Codec)?;
+                let report_json = to_canonical_string(&report).map_err(BackendError::Codec)?;
                 Ok(ResponsePayload::Report {
                     run_hash,
                     report_json,
@@ -333,9 +319,7 @@ impl BackendSession {
                 let raw = self
                     .replay_data
                     .as_ref()
-                    .ok_or_else(|| {
-                        BackendError::Replay("no replay data loaded".to_string())
-                    })?
+                    .ok_or_else(|| BackendError::Replay("no replay data loaded".to_string()))?
                     .clone();
                 let (party, inventory, event_log, step_count, seed) =
                     ReplayEngine::replay_to_end(&raw)?;
@@ -637,11 +621,7 @@ mod tests {
                         break;
                     }
                 }
-                if session
-                    .current_battle
-                    .as_ref()
-                    .map_or(true, |b| b.finished)
-                {
+                if session.current_battle.as_ref().map_or(true, |b| b.finished) {
                     break;
                 }
             }
@@ -670,9 +650,7 @@ mod tests {
 
     fn extract_snapshot(payload: &ResponsePayload) -> (String, String) {
         match payload {
-            ResponsePayload::Snapshot { hash, state_json } => {
-                (hash.clone(), state_json.clone())
-            }
+            ResponsePayload::Snapshot { hash, state_json } => (hash.clone(), state_json.clone()),
             other => panic!("expected Snapshot, got {other:?}"),
         }
     }
