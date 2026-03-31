@@ -66,8 +66,8 @@ impl ImageHeader {
         }
         let width = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         let height = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-        let pixel_format = PixelFormat::from_u8(bytes[8])
-            .ok_or(ApFileError::Corrupt("Unknown pixel format"))?;
+        let pixel_format =
+            PixelFormat::from_u8(bytes[8]).ok_or(ApFileError::Corrupt("Unknown pixel format"))?;
         Ok(Self {
             width,
             height,

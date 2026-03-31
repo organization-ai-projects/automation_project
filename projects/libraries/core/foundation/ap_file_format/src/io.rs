@@ -33,11 +33,7 @@ impl Default for ApFileOptions {
 // ---------------------------------------------------------------------------
 
 /// Write plain UTF-8 text to an AP file.
-pub fn write_text(
-    path: impl AsRef<Path>,
-    text: &str,
-    opts: &ApFileOptions,
-) -> ApFileResult<()> {
+pub fn write_text(path: impl AsRef<Path>, text: &str, opts: &ApFileOptions) -> ApFileResult<()> {
     write_payload(path, ContentType::PlainText, opts, text.as_bytes())
 }
 
@@ -73,11 +69,7 @@ pub fn write_ron<T: Serialize>(
 }
 
 /// Write raw binary data to an AP file.
-pub fn write_binary(
-    path: impl AsRef<Path>,
-    data: &[u8],
-    opts: &ApFileOptions,
-) -> ApFileResult<()> {
+pub fn write_binary(path: impl AsRef<Path>, data: &[u8], opts: &ApFileOptions) -> ApFileResult<()> {
     write_payload(path, ContentType::Binary, opts, data)
 }
 
@@ -96,10 +88,7 @@ pub fn write_image(
 // ---------------------------------------------------------------------------
 
 /// Read plain text from an AP file.
-pub fn read_text(
-    path: impl AsRef<Path>,
-    opts: &ApFileOptions,
-) -> ApFileResult<String> {
+pub fn read_text(path: impl AsRef<Path>, opts: &ApFileOptions) -> ApFileResult<String> {
     let (content_type, payload) = read_raw(path, opts)?;
     if content_type != ContentType::PlainText {
         return Err(ApFileError::InvalidContentType(format!(
@@ -111,10 +100,7 @@ pub fn read_text(
 }
 
 /// Read Markdown from an AP file.
-pub fn read_markdown(
-    path: impl AsRef<Path>,
-    opts: &ApFileOptions,
-) -> ApFileResult<String> {
+pub fn read_markdown(path: impl AsRef<Path>, opts: &ApFileOptions) -> ApFileResult<String> {
     let (content_type, payload) = read_raw(path, opts)?;
     if content_type != ContentType::Markdown {
         return Err(ApFileError::InvalidContentType(format!(
@@ -137,8 +123,7 @@ pub fn read_json<T: DeserializeOwned>(
             content_type
         )));
     }
-    let text = std::str::from_utf8(&payload)
-        .map_err(|e| ApFileError::Decode(e.to_string()))?;
+    let text = std::str::from_utf8(&payload).map_err(|e| ApFileError::Decode(e.to_string()))?;
     common_json::from_json_str(text).map_err(|e| ApFileError::Decode(e.to_string()))
 }
 
@@ -154,16 +139,12 @@ pub fn read_ron<T: DeserializeOwned>(
             content_type
         )));
     }
-    let text = std::str::from_utf8(&payload)
-        .map_err(|e| ApFileError::Decode(e.to_string()))?;
+    let text = std::str::from_utf8(&payload).map_err(|e| ApFileError::Decode(e.to_string()))?;
     common_ron::read_ron_str(text).map_err(|e| ApFileError::Decode(e.to_string()))
 }
 
 /// Read raw binary data from an AP file.
-pub fn read_binary(
-    path: impl AsRef<Path>,
-    opts: &ApFileOptions,
-) -> ApFileResult<Vec<u8>> {
+pub fn read_binary(path: impl AsRef<Path>, opts: &ApFileOptions) -> ApFileResult<Vec<u8>> {
     let (content_type, payload) = read_raw(path, opts)?;
     if content_type != ContentType::Binary {
         return Err(ApFileError::InvalidContentType(format!(
@@ -175,10 +156,7 @@ pub fn read_binary(
 }
 
 /// Read an image from an AP file.
-pub fn read_image(
-    path: impl AsRef<Path>,
-    opts: &ApFileOptions,
-) -> ApFileResult<ImageData> {
+pub fn read_image(path: impl AsRef<Path>, opts: &ApFileOptions) -> ApFileResult<ImageData> {
     let (content_type, payload) = read_raw(path, opts)?;
     if content_type != ContentType::Image {
         return Err(ApFileError::InvalidContentType(format!(
