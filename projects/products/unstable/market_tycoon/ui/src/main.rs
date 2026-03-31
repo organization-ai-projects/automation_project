@@ -1,3 +1,4 @@
+//! projects/products/unstable/market_tycoon/ui/src/main.rs
 mod app;
 mod components;
 mod screens;
@@ -7,18 +8,29 @@ mod transport;
 #[cfg(test)]
 mod tests;
 
-use std::process;
+use crate::app::app;
+use crate::screens::{ReplayScreen, RunScreen, ScenarioScreen};
+use dioxus::launch;
+use std::{env, process};
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let command = args.get(1).map(String::as_str).unwrap_or("help");
 
-    let result = match command {
-        "run" => screens::run_screen::RunScreen::execute(&args[2..]),
-        "replay" => screens::replay_screen::ReplayScreen::execute(&args[2..]),
-        "scenario" => screens::scenario_screen::ScenarioScreen::execute(&args[2..]),
+    let result: Result<(), String> = match command {
+        "run" => RunScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string()),
+        "replay" => {
+            ReplayScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string())
+        }
+        "scenario" => {
+            ScenarioScreen::execute(args.get(2..).unwrap_or_default()).map_err(|e| e.to_string())
+        }
+        "ui" => {
+            launch(app);
+            Ok(())
+        }
         _ => {
-            eprintln!("Usage: market_tycoon_ui <run|replay|scenario> [OPTIONS]");
+            eprintln!("Usage: market_tycoon_ui <run|replay|scenario|ui> [OPTIONS]");
             process::exit(2);
         }
     };

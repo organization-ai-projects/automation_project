@@ -1,11 +1,12 @@
-use crate::components::run_controls::RunControls;
-use crate::components::sim_report_view::SimReportView;
-use crate::components::status_banner::StatusBanner;
+//! projects/products/unstable/market_tycoon/ui/src/screens/run_screen.rs
+use std::{env, error, fs, process};
 
-pub struct RunScreen;
+use crate::components::{RunControls, SimReportView, StatusBanner};
+
+pub(crate) struct RunScreen;
 
 impl RunScreen {
-    pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn execute(args: &[String]) -> Result<(), Box<dyn error::Error>> {
         let mut scenario_path = None;
         let mut seed: u64 = 42;
         let mut ticks: u64 = 100;
@@ -16,7 +17,7 @@ impl RunScreen {
             match args[i].as_str() {
                 "--scenario" => {
                     i += 1;
-                    scenario_path = args.get(i).map(String::clone);
+                    scenario_path = args.get(i).cloned();
                 }
                 "--seed" => {
                     i += 1;
@@ -28,7 +29,7 @@ impl RunScreen {
                 }
                 "--out" => {
                     i += 1;
-                    out_path = args.get(i).map(String::clone);
+                    out_path = args.get(i).cloned();
                 }
                 _ => {}
             }
@@ -38,6 +39,7 @@ impl RunScreen {
         let scenario = scenario_path.ok_or("--scenario is required")?;
         let out = out_path.ok_or("--out is required")?;
 
+        // Use StatusBanner to display information
         StatusBanner::print("Starting simulation run...");
         let controls = RunControls::new(seed, ticks);
         StatusBanner::print(&format!(
@@ -46,10 +48,10 @@ impl RunScreen {
             controls.ticks()
         ));
 
-        let backend_bin = std::env::var("MARKET_TYCOON_BACKEND_BIN")
+        let backend_bin = env::var("MARKET_TYCOON_BACKEND_BIN")
             .unwrap_or_else(|_| "market_tycoon_backend".to_string());
 
-        let status = std::process::Command::new(&backend_bin)
+        let status = process::Command::new(&backend_bin)
             .args([
                 "run",
                 "--ticks",
@@ -66,7 +68,7 @@ impl RunScreen {
 
         if status.success() {
             let report_data =
-                std::fs::read_to_string(&out).map_err(|e| format!("Failed to read report: {e}"))?;
+                fs::read_to_string(&out).map_err(|e| format!("Failed to read report: {e}"))?;
             SimReportView::display(&report_data);
             StatusBanner::print("Run completed successfully.");
         } else {

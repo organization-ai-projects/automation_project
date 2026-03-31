@@ -1,9 +1,12 @@
-use crate::components::status_banner::StatusBanner;
+//! projects/products/unstable/market_tycoon/ui/src/screens/scenario_screen.rs
+use std::{env, error, process};
 
-pub struct ScenarioScreen;
+use crate::components::StatusBanner;
+
+pub(crate) struct ScenarioScreen;
 
 impl ScenarioScreen {
-    pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn execute(args: &[String]) -> Result<(), Box<dyn error::Error>> {
         let mut scenario_path = None;
 
         let mut i = 0;
@@ -22,10 +25,10 @@ impl ScenarioScreen {
 
         StatusBanner::print("Validating scenario...");
 
-        let backend_bin = std::env::var("MARKET_TYCOON_BACKEND_BIN")
+        let backend_bin = env::var("MARKET_TYCOON_BACKEND_BIN")
             .unwrap_or_else(|_| "market_tycoon_backend".to_string());
 
-        let status = std::process::Command::new(&backend_bin)
+        let status = process::Command::new(&backend_bin)
             .args(["validate", "--scenario", &scenario])
             .status()
             .map_err(|e| format!("Failed to validate scenario: {e}"))?;
