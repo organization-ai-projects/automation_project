@@ -12,7 +12,9 @@ impl SourceFile {
     }
 
     pub fn extension(&self) -> Option<&str> {
-        self.path.rsplit('.').next()
+        std::path::Path::new(&self.path)
+            .extension()
+            .and_then(|ext| ext.to_str())
     }
 
     pub fn is_rhl(&self) -> bool {

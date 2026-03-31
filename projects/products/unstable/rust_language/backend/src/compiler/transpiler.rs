@@ -157,7 +157,11 @@ impl Transpiler {
                 out.push_str(&v.to_string());
             }
             RhlAst::FloatLiteral(v) => {
-                out.push_str(&format!("{v:.1}"));
+                let s = format!("{v}");
+                out.push_str(&s);
+                if !s.contains('.') {
+                    out.push_str(".0");
+                }
             }
             RhlAst::StringLiteral(s) => {
                 out.push('"');
