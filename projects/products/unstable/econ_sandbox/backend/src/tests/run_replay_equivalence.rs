@@ -36,14 +36,8 @@ fn two_runs_same_seed_same_hash() {
 
 #[test]
 fn different_seeds_produce_different_hash() {
-    let config1 = SimConfig {
-        seed: 1,
-        ticks: 50,
-    };
-    let config2 = SimConfig {
-        seed: 2,
-        ticks: 50,
-    };
+    let config1 = SimConfig { seed: 1, ticks: 50 };
+    let config2 = SimConfig { seed: 2, ticks: 50 };
 
     let (report1, _) = SimEngine::run_sim(&config1).unwrap();
     let (report2, _) = SimEngine::run_sim(&config2).unwrap();

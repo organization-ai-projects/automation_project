@@ -32,7 +32,8 @@ impl SimEngine {
         let mut engine = Self::new(config);
         engine.run_all();
 
-        let snapshot = StateSnapshot::capture(&engine.agents, &engine.prices, engine.clock.current());
+        let snapshot =
+            StateSnapshot::capture(&engine.agents, &engine.prices, engine.clock.current());
         let snapshot_hash = SnapshotHash::compute(&snapshot);
 
         let event_count = engine.event_log.len();
@@ -84,7 +85,8 @@ impl SimEngine {
         let agent_ids: Vec<AgentId> = self.agents.keys().copied().collect();
         for &aid in &agent_ids {
             if let Some(agent) = self.agents.get_mut(&aid) {
-                let production: Vec<(Good, u64)> = agent.production.iter().map(|(&g, &a)| (g, a)).collect();
+                let production: Vec<(Good, u64)> =
+                    agent.production.iter().map(|(&g, &a)| (g, a)).collect();
                 agent.produce();
                 for (good, amount) in production {
                     if amount > 0 {
@@ -134,7 +136,8 @@ impl SimEngine {
         // Phase 3: Consumption
         for &aid in &agent_ids {
             if let Some(agent) = self.agents.get_mut(&aid) {
-                let consumption: Vec<(Good, u64)> = agent.consumption.iter().map(|(&g, &a)| (g, a)).collect();
+                let consumption: Vec<(Good, u64)> =
+                    agent.consumption.iter().map(|(&g, &a)| (g, a)).collect();
                 // Capture how much was actually consumed (limited by inventory)
                 let mut consumed_amounts: Vec<(Good, u64)> = Vec::new();
                 for &(good, amount) in &consumption {

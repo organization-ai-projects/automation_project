@@ -34,10 +34,7 @@ impl StateSnapshot {
         let agent_summary = agent_parts.join(";");
 
         // Build canonical price summary (sorted by Good via BTreeMap)
-        let price_parts: Vec<String> = prices
-            .iter()
-            .map(|(g, p)| format!("{g}={p}"))
-            .collect();
+        let price_parts: Vec<String> = prices.iter().map(|(g, p)| format!("{g}={p}")).collect();
         let price_summary = price_parts.join(",");
 
         Self {

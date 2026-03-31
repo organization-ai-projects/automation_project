@@ -20,10 +20,7 @@ impl OrderBook {
     /// Sells sorted ascending by price, then ascending by agent_id.
     /// Matches highest-bid with lowest-ask when bid >= ask, at ask price.
     pub fn clear(orders: &[Order]) -> Vec<Fill> {
-        let mut buys: Vec<&Order> = orders
-            .iter()
-            .filter(|o| o.side == OrderSide::Buy)
-            .collect();
+        let mut buys: Vec<&Order> = orders.iter().filter(|o| o.side == OrderSide::Buy).collect();
         let mut sells: Vec<&Order> = orders
             .iter()
             .filter(|o| o.side == OrderSide::Sell)

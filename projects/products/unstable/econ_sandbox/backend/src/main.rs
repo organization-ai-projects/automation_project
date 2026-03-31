@@ -69,7 +69,10 @@ fn handle_run(args: &[String]) -> Result<(), diagnostics::error::Error> {
         println!("{json}");
     } else {
         println!("Run complete. Hash: {}", report.run_hash);
-        println!("  seed={}, ticks={}, events={}", report.seed, report.ticks, report.event_count);
+        println!(
+            "  seed={}, ticks={}, events={}",
+            report.seed, report.ticks, report.event_count
+        );
     }
 
     let replay_json = replay::replay_codec::ReplayCodec::encode(&replay_data)?;
@@ -91,8 +94,8 @@ fn handle_replay(args: &[String]) -> Result<(), diagnostics::error::Error> {
     let replay_path = &args[0];
     let json_output = args.iter().any(|a| a == "--json");
 
-    let data =
-        std::fs::read_to_string(replay_path).map_err(|e| diagnostics::error::Error::Io(e.to_string()))?;
+    let data = std::fs::read_to_string(replay_path)
+        .map_err(|e| diagnostics::error::Error::Io(e.to_string()))?;
     let replay_file = replay::replay_codec::ReplayCodec::decode(&data)?;
     let report = replay::replay_engine::ReplayEngine::replay(&replay_file)?;
 
@@ -113,5 +116,7 @@ fn handle_replay(args: &[String]) -> Result<(), diagnostics::error::Error> {
 fn parse_u64_arg(val: Option<&String>, flag: &str) -> Result<u64, diagnostics::error::Error> {
     val.ok_or_else(|| diagnostics::error::Error::InvalidCli(format!("{flag} requires a value")))?
         .parse::<u64>()
-        .map_err(|_| diagnostics::error::Error::InvalidCli(format!("{flag} must be a positive integer")))
+        .map_err(|_| {
+            diagnostics::error::Error::InvalidCli(format!("{flag} must be a positive integer"))
+        })
 }
