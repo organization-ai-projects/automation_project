@@ -111,6 +111,8 @@ members = [
   "projects/products/unstable/system_protect/ui",
   "projects/products/unstable/monster_catcher/backend",
   "projects/products/unstable/monster_catcher/ui",
+  "projects/products/unstable/tactics_grid/backend",
+  "projects/products/unstable/tactics_grid/ui",
 ]
 resolver = "2"
 

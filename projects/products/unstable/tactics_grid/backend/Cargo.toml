@@ -1,0 +1,12 @@
+[package]
+name = "tactics_grid_backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+common_json = { workspace = true }
