@@ -12,5 +12,4 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
-rand = { workspace = true, features = ["small_rng"] }
 common_json = { workspace = true }
