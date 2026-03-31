@@ -1,13 +1,13 @@
+use super::scenario::Scenario;
 use crate::ability::ability::Ability;
 use crate::ability::ability_id::AbilityId;
 use crate::ability::ability_kind::AbilityKind;
 use crate::config::battle_config::BattleConfig;
+use crate::diagnostics::tactics_grid_error::TacticsGridError;
 use crate::grid::position::Position;
 use crate::unit::team::Team;
 use crate::unit::unit::Unit;
 use crate::unit::unit_id::UnitId;
-use super::scenario::Scenario;
-use crate::diagnostics::tactics_grid_error::TacticsGridError;
 use std::path::Path;
 
 pub struct ScenarioLoader;

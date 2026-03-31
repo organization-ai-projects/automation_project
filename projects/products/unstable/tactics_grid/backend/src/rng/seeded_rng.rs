@@ -1,8 +1,8 @@
+use super::rng_draw::RngDraw;
+use super::seed::Seed;
+use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
-use rand::Rng;
-use super::seed::Seed;
-use super::rng_draw::RngDraw;
 
 pub struct SeededRng {
     rng: SmallRng,

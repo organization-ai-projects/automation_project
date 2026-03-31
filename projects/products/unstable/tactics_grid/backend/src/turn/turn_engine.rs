@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use super::action_entry::ActionEntry;
+use super::initiative::Initiative;
 use crate::ability::ability::Ability;
 use crate::ability::ability_id::AbilityId;
 use crate::ai::tactics_ai::TacticsAi;
@@ -14,8 +15,7 @@ use crate::snapshot::snapshot_hash::SnapshotHash;
 use crate::unit::team::Team;
 use crate::unit::unit::Unit;
 use crate::unit::unit_id::UnitId;
-use super::action_entry::ActionEntry;
-use super::initiative::Initiative;
+use std::collections::BTreeMap;
 
 pub struct TurnEngine;
 
@@ -27,8 +27,11 @@ impl TurnEngine {
         let config = &scenario.config;
         let grid = GridMap::new(config.grid_width, config.grid_height);
         let mut units: Vec<Unit> = scenario.units.clone();
-        let abilities: BTreeMap<AbilityId, Ability> =
-            scenario.abilities.iter().map(|a| (a.id, a.clone())).collect();
+        let abilities: BTreeMap<AbilityId, Ability> = scenario
+            .abilities
+            .iter()
+            .map(|a| (a.id, a.clone()))
+            .collect();
         let mut rng = SeededRng::new(seed);
         let mut all_actions: Vec<ActionEntry> = Vec::new();
         let mut snapshot_hashes: BTreeMap<String, String> = BTreeMap::new();
@@ -56,13 +59,7 @@ impl TurnEngine {
                     continue;
                 }
 
-                let actions = TacticsAi::decide(
-                    *unit_id,
-                    &units,
-                    &abilities,
-                    &grid,
-                    &mut rng,
-                );
+                let actions = TacticsAi::decide(*unit_id, &units, &abilities, &grid, &mut rng);
 
                 for action in actions {
                     Self::apply_action(&action, &mut units, &abilities);
@@ -76,7 +73,9 @@ impl TurnEngine {
                     .collect();
 
                 for did in &defeated {
-                    let already = all_actions.iter().any(|a| matches!(a, ActionEntry::Defeated { unit_id } if unit_id == did));
+                    let already = all_actions
+                        .iter()
+                        .any(|a| matches!(a, ActionEntry::Defeated { unit_id } if unit_id == did));
                     if !already {
                         all_actions.push(ActionEntry::Defeated { unit_id: *did });
                     }

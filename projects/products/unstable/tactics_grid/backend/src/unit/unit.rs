@@ -1,7 +1,7 @@
-use super::unit_id::UnitId;
 use super::team::Team;
-use crate::grid::position::Position;
+use super::unit_id::UnitId;
 use crate::ability::ability_id::AbilityId;
+use crate::grid::position::Position;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Unit {

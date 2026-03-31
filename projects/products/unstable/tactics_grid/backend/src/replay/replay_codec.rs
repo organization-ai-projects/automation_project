@@ -1,6 +1,6 @@
-use std::path::Path;
-use crate::diagnostics::tactics_grid_error::TacticsGridError;
 use super::replay_file::ReplayFile;
+use crate::diagnostics::tactics_grid_error::TacticsGridError;
+use std::path::Path;
 
 pub struct ReplayCodec;
 

@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use crate::ability::ability::Ability;
 use crate::ability::ability_id::AbilityId;
 use crate::ability::ability_kind::AbilityKind;
@@ -11,6 +10,7 @@ use crate::turn::action_entry::ActionEntry;
 use crate::unit::team::Team;
 use crate::unit::unit::Unit;
 use crate::unit::unit_id::UnitId;
+use std::collections::BTreeMap;
 
 fn melee_ability() -> Ability {
     Ability {
@@ -51,7 +51,9 @@ fn ai_attacks_adjacent_enemy() {
     let mut rng = SeededRng::new(Seed(42));
 
     let actions = TacticsAi::decide(UnitId(1), &units, &abilities, &grid, &mut rng);
-    assert!(actions.iter().any(|a| matches!(a, ActionEntry::UseAbility { target_id, .. } if *target_id == UnitId(2))));
+    assert!(actions.iter().any(
+        |a| matches!(a, ActionEntry::UseAbility { target_id, .. } if *target_id == UnitId(2))
+    ));
 }
 
 #[test]
@@ -66,7 +68,11 @@ fn ai_moves_toward_distant_enemy() {
     let mut rng = SeededRng::new(Seed(42));
 
     let actions = TacticsAi::decide(UnitId(1), &units, &abilities, &grid, &mut rng);
-    assert!(actions.iter().any(|a| matches!(a, ActionEntry::Move { .. })));
+    assert!(
+        actions
+            .iter()
+            .any(|a| matches!(a, ActionEntry::Move { .. }))
+    );
 }
 
 #[test]

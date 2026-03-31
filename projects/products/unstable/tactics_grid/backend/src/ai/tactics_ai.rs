@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use crate::ability::ability::Ability;
 use crate::ability::ability_id::AbilityId;
 use crate::ability::ability_kind::AbilityKind;
@@ -8,6 +7,7 @@ use crate::rng::seeded_rng::SeededRng;
 use crate::turn::action_entry::ActionEntry;
 use crate::unit::unit::Unit;
 use crate::unit::unit_id::UnitId;
+use std::collections::BTreeMap;
 
 pub struct TacticsAi;
 
@@ -48,9 +48,7 @@ impl TacticsAi {
             .filter(|a| matches!(a.kind, AbilityKind::MeleeAttack | AbilityKind::RangedAttack))
             .copied()
             .collect();
-        attack_abilities.sort_by(|a, b| {
-            b.power.cmp(&a.power).then_with(|| a.id.cmp(&b.id))
-        });
+        attack_abilities.sort_by(|a, b| b.power.cmp(&a.power).then_with(|| a.id.cmp(&b.id)));
 
         // Find reachable targets
         let mut reachable_targets: Vec<(&Unit, &Ability)> = Vec::new();
@@ -64,9 +62,7 @@ impl TacticsAi {
         }
 
         // Sort by: lowest enemy HP, then lowest enemy id
-        reachable_targets.sort_by(|a, b| {
-            a.0.hp.cmp(&b.0.hp).then_with(|| a.0.id.cmp(&b.0.id))
-        });
+        reachable_targets.sort_by(|a, b| a.0.hp.cmp(&b.0.hp).then_with(|| a.0.id.cmp(&b.0.id)));
 
         if let Some((target, ability)) = reachable_targets.first() {
             let damage = ability.power + unit.attack;
@@ -91,9 +87,7 @@ impl TacticsAi {
                 .iter()
                 .filter(|u| u.alive && u.team == unit.team && u.hp < u.max_hp)
                 .collect();
-            wounded_allies.sort_by(|a, b| {
-                a.hp.cmp(&b.hp).then_with(|| a.id.cmp(&b.id))
-            });
+            wounded_allies.sort_by(|a, b| a.hp.cmp(&b.hp).then_with(|| a.id.cmp(&b.id)));
 
             for ally in &wounded_allies {
                 for ability in &heal_abilities {
@@ -196,7 +190,9 @@ impl TacticsAi {
             let mut moved = false;
             for candidate in candidates {
                 if grid.is_walkable(&candidate)
-                    && !units.iter().any(|u| u.alive && u.id != self_id && u.position == candidate)
+                    && !units
+                        .iter()
+                        .any(|u| u.alive && u.id != self_id && u.position == candidate)
                 {
                     pos = candidate;
                     moved = true;

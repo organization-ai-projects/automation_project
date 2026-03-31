@@ -1,4 +1,3 @@
-use std::path::Path;
 use crate::diagnostics::tactics_grid_error::TacticsGridError;
 use crate::io::json_codec::JsonCodec;
 use crate::replay::replay_codec::ReplayCodec;
@@ -7,6 +6,7 @@ use crate::replay::replay_file::ReplayFile;
 use crate::rng::seed::Seed;
 use crate::scenario::scenario_loader::ScenarioLoader;
 use crate::turn::turn_engine::TurnEngine;
+use std::path::Path;
 
 pub struct Controller;
 
@@ -41,9 +41,8 @@ impl Controller {
             i += 1;
         }
 
-        let out = out_path.ok_or_else(|| {
-            TacticsGridError::InvalidScenario("--out is required".to_string())
-        })?;
+        let out = out_path
+            .ok_or_else(|| TacticsGridError::InvalidScenario("--out is required".to_string()))?;
 
         let scenario = match &scenario_source {
             Some(src) => {
@@ -97,12 +96,10 @@ impl Controller {
             i += 1;
         }
 
-        let replay_file = replay_path.ok_or_else(|| {
-            TacticsGridError::InvalidScenario("--replay is required".to_string())
-        })?;
-        let out = out_path.ok_or_else(|| {
-            TacticsGridError::InvalidScenario("--out is required".to_string())
-        })?;
+        let replay_file = replay_path
+            .ok_or_else(|| TacticsGridError::InvalidScenario("--replay is required".to_string()))?;
+        let out = out_path
+            .ok_or_else(|| TacticsGridError::InvalidScenario("--out is required".to_string()))?;
 
         let replay = ReplayCodec::load(Path::new(&replay_file))?;
         let report = ReplayEngine::replay(&replay)?;

@@ -17,8 +17,8 @@ mod unit;
 #[cfg(test)]
 mod tests;
 
-use std::{env, process};
 use crate::protocol::server;
+use std::{env, process};
 
 fn main() {
     process::exit(server::run(env::args().collect()));

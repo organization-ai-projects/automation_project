@@ -1,6 +1,6 @@
-use std::path::Path;
 use crate::diagnostics::tactics_grid_error::TacticsGridError;
 use crate::report::battle_report::BattleReport;
+use std::path::Path;
 
 pub struct JsonCodec;
 

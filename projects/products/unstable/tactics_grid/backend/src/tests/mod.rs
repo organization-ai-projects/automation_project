@@ -1,4 +1,4 @@
-mod battle;
-mod replay;
-mod initiative;
 mod ai;
+mod battle;
+mod initiative;
+mod replay;

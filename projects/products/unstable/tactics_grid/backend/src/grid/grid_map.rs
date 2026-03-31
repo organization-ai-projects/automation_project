@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
 use super::position::Position;
 use super::tile::Tile;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GridMap {
@@ -17,7 +17,11 @@ impl GridMap {
                 tiles.insert((x, y), Tile::Floor);
             }
         }
-        Self { width, height, tiles }
+        Self {
+            width,
+            height,
+            tiles,
+        }
     }
 
     pub fn tile_at(&self, pos: &Position) -> Option<&Tile> {

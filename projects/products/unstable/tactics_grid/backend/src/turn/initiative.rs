@@ -26,7 +26,9 @@ impl Initiative {
             .collect();
 
         entries.sort_by(|a, b| {
-            b.speed.cmp(&a.speed).then_with(|| a.tie_break.cmp(&b.tie_break))
+            b.speed
+                .cmp(&a.speed)
+                .then_with(|| a.tie_break.cmp(&b.tie_break))
         });
 
         entries.into_iter().map(|e| e.unit_id).collect()

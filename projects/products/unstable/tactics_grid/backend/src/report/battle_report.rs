@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
-use crate::turn::action_entry::ActionEntry;
-use crate::unit::unit_id::UnitId;
-use crate::unit::team::Team;
 use super::run_hash::RunHash;
+use crate::turn::action_entry::ActionEntry;
+use crate::unit::team::Team;
+use crate::unit::unit_id::UnitId;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UnitSummary {
