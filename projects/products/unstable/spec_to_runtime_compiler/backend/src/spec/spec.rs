@@ -16,6 +16,7 @@ pub struct RuntimeSpec {
     pub states: Vec<StateSpec>,
     pub transitions: Vec<TransitionSpec>,
     pub invariants: Vec<InvariantSpec>,
+    pub initial_state: Option<String>,
 }
 
 impl RuntimeSpec {
@@ -54,7 +55,7 @@ impl RuntimeSpec {
                     .collect(),
             })
             .collect();
-        transitions.sort_by(|a, b| (&a.from, &a.event).cmp(&(&b.from, &b.event)));
+        transitions.sort_by(|a, b| (&a.from, &a.event, &a.to).cmp(&(&b.from, &b.event, &b.to)));
 
         let mut invariants: Vec<InvariantSpec> = ast
             .invariants
@@ -70,6 +71,7 @@ impl RuntimeSpec {
             states,
             transitions,
             invariants,
+            initial_state: ast.initial_state.clone(),
         }
     }
 }

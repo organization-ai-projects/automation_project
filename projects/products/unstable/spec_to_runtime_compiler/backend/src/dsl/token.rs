@@ -3,6 +3,7 @@ pub enum Token {
     State,
     Transition,
     Invariant,
+    Initial,
     Arrow,
     On,
     Ident(String),
@@ -11,6 +12,7 @@ pub enum Token {
     Colon,
     Comma,
     StringLit(String),
+    Error(char),
     Eof,
 }
 
@@ -80,7 +82,7 @@ impl Lexer {
             _ if ch.is_alphabetic() || ch == '_' => self.read_ident(),
             _ => {
                 self.pos += 1;
-                self.next_token()
+                Token::Error(ch)
             }
         }
     }
@@ -97,6 +99,7 @@ impl Lexer {
             "state" => Token::State,
             "transition" => Token::Transition,
             "invariant" => Token::Invariant,
+            "initial" => Token::Initial,
             "on" => Token::On,
             _ => Token::Ident(word),
         }
@@ -133,6 +136,23 @@ mod tests {
                 Token::RBrace,
                 Token::Eof,
             ]
+        );
+    }
+
+    #[test]
+    fn emits_error_on_unrecognized_char() {
+        let mut lexer = Lexer::new("state @Idle {}");
+        let tokens = lexer.tokenize();
+        assert!(tokens.contains(&Token::Error('@')));
+    }
+
+    #[test]
+    fn tokenizes_initial_keyword() {
+        let mut lexer = Lexer::new("initial Idle");
+        let tokens = lexer.tokenize();
+        assert_eq!(
+            tokens,
+            vec![Token::Initial, Token::Ident("Idle".to_string()), Token::Eof]
         );
     }
 }

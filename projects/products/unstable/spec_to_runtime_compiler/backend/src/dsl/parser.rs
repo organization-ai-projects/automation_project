@@ -32,6 +32,21 @@ impl Parser {
                     let node = self.parse_invariant()?;
                     ast.invariants.push(node);
                 }
+                Token::Initial => {
+                    let name = self.parse_initial()?;
+                    if ast.initial_state.is_some() {
+                        return Err(CompilerError::Parse(
+                            "duplicate initial state declaration".to_string(),
+                        ));
+                    }
+                    ast.initial_state = Some(name);
+                }
+                Token::Error(ch) => {
+                    return Err(CompilerError::Parse(format!(
+                        "unexpected character: '{}'",
+                        ch
+                    )));
+                }
                 other => {
                     return Err(CompilerError::Parse(format!(
                         "unexpected token: {:?}",
@@ -145,6 +160,11 @@ impl Parser {
         };
         Ok(InvariantNode { name, description })
     }
+
+    fn parse_initial(&mut self) -> Result<String, CompilerError> {
+        self.expect(&Token::Initial)?;
+        self.expect_ident()
+    }
 }
 
 #[cfg(test)]
@@ -180,5 +200,35 @@ mod tests {
         assert_eq!(ast.transitions[0].from, "Idle");
         assert_eq!(ast.transitions[0].to, "Running");
         assert_eq!(ast.transitions[0].event, "start");
+    }
+
+    #[test]
+    fn rejects_unrecognized_character() {
+        let mut parser = Parser::new("@state Idle {}");
+        let result = parser.parse();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("unexpected character"));
+    }
+
+    #[test]
+    fn parse_initial_state() {
+        let mut parser = Parser::new("state Idle {}\nstate Running {}\ninitial Idle");
+        let ast = parser.parse().unwrap();
+        assert_eq!(ast.initial_state, Some("Idle".to_string()));
+    }
+
+    #[test]
+    fn rejects_duplicate_initial() {
+        let mut parser =
+            Parser::new("state A {}\nstate B {}\ninitial A\ninitial B");
+        let result = parser.parse();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate initial state"));
     }
 }

@@ -31,4 +31,5 @@ pub struct SpecAst {
     pub states: Vec<StateNode>,
     pub transitions: Vec<TransitionNode>,
     pub invariants: Vec<InvariantNode>,
+    pub initial_state: Option<String>,
 }

@@ -79,7 +79,7 @@ impl RuntimeEmitter {
                     .unwrap()
                     .fields
                     .iter()
-                    .map(|f| format!("{}: Default::default()", f.name))
+                    .map(|f| format!("{}: Default::default() /* TODO: replace with actual value */", f.name))
                     .collect();
                 format!("State::{} {{ {} }}", t.to, defaults.join(", "))
             } else {
@@ -110,14 +110,21 @@ impl RuntimeEmitter {
         out.push_str("    pub tick: u64,\n");
         out.push_str("}\n\n");
 
-        let initial_state = if let Some(first) = spec.states.first() {
+        // Use explicit initial state from spec, or fall back to first declared state.
+        let initial = spec
+            .initial_state
+            .as_deref()
+            .and_then(|name| spec.states.iter().find(|s| s.name == name))
+            .or_else(|| spec.states.first());
+
+        let initial_state = if let Some(first) = initial {
             if first.fields.is_empty() {
                 format!("State::{}", first.name)
             } else {
                 let defaults: Vec<String> = first
                     .fields
                     .iter()
-                    .map(|f| format!("{}: Default::default()", f.name))
+                    .map(|f| format!("{}: Default::default() /* TODO: replace with actual value */", f.name))
                     .collect();
                 format!("State::{} {{ {} }}", first.name, defaults.join(", "))
             }

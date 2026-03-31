@@ -74,6 +74,7 @@ mod tests {
                 name: "no_self_loop".to_string(),
                 description: "no state transitions to itself".to_string(),
             }],
+            initial_state: None,
         };
         let checker = InvariantChecker;
         let result = checker.check(&ast);
@@ -95,6 +96,7 @@ mod tests {
                 guard_fields: vec![],
             }],
             invariants: vec![],
+            initial_state: None,
         };
         let checker = InvariantChecker;
         let result = checker.check(&ast);

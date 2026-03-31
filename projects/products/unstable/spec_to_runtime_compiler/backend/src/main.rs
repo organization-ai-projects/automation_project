@@ -156,6 +156,10 @@ fn run_serve() {
                 }
             }
         }
+
+        if session.shutdown_requested {
+            break;
+        }
     }
 }
 
@@ -163,6 +167,7 @@ fn run_serve() {
 struct SessionState {
     loaded_spec: Option<String>,
     last_report: Option<CompileReport>,
+    shutdown_requested: bool,
 }
 
 fn handle_request(request: CompilerRequest, state: &mut SessionState) -> CompilerResponse {
@@ -232,7 +237,8 @@ fn handle_request(request: CompilerRequest, state: &mut SessionState) -> Compile
             },
         },
         CompilerRequest::Shutdown => {
-            std::process::exit(0);
+            state.shutdown_requested = true;
+            CompilerResponse::Ok
         }
     }
 }
@@ -275,22 +281,19 @@ fn compile_from_source(
     let project_emitter = ProjectEmitter::new();
     let project_artifacts = project_emitter.emit(&runtime_spec);
 
-    let artifact_count = runtime_artifacts.len() + test_artifacts.len() + project_artifacts.len();
+    let mut all_artifacts: Vec<(String, Vec<u8>)> = Vec::new();
+    all_artifacts.extend(runtime_artifacts);
+    all_artifacts.extend(test_artifacts);
+    all_artifacts.extend(project_artifacts);
 
-    let manifest_hash = output::artifact_manifest::compute_manifest_hash(&runtime_artifacts);
-    let manifest = build_manifest(&runtime_artifacts, &manifest_hash);
+    let manifest_hash = output::artifact_manifest::compute_manifest_hash(&all_artifacts);
+    let manifest = build_manifest(&all_artifacts, &manifest_hash);
     let manifest_json = common_json::to_string(&manifest)
         .map_err(|e| CompilerError::Internal(format!("manifest serialization failed: {e}")))?;
 
     if !dry_run && !out_dir.is_empty() {
         let writer = FsWriter::new(out_dir);
-        for (path, content) in &runtime_artifacts {
-            writer.write(path, content)?;
-        }
-        for (path, content) in &test_artifacts {
-            writer.write(path, content)?;
-        }
-        for (path, content) in &project_artifacts {
+        for (path, content) in &all_artifacts {
             writer.write(path, content)?;
         }
         writer.write("artifact_manifest.json", manifest_json.as_bytes())?;
@@ -298,7 +301,7 @@ fn compile_from_source(
 
     Ok(CompileReport {
         success: true,
-        artifact_count,
+        artifact_count: all_artifacts.len(),
         manifest_hash,
         diagnostics: vec![format!("manifest entries: {}", manifest.entries.len())],
     })
