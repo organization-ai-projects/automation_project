@@ -93,6 +93,7 @@ members = [
   "projects/products/unstable/agent_engine/ui",
   "projects/products/unstable/neurosymbolic_moe/backend",
   "projects/products/unstable/neurosymbolic_moe/ui",
+  "projects/products/unstable/patchsmith/backend",
   "projects/products/unstable/life_engine/backend",
   "projects/products/unstable/life_engine/ui",
   "tools/all_automation",
