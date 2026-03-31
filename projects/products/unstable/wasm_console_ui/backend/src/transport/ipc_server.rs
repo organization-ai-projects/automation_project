@@ -29,27 +29,21 @@ impl IpcServer {
     pub fn handle(&mut self, request: &Request) -> Response {
         match request {
             Request::LoadLogFile { path } => {
-                let action = Action::LoadLogFile {
-                    path: path.clone(),
-                };
+                let action = Action::LoadLogFile { path: path.clone() };
                 self.state = Reducer::reduce(&self.state, &action);
                 Response::OperationSuccess {
                     message: format!("Loaded log file: {path}"),
                 }
             }
             Request::LoadReportFile { path } => {
-                let action = Action::LoadReportFile {
-                    path: path.clone(),
-                };
+                let action = Action::LoadReportFile { path: path.clone() };
                 self.state = Reducer::reduce(&self.state, &action);
                 Response::OperationSuccess {
                     message: format!("Loaded report file: {path}"),
                 }
             }
             Request::LoadGraphFile { path } => {
-                let action = Action::LoadGraphFile {
-                    path: path.clone(),
-                };
+                let action = Action::LoadGraphFile { path: path.clone() };
                 self.state = Reducer::reduce(&self.state, &action);
                 Response::OperationSuccess {
                     message: format!("Loaded graph file: {path}"),

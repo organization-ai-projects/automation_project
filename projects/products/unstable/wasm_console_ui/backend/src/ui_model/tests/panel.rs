@@ -9,8 +9,8 @@ fn panel_new_has_no_content() {
 
 #[test]
 fn panel_with_content() {
-    let panel = Panel::new(PluginId::new("test"), "Test".to_string())
-        .with_content("hello".to_string());
+    let panel =
+        Panel::new(PluginId::new("test"), "Test".to_string()).with_content("hello".to_string());
     assert_eq!(panel.content.as_deref(), Some("hello"));
 }
 

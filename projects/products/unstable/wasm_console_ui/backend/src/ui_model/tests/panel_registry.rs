@@ -13,15 +13,24 @@ fn registry_starts_empty() {
 #[test]
 fn register_adds_plugin() {
     let mut registry = PanelRegistry::new();
-    registry.register(Plugin::new(PluginId::new("test"), "Test Plugin".to_string()));
+    registry.register(Plugin::new(
+        PluginId::new("test"),
+        "Test Plugin".to_string(),
+    ));
     assert_eq!(registry.len(), 1);
 }
 
 #[test]
 fn register_deduplicates() {
     let mut registry = PanelRegistry::new();
-    registry.register(Plugin::new(PluginId::new("test"), "Test Plugin".to_string()));
-    registry.register(Plugin::new(PluginId::new("test"), "Test Plugin 2".to_string()));
+    registry.register(Plugin::new(
+        PluginId::new("test"),
+        "Test Plugin".to_string(),
+    ));
+    registry.register(Plugin::new(
+        PluginId::new("test"),
+        "Test Plugin 2".to_string(),
+    ));
     assert_eq!(registry.len(), 1);
 }
 

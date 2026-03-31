@@ -8,7 +8,9 @@ fn snapshot_version_is_one() {
 
 #[test]
 fn snapshot_preserves_state_json() {
-    let state_json = r#"{"active_panel":null,"panels":[],"status_message":null,"error_message":null}"#.to_string();
+    let state_json =
+        r#"{"active_panel":null,"panels":[],"status_message":null,"error_message":null}"#
+            .to_string();
     let snapshot = UiSnapshot::new(state_json.clone(), "abc".to_string());
     assert_eq!(snapshot.state_json, state_json);
 }

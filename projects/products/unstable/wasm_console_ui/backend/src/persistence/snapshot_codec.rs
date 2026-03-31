@@ -62,7 +62,13 @@ impl SnapshotCodec {
                 entries.sort_by_key(|(k, _)| (*k).clone());
                 let items: Vec<String> = entries
                     .iter()
-                    .map(|(k, v)| format!("{}:{}", Self::escape_json_string(k), Self::canonical_json(v)))
+                    .map(|(k, v)| {
+                        format!(
+                            "{}:{}",
+                            Self::escape_json_string(k),
+                            Self::canonical_json(v)
+                        )
+                    })
                     .collect();
                 format!("{{{}}}", items.join(","))
             }
