@@ -12,7 +12,7 @@ pub enum Error {
         message: String,
     },
 
-    #[error("parser error at line {line}: {message}")]
+    #[error("parser error: {message}")]
     Parser { line: usize, message: String },
 
     #[error("transpilation error: {0}")]
