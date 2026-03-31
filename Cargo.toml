@@ -115,6 +115,8 @@ members = [
   "projects/products/unstable/econ_sandbox/ui",
   "projects/products/unstable/tactics_grid/backend",
   "projects/products/unstable/tactics_grid/ui",
+  "projects/products/unstable/story_weaver/backend",
+  "projects/products/unstable/story_weaver/ui",
 ]
 resolver = "2"
 

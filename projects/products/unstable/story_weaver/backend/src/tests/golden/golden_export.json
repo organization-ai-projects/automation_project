@@ -1,0 +1,312 @@
+{
+  "events": [
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "enter_forest"
+        }
+      },
+      "step": 0
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Text": "forest"
+          },
+          "old_value": {
+            "Text": "village"
+          },
+          "variable": "location"
+        }
+      },
+      "step": 0
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "You step into the dark forest."
+        }
+      },
+      "step": 0
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "find_sword"
+        }
+      },
+      "step": 1
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Flag": true
+          },
+          "old_value": {
+            "Flag": false
+          },
+          "variable": "has_sword"
+        }
+      },
+      "step": 1
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "You find a gleaming sword."
+        }
+      },
+      "step": 1
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 2
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 90
+          },
+          "old_value": {
+            "Number": 100
+          },
+          "variable": "health"
+        }
+      },
+      "step": 2
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 2
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 3
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 80
+          },
+          "old_value": {
+            "Number": 90
+          },
+          "variable": "health"
+        }
+      },
+      "step": 3
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 3
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 4
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 70
+          },
+          "old_value": {
+            "Number": 80
+          },
+          "variable": "health"
+        }
+      },
+      "step": 4
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 4
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 5
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 60
+          },
+          "old_value": {
+            "Number": 70
+          },
+          "variable": "health"
+        }
+      },
+      "step": 5
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 5
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 6
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 50
+          },
+          "old_value": {
+            "Number": 60
+          },
+          "variable": "health"
+        }
+      },
+      "step": 6
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 6
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 7
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 40
+          },
+          "old_value": {
+            "Number": 50
+          },
+          "variable": "health"
+        }
+      },
+      "step": 7
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 7
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 8
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 30
+          },
+          "old_value": {
+            "Number": 40
+          },
+          "variable": "health"
+        }
+      },
+      "step": 8
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 8
+    },
+    {
+      "kind": {
+        "RuleApplied": {
+          "rule_id": "take_damage"
+        }
+      },
+      "step": 9
+    },
+    {
+      "kind": {
+        "StateChanged": {
+          "new_value": {
+            "Number": 20
+          },
+          "old_value": {
+            "Number": 30
+          },
+          "variable": "health"
+        }
+      },
+      "step": 9
+    },
+    {
+      "kind": {
+        "Narration": {
+          "message": "A branch scratches you."
+        }
+      },
+      "step": 9
+    }
+  ],
+  "report": {
+    "event_count": 30,
+    "run_hash": "95a52ff7229ddde8073a8725eb106053282cfc3c769d6da7049ec7f8a91e9c88",
+    "seed": 42,
+    "snapshot_hash": "af3ecc2066731f841f509a89c7b5c4409a8704777d2c5fc434895a9321a429ae",
+    "steps_taken": 10,
+    "title": "Golden Export Test"
+  }
+}

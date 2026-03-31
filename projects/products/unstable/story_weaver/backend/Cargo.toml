@@ -1,0 +1,16 @@
+[package]
+name = "story_weaver_backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "story_weaver_backend"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+common_json = { workspace = true }
