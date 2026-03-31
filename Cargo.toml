@@ -122,6 +122,7 @@ members = [
   "projects/products/unstable/weather_reasoning_sandbox/ui",
   "projects/products/unstable/story_weaver/backend",
   "projects/products/unstable/story_weaver/ui",
+  "projects/products/unstable/spec_to_runtime_compiler/backend",
 ]
 resolver = "2"
 
