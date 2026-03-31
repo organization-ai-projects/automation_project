@@ -24,10 +24,7 @@ impl FuzzTester {
                 Err(e) => {
                     violations.push(format!(
                         "step {} from '{}' event '{}': {}",
-                        runner.step_count,
-                        runner.current_state.0,
-                        event.0,
-                        e
+                        runner.step_count, runner.current_state.0, event.0, e
                     ));
                 }
             }

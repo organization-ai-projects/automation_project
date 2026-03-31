@@ -8,7 +8,10 @@ impl EditorScreen {
     pub fn render(state: &AppState) {
         println!("== EDITOR ==");
         let rows = vec![
-            vec!["machine_loaded".to_string(), state.machine_loaded.to_string()],
+            vec![
+                "machine_loaded".to_string(),
+                state.machine_loaded.to_string(),
+            ],
             vec!["validated".to_string(), state.validated.to_string()],
         ];
         TableWidget::render(&["field", "value"], &rows);

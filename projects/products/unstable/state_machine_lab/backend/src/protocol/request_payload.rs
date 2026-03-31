@@ -5,10 +5,16 @@ use std::fmt;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum RequestPayload {
-    LoadMachine { machine: String },
+    LoadMachine {
+        machine: String,
+    },
     Validate,
-    Run { events: Vec<String> },
-    Step { event: String },
+    Run {
+        events: Vec<String>,
+    },
+    Step {
+        event: String,
+    },
     TestExhaustive,
     TestFuzz {
         #[serde(deserialize_with = "deserialize_u64")]

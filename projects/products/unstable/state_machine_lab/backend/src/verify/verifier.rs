@@ -14,13 +14,19 @@ impl Verifier {
                 Invariant::NoDeadlock => {
                     let dead = Self::find_deadlock_states(machine);
                     for s in dead {
-                        violations.push(format!("deadlock: state '{}' has no outgoing transitions", s.0));
+                        violations.push(format!(
+                            "deadlock: state '{}' has no outgoing transitions",
+                            s.0
+                        ));
                     }
                 }
                 Invariant::StateReachable(target) => {
                     let reachable = Self::reachable_states(machine);
                     if !reachable.contains(target) {
-                        violations.push(format!("unreachable: state '{}' is not reachable from initial state", target.0));
+                        violations.push(format!(
+                            "unreachable: state '{}' is not reachable from initial state",
+                            target.0
+                        ));
                     }
                 }
                 Invariant::VariableBound { var, min, max } => {
@@ -70,9 +76,10 @@ impl Verifier {
     fn find_deadlock_states(machine: &Machine) -> Vec<StateId> {
         let mut deadlocks = Vec::new();
         for state in &machine.states {
-            let has_outgoing = machine.events.iter().any(|event| {
-                !machine.get_transitions(state, event).is_empty()
-            });
+            let has_outgoing = machine
+                .events
+                .iter()
+                .any(|event| !machine.get_transitions(state, event).is_empty());
             if !has_outgoing {
                 deadlocks.push(state.clone());
             }
@@ -133,14 +140,19 @@ mod tests {
     fn detects_deadlock() {
         let m = simple_machine();
         let violations = Verifier::check(&m, &[Invariant::NoDeadlock]).unwrap();
-        assert!(violations.iter().any(|v| v.contains("deadlock") && v.contains("b")));
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.contains("deadlock") && v.contains("b"))
+        );
     }
 
     #[test]
     fn detects_reachability() {
         let mut m = simple_machine();
         m.states.push(StateId("c".into()));
-        let violations = Verifier::check(&m, &[Invariant::StateReachable(StateId("c".into()))]).unwrap();
+        let violations =
+            Verifier::check(&m, &[Invariant::StateReachable(StateId("c".into()))]).unwrap();
         assert!(violations.iter().any(|v| v.contains("unreachable")));
     }
 

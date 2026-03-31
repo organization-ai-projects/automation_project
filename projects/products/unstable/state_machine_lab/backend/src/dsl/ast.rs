@@ -1,6 +1,6 @@
 use crate::model::event_id::EventId;
-use crate::model::machine_id::MachineId;
 use crate::model::machine::Transition;
+use crate::model::machine_id::MachineId;
 use crate::model::state_id::StateId;
 use std::collections::BTreeMap;
 

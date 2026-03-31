@@ -27,6 +27,14 @@ fn demand_reduces_stock() {
     }];
     let model = DemandModel::default();
 
-    DemandEngine::process_demand(&Tick(0), &model, &segments, 42, &mut inventories, &mut ledger, &mut log);
+    DemandEngine::process_demand(
+        &Tick(0),
+        &model,
+        &segments,
+        42,
+        &mut inventories,
+        &mut ledger,
+        &mut log,
+    );
     assert!(inventories[&StoreId(0)].get_stock(&Good::Widget) < 100);
 }

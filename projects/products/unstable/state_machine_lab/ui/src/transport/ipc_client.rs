@@ -1,5 +1,5 @@
-use crate::diagnostics::error::UiError;
 use super::backend_process::BackendProcess;
+use crate::diagnostics::error::UiError;
 
 mod wire {
     use serde::{Deserialize, Serialize};
@@ -120,8 +120,7 @@ impl IpcClient {
             id: Some(format!("ui-{}", self.request_index)),
             payload,
         };
-        let line =
-            common_json::to_string(&request).map_err(|e| UiError::Ipc(e.to_string()))?;
+        let line = common_json::to_string(&request).map_err(|e| UiError::Ipc(e.to_string()))?;
         backend.send_line(&line)?;
 
         let response_line = backend.read_line()?;
@@ -134,8 +133,7 @@ impl IpcClient {
         match response {
             wire::ResponsePayload::Ok => Ok(()),
             wire::ResponsePayload::Error { message } => Err(UiError::Ipc(message)),
-            wire::ResponsePayload::TestReport { .. }
-            | wire::ResponsePayload::Transcript { .. } => {
+            wire::ResponsePayload::TestReport { .. } | wire::ResponsePayload::Transcript { .. } => {
                 Err(UiError::Ipc("unexpected non-ok response".to_string()))
             }
         }

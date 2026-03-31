@@ -70,10 +70,7 @@ impl RunScreen {
             SimReportView::display(&report_data);
             StatusBanner::print("Run completed successfully.");
         } else {
-            StatusBanner::print(&format!(
-                "Backend exited with code: {:?}",
-                status.code()
-            ));
+            StatusBanner::print(&format!("Backend exited with code: {:?}", status.code()));
         }
 
         Ok(())

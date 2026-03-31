@@ -35,8 +35,7 @@ impl BackendProcess {
     }
 
     pub fn send_line(&mut self, line: &str) -> Result<(), UiError> {
-        writeln!(&mut self.stdin, "{line}")
-            .map_err(|e| UiError::Transport(e.to_string()))?;
+        writeln!(&mut self.stdin, "{line}").map_err(|e| UiError::Transport(e.to_string()))?;
         self.stdin
             .flush()
             .map_err(|e| UiError::Transport(e.to_string()))

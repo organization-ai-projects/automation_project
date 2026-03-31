@@ -120,8 +120,14 @@ impl BackendSession {
             transitions_map.entry(key).or_default().push(t.clone());
         }
         Machine {
-            id: ast.machine_id.clone().unwrap_or_else(|| crate::model::machine_id::MachineId("unnamed".to_string())),
-            initial_state: ast.initial_state.clone().unwrap_or_else(|| StateId("initial".to_string())),
+            id: ast
+                .machine_id
+                .clone()
+                .unwrap_or_else(|| crate::model::machine_id::MachineId("unnamed".to_string())),
+            initial_state: ast
+                .initial_state
+                .clone()
+                .unwrap_or_else(|| StateId("initial".to_string())),
             states: ast.states.clone(),
             events: ast.events.clone(),
             transitions: transitions_map,
@@ -189,9 +195,15 @@ transition on flip -> off
         let mut s2 = BackendSession::default();
         let events = vec!["flip".to_string(), "flip".to_string(), "flip".to_string()];
 
-        s1.handle(request(RequestPayload::LoadMachine { machine: TOGGLE_MACHINE.to_string() }));
-        s2.handle(request(RequestPayload::LoadMachine { machine: TOGGLE_MACHINE.to_string() }));
-        s1.handle(request(RequestPayload::Run { events: events.clone() }));
+        s1.handle(request(RequestPayload::LoadMachine {
+            machine: TOGGLE_MACHINE.to_string(),
+        }));
+        s2.handle(request(RequestPayload::LoadMachine {
+            machine: TOGGLE_MACHINE.to_string(),
+        }));
+        s1.handle(request(RequestPayload::Run {
+            events: events.clone(),
+        }));
         s2.handle(request(RequestPayload::Run { events }));
 
         let t1 = s1.handle(request(RequestPayload::GetTranscript));
@@ -221,10 +233,20 @@ transition on flip -> off
     fn fuzz_test_deterministic() {
         let mut s1 = BackendSession::default();
         let mut s2 = BackendSession::default();
-        s1.handle(request(RequestPayload::LoadMachine { machine: TOGGLE_MACHINE.to_string() }));
-        s2.handle(request(RequestPayload::LoadMachine { machine: TOGGLE_MACHINE.to_string() }));
-        let r1 = s1.handle(request(RequestPayload::TestFuzz { seed: 42, steps: 50 }));
-        let r2 = s2.handle(request(RequestPayload::TestFuzz { seed: 42, steps: 50 }));
+        s1.handle(request(RequestPayload::LoadMachine {
+            machine: TOGGLE_MACHINE.to_string(),
+        }));
+        s2.handle(request(RequestPayload::LoadMachine {
+            machine: TOGGLE_MACHINE.to_string(),
+        }));
+        let r1 = s1.handle(request(RequestPayload::TestFuzz {
+            seed: 42,
+            steps: 50,
+        }));
+        let r2 = s2.handle(request(RequestPayload::TestFuzz {
+            seed: 42,
+            steps: 50,
+        }));
         let j1 = extract_test_report(r1.payload);
         let j2 = extract_test_report(r2.payload);
         let v1: crate::testing::test_report::TestReport = common_json::from_json_str(&j1).unwrap();

@@ -28,9 +28,7 @@ impl Runner {
     }
 
     pub fn step(&mut self, event: &EventId) -> Result<StepResult, BackendError> {
-        let transitions = self
-            .machine
-            .get_transitions(&self.current_state, event);
+        let transitions = self.machine.get_transitions(&self.current_state, event);
         let transition = transitions.first().ok_or_else(|| {
             BackendError::Engine(format!(
                 "no transition from state '{}' on event '{}'",
@@ -76,18 +74,16 @@ impl Runner {
     fn evaluate_guard(&self, guard: &str) -> bool {
         // Simple guard evaluation: "var<val" or "var>val"
         if let Some((var_name, val_str)) = guard.split_once('<') {
-            if let (Some(current), Ok(limit)) = (
-                self.variables.get(var_name),
-                val_str.parse::<i64>(),
-            ) {
+            if let (Some(current), Ok(limit)) =
+                (self.variables.get(var_name), val_str.parse::<i64>())
+            {
                 return *current < limit;
             }
         }
         if let Some((var_name, val_str)) = guard.split_once('>') {
-            if let (Some(current), Ok(limit)) = (
-                self.variables.get(var_name),
-                val_str.parse::<i64>(),
-            ) {
+            if let (Some(current), Ok(limit)) =
+                (self.variables.get(var_name), val_str.parse::<i64>())
+            {
                 return *current > limit;
             }
         }

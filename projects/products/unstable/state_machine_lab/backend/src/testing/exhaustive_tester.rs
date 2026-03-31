@@ -33,7 +33,10 @@ impl ExhaustiveTester {
             }
 
             if !has_any_transition {
-                violations.push(format!("deadlock: state '{}' has no outgoing transitions", state.0));
+                violations.push(format!(
+                    "deadlock: state '{}' has no outgoing transitions",
+                    state.0
+                ));
             }
         }
 
@@ -43,7 +46,10 @@ impl ExhaustiveTester {
             .filter(|s| !visited_states.contains(s))
             .collect();
         for s in &unreachable {
-            violations.push(format!("unreachable: state '{}' not reachable from initial state", s.0));
+            violations.push(format!(
+                "unreachable: state '{}' not reachable from initial state",
+                s.0
+            ));
         }
 
         Ok(TestReport::exhaustive(

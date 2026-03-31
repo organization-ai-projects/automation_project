@@ -33,10 +33,7 @@ impl ReplayEngine {
         Ok(replayed)
     }
 
-    pub fn verify_golden(
-        machine: &Machine,
-        golden_raw: &str,
-    ) -> Result<bool, BackendError> {
+    pub fn verify_golden(machine: &Machine, golden_raw: &str) -> Result<bool, BackendError> {
         let golden = TranscriptCodec::decode(golden_raw)?;
         let golden_encoded = TranscriptCodec::encode(&golden)?;
         let events: Vec<EventId> = golden.steps.iter().map(|s| s.event.clone()).collect();

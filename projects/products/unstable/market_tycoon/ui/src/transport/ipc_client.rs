@@ -64,9 +64,8 @@ impl IpcClient {
     pub fn new_run(&mut self, seed: u64, ticks: u64) -> Result<String, IpcError> {
         let id = self.next_id;
         self.next_id += 1;
-        let msg = format!(
-            r#"{{"id":{id},"request":{{"type":"NewRun","seed":{seed},"ticks":{ticks}}}}}"#
-        );
+        let msg =
+            format!(r#"{{"id":{id},"request":{{"type":"NewRun","seed":{seed},"ticks":{ticks}}}}}"#);
         self.send_raw(&msg)
     }
 

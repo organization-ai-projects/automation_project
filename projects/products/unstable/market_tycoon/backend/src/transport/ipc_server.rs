@@ -47,7 +47,8 @@ impl IpcServer {
             };
 
             let resp = server.handle(msg);
-            let json = common_json::to_string(&resp).map_err(|e| Error::Serialization(e.to_string()))?;
+            let json =
+                common_json::to_string(&resp).map_err(|e| Error::Serialization(e.to_string()))?;
             println!("{json}");
         }
 
@@ -78,10 +79,11 @@ impl IpcServer {
     }
 
     fn step(&mut self, id: u64, n: u64) -> Response {
-        let (engine, config, event_log) = match (&mut self.engine, &self.config, &mut self.event_log) {
-            (Some(e), Some(c), Some(el)) => (e, c, el),
-            _ => return Response::error(id, "NO_RUN", "no active run"),
-        };
+        let (engine, config, event_log) =
+            match (&mut self.engine, &self.config, &mut self.event_log) {
+                (Some(e), Some(c), Some(el)) => (e, c, el),
+                _ => return Response::error(id, "NO_RUN", "no active run"),
+            };
 
         for _ in 0..n {
             if engine.clock.is_done() {
@@ -95,10 +97,11 @@ impl IpcServer {
     }
 
     fn run_to_end(&mut self, id: u64) -> Response {
-        let (engine, config, event_log) = match (&mut self.engine, &self.config, &mut self.event_log) {
-            (Some(e), Some(c), Some(el)) => (e, c, el),
-            _ => return Response::error(id, "NO_RUN", "no active run"),
-        };
+        let (engine, config, event_log) =
+            match (&mut self.engine, &self.config, &mut self.event_log) {
+                (Some(e), Some(c), Some(el)) => (e, c, el),
+                _ => return Response::error(id, "NO_RUN", "no active run"),
+            };
 
         while !engine.clock.is_done() {
             run_single_tick(engine, config, event_log);
