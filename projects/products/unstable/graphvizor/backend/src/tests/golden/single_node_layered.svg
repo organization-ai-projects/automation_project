@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
+  <rect x="40" y="30" width="120" height="40" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="100" y="55" text-anchor="middle" font-size="12" fill="#1e40af">Solo Node</text>
+</svg>
