@@ -107,6 +107,8 @@ members = [
   "projects/products/unstable/tiny_search/ui",
   "projects/products/unstable/state_machine_lab/backend",
   "projects/products/unstable/state_machine_lab/ui",
+  "projects/products/unstable/system_protect/backend",
+  "projects/products/unstable/system_protect/ui",
   "projects/products/unstable/monster_catcher/backend",
   "projects/products/unstable/monster_catcher/ui",
 ]
