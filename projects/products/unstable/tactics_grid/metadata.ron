@@ -1,0 +1,31 @@
+(
+  schema_version: 1,
+  generated_at: 1769472000000,
+  id: "a3b7c9d1e4f6081234567890abcdef12",
+  name: "Tactics Grid",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "b4c8d2e5f7091345678901bcdef23456", title: "Tactics Grid", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "deterministic-simulation",
+    "grid-tactics",
+    "replay",
+    "battle-reports",
+  ],
+
+  domains: [
+    (id: "c5d9e3f608123456789012cdef345678", desc: "deterministic grid tactics combat and replay"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml", "metadata.ron", "ui/ui_manifest.ron"],
+  ),
+)
