@@ -6,8 +6,6 @@ pub(crate) enum RogueliteArenaError {
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(String),
-    #[error("Simulation error: {0}")]
-    Sim(String),
     #[error("Replay mismatch: {0}")]
     ReplayMismatch(String),
     #[error("Invalid scenario: {0}")]
