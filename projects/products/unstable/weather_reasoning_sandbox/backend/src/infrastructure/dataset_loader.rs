@@ -25,7 +25,7 @@ impl DatasetLoader {
         let records = Self::generate_default_observations(seed, tick_count);
         let id = DatasetIdentifier {
             name: "default".to_string(),
-            path: format!("default:seed={seed},ticks={tick_count}"),
+            path: format!("generated:seed={seed},ticks={tick_count}"),
         };
         (id, records)
     }
