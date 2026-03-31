@@ -9,10 +9,7 @@ fn error_display_input() {
 #[test]
 fn error_display_feature_disabled() {
     let err = EngineError::FeatureDisabled("recommendation_output".to_string());
-    assert_eq!(
-        format!("{err}"),
-        "feature disabled: recommendation_output"
-    );
+    assert_eq!(format!("{err}"), "feature disabled: recommendation_output");
 }
 
 #[test]

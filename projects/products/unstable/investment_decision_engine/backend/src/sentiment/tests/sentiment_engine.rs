@@ -5,7 +5,12 @@ use crate::sentiment::sentiment_engine::{SentimentEngine, SentimentLabel};
 #[test]
 fn both_fearful_and_bearish_shift_is_bearish() {
     let fear = Some(MarketFearScore::from_score(15.0, "VIX"));
-    let shifts = vec![NarrativeShift::new("2025-01-15", NarrativeDirection::BullishToBearish, "Panic", 0.9)];
+    let shifts = vec![NarrativeShift::new(
+        "2025-01-15",
+        NarrativeDirection::BullishToBearish,
+        "Panic",
+        0.9,
+    )];
     let summary = SentimentEngine::evaluate(fear, shifts);
     assert_eq!(summary.overall_sentiment, SentimentLabel::Bearish);
 }

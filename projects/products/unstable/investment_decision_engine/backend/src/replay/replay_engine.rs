@@ -10,11 +10,6 @@ impl ReplayEngine {
         _config: &EngineConfig,
         gate: &FeatureGateConfig,
     ) -> DecisionSummary {
-        DecisionEngine::synthesize(
-            &replay.risk_score,
-            &replay.pnl,
-            &replay.sentiment,
-            gate,
-        )
+        DecisionEngine::synthesize(&replay.risk_score, &replay.pnl, &replay.sentiment, gate)
     }
 }

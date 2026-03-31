@@ -15,7 +15,11 @@ fn make_risk(thesis_dir: ThesisDirection) -> RiskScore {
 }
 
 fn make_pnl(cost: f64, current: f64) -> UnrealizedPnl {
-    let pos = Position::new(AssetId::new("TEST"), 10.0, CostBasis::new(cost, cost * 10.0));
+    let pos = Position::new(
+        AssetId::new("TEST"),
+        10.0,
+        CostBasis::new(cost, cost * 10.0),
+    );
     UnrealizedPnl::compute(&pos, current)
 }
 

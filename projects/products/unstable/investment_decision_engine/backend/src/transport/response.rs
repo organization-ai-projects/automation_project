@@ -13,24 +13,12 @@ pub struct Response {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ResponsePayload {
-    DecisionReport {
-        report: DecisionReport,
-    },
-    AssetReport {
-        report: AssetReport,
-    },
-    PortfolioReport {
-        report: PortfolioReport,
-    },
-    JournalEntries {
-        entries: Vec<DecisionEntry>,
-    },
-    ReplayReport {
-        report: DecisionReport,
-    },
-    Error {
-        message: String,
-    },
+    DecisionReport { report: DecisionReport },
+    AssetReport { report: AssetReport },
+    PortfolioReport { report: PortfolioReport },
+    JournalEntries { entries: Vec<DecisionEntry> },
+    ReplayReport { report: DecisionReport },
+    Error { message: String },
 }
 
 impl Response {

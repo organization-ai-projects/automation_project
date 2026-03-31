@@ -3,7 +3,14 @@ use crate::decision::CandidateAction;
 #[test]
 fn canonical_order_is_sell_hold_buy() {
     let order = CandidateAction::canonical_order();
-    assert_eq!(order, vec![CandidateAction::Sell, CandidateAction::Hold, CandidateAction::BuyMore]);
+    assert_eq!(
+        order,
+        vec![
+            CandidateAction::Sell,
+            CandidateAction::Hold,
+            CandidateAction::BuyMore
+        ]
+    );
 }
 
 #[test]

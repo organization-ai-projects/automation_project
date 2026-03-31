@@ -61,9 +61,7 @@ fn print_usage() {
 }
 
 fn parse_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
 
 fn cmd_analyze_asset(args: &[String]) -> Result<(), EngineError> {
@@ -86,12 +84,7 @@ fn cmd_analyze_asset(args: &[String]) -> Result<(), EngineError> {
     let market_snapshot: market_data::MarketSnapshot = common_json::from_str(&market_json)
         .map_err(|e| EngineError::Parse(format!("invalid market JSON: {e}")))?;
 
-    let report = report::AssetReport::generate(
-        &asset_profile,
-        &market_snapshot,
-        &config,
-        &gate,
-    );
+    let report = report::AssetReport::generate(&asset_profile, &market_snapshot, &config, &gate);
 
     let output = common_json::to_json_string_pretty(&report)
         .map_err(|e| EngineError::Serialization(format!("{e}")))?;
@@ -128,12 +121,8 @@ fn cmd_analyze_portfolio(args: &[String]) -> Result<(), EngineError> {
     let market_snapshot: market_data::MarketSnapshot = common_json::from_str(&market_json)
         .map_err(|e| EngineError::Parse(format!("invalid market JSON: {e}")))?;
 
-    let report = report::PortfolioReport::generate(
-        &portfolio_state,
-        &market_snapshot,
-        &config,
-        &gate,
-    );
+    let report =
+        report::PortfolioReport::generate(&portfolio_state, &market_snapshot, &config, &gate);
 
     let output = common_json::to_json_string_pretty(&report)
         .map_err(|e| EngineError::Serialization(format!("{e}")))?;

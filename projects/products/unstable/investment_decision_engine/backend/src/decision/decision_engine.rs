@@ -104,13 +104,15 @@ impl DecisionEngine {
             }
         }
 
-        let action_scores = Self::build_action_scores(
-            sell_score, hold_score, buy_score, &reasons,
-        );
+        let action_scores = Self::build_action_scores(sell_score, hold_score, buy_score, &reasons);
 
         let recommended = action_scores
             .iter()
-            .max_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.score
+                    .partial_cmp(&b.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|a| a.action.clone())
             .unwrap_or(CandidateAction::Hold);
 
@@ -167,11 +169,8 @@ impl DecisionEngine {
                     CandidateAction::Hold => hold_score,
                     CandidateAction::BuyMore => buy_score,
                 };
-                let action_reasons: Vec<DecisionReason> = reasons
-                    .iter()
-                    .filter(|r| r.weight > 0.0)
-                    .cloned()
-                    .collect();
+                let action_reasons: Vec<DecisionReason> =
+                    reasons.iter().filter(|r| r.weight > 0.0).cloned().collect();
                 ActionScore {
                     action,
                     score,

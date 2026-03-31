@@ -20,11 +20,7 @@ pub enum ReasonCategory {
 }
 
 impl DecisionReason {
-    pub fn new(
-        category: ReasonCategory,
-        description: impl Into<String>,
-        weight: f64,
-    ) -> Self {
+    pub fn new(category: ReasonCategory, description: impl Into<String>, weight: f64) -> Self {
         Self {
             category,
             description: description.into(),

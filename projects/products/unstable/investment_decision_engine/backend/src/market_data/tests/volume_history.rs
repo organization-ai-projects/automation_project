@@ -5,9 +5,18 @@ fn average_volume_computes_correctly() {
     let vh = VolumeHistory::new(
         "AAPL",
         vec![
-            VolumeEntry { date: "2025-01-13".to_string(), volume: 1000 },
-            VolumeEntry { date: "2025-01-14".to_string(), volume: 2000 },
-            VolumeEntry { date: "2025-01-15".to_string(), volume: 3000 },
+            VolumeEntry {
+                date: "2025-01-13".to_string(),
+                volume: 1000,
+            },
+            VolumeEntry {
+                date: "2025-01-14".to_string(),
+                volume: 2000,
+            },
+            VolumeEntry {
+                date: "2025-01-15".to_string(),
+                volume: 3000,
+            },
         ],
     );
     let avg = vh.average_volume(3).unwrap();
@@ -19,9 +28,18 @@ fn average_volume_recent_subset() {
     let vh = VolumeHistory::new(
         "AAPL",
         vec![
-            VolumeEntry { date: "2025-01-13".to_string(), volume: 1000 },
-            VolumeEntry { date: "2025-01-14".to_string(), volume: 2000 },
-            VolumeEntry { date: "2025-01-15".to_string(), volume: 4000 },
+            VolumeEntry {
+                date: "2025-01-13".to_string(),
+                volume: 1000,
+            },
+            VolumeEntry {
+                date: "2025-01-14".to_string(),
+                volume: 2000,
+            },
+            VolumeEntry {
+                date: "2025-01-15".to_string(),
+                volume: 4000,
+            },
         ],
     );
     let avg = vh.average_volume(2).unwrap();

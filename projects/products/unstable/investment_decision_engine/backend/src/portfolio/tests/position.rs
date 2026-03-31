@@ -3,11 +3,7 @@ use crate::portfolio::{CostBasis, Position};
 
 #[test]
 fn total_cost_is_shares_times_average_price() {
-    let pos = Position::new(
-        AssetId::new("AAPL"),
-        10.0,
-        CostBasis::new(150.0, 1500.0),
-    );
+    let pos = Position::new(AssetId::new("AAPL"), 10.0, CostBasis::new(150.0, 1500.0));
     assert!((pos.total_cost() - 1500.0).abs() < f64::EPSILON);
 }
 

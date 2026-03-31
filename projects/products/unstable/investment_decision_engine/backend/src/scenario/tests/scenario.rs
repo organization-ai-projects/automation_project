@@ -1,5 +1,5 @@
-use crate::scenario::scenario::Scenario;
 use crate::scenario::StressCase;
+use crate::scenario::scenario::Scenario;
 
 #[test]
 fn new_creates_empty_scenario() {

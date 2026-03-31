@@ -20,9 +20,7 @@ impl PortfolioState {
     }
 
     pub fn position_for(&self, ticker: &str) -> Option<&Position> {
-        self.positions
-            .iter()
-            .find(|p| p.asset_id.ticker == ticker)
+        self.positions.iter().find(|p| p.asset_id.ticker == ticker)
     }
 
     pub fn concentration(&self, ticker: &str) -> f64 {

@@ -22,10 +22,7 @@ impl DecisionReport {
 
         let hash_input = format!(
             "decision:{}:{}:{:?}:{}",
-            ticker,
-            timestamp,
-            summary.recommended_action,
-            summary.confidence.score,
+            ticker, timestamp, summary.recommended_action, summary.confidence.score,
         );
         let run_hash = RunHash::compute(&hash_input);
 

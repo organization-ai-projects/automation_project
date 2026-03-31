@@ -2,13 +2,23 @@ use crate::sentiment::narrative_shift::{NarrativeDirection, NarrativeShift};
 
 #[test]
 fn bearish_shift_detected() {
-    let shift = NarrativeShift::new("2025-01-15", NarrativeDirection::BullishToBearish, "Market panic", 0.85);
+    let shift = NarrativeShift::new(
+        "2025-01-15",
+        NarrativeDirection::BullishToBearish,
+        "Market panic",
+        0.85,
+    );
     assert!(shift.is_bearish_shift());
 }
 
 #[test]
 fn bullish_shift_not_bearish() {
-    let shift = NarrativeShift::new("2025-01-15", NarrativeDirection::BearishToBullish, "Recovery", 0.7);
+    let shift = NarrativeShift::new(
+        "2025-01-15",
+        NarrativeDirection::BearishToBullish,
+        "Recovery",
+        0.7,
+    );
     assert!(!shift.is_bearish_shift());
 }
 

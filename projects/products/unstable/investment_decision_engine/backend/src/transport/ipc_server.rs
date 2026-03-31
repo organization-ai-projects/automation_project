@@ -34,11 +34,9 @@ impl IpcServer {
                 scenario_json,
                 asset_json,
             } => self.handle_evaluate_scenario(scenario_json, asset_json),
-            crate::transport::request::RequestPayload::Shutdown => {
-                ResponsePayload::Error {
-                    message: "shutdown acknowledged".to_string(),
-                }
-            }
+            crate::transport::request::RequestPayload::Shutdown => ResponsePayload::Error {
+                message: "shutdown acknowledged".to_string(),
+            },
         };
 
         Response {
@@ -84,35 +82,57 @@ impl IpcServer {
     fn handle_analyze_asset(&self, asset_json: &str, market_json: &str) -> ResponsePayload {
         let asset = match common_json::from_str(asset_json) {
             Ok(a) => a,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid asset: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid asset: {e}"),
+                };
+            }
         };
         let market = match common_json::from_str(market_json) {
             Ok(m) => m,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid market: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid market: {e}"),
+                };
+            }
         };
 
-        let report = crate::report::AssetReport::generate(&asset, &market, &self.config, &self.gate);
+        let report =
+            crate::report::AssetReport::generate(&asset, &market, &self.config, &self.gate);
         ResponsePayload::AssetReport { report }
     }
 
     fn handle_analyze_portfolio(&self, portfolio_json: &str, market_json: &str) -> ResponsePayload {
         let portfolio = match common_json::from_str(portfolio_json) {
             Ok(p) => p,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid portfolio: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid portfolio: {e}"),
+                };
+            }
         };
         let market = match common_json::from_str(market_json) {
             Ok(m) => m,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid market: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid market: {e}"),
+                };
+            }
         };
 
-        let report = crate::report::PortfolioReport::generate(&portfolio, &market, &self.config, &self.gate);
+        let report =
+            crate::report::PortfolioReport::generate(&portfolio, &market, &self.config, &self.gate);
         ResponsePayload::PortfolioReport { report }
     }
 
     fn handle_replay(&self, replay_json: &str) -> ResponsePayload {
         let replay_file = match common_json::from_str(replay_json) {
             Ok(r) => r,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid replay: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid replay: {e}"),
+                };
+            }
         };
 
         let summary = crate::replay::ReplayEngine::execute(&replay_file, &self.config, &self.gate);
@@ -123,11 +143,19 @@ impl IpcServer {
     fn handle_read_journal(&self, journal_path: &str) -> ResponsePayload {
         let content = match std::fs::read_to_string(journal_path) {
             Ok(c) => c,
-            Err(e) => return ResponsePayload::Error { message: format!("read journal failed: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("read journal failed: {e}"),
+                };
+            }
         };
         let entries = match common_json::from_str(&content) {
             Ok(e) => e,
-            Err(e) => return ResponsePayload::Error { message: format!("parse journal failed: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("parse journal failed: {e}"),
+                };
+            }
         };
         ResponsePayload::JournalEntries { entries }
     }
@@ -135,11 +163,19 @@ impl IpcServer {
     fn handle_evaluate_scenario(&self, scenario_json: &str, asset_json: &str) -> ResponsePayload {
         let scenario = match common_json::from_str(scenario_json) {
             Ok(s) => s,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid scenario: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid scenario: {e}"),
+                };
+            }
         };
         let asset = match common_json::from_str(asset_json) {
             Ok(a) => a,
-            Err(e) => return ResponsePayload::Error { message: format!("invalid asset: {e}") },
+            Err(e) => {
+                return ResponsePayload::Error {
+                    message: format!("invalid asset: {e}"),
+                };
+            }
         };
 
         let _result = crate::scenario::ScenarioEngine::evaluate(&scenario, &asset, &self.config);

@@ -5,7 +5,10 @@ use crate::report::AssetReport;
 
 fn sample_report() -> AssetReport {
     let asset = AssetProfile::new(AssetId::new("AAPL"), "Apple Inc.");
-    let history = PriceHistory::new("AAPL", vec![PricePoint::new("2025-01-15", 150.0, 155.0, 148.0, 152.0)]);
+    let history = PriceHistory::new(
+        "AAPL",
+        vec![PricePoint::new("2025-01-15", 150.0, 155.0, 148.0, 152.0)],
+    );
     let market = MarketSnapshot::new("AAPL", 152.0, history, "2025-01-15");
     let config = EngineConfig::default();
     let gate = FeatureGateConfig::from_config(&config);

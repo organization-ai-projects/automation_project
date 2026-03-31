@@ -9,6 +9,10 @@ pub enum CandidateAction {
 
 impl CandidateAction {
     pub fn canonical_order() -> Vec<CandidateAction> {
-        vec![CandidateAction::Sell, CandidateAction::Hold, CandidateAction::BuyMore]
+        vec![
+            CandidateAction::Sell,
+            CandidateAction::Hold,
+            CandidateAction::BuyMore,
+        ]
     }
 }

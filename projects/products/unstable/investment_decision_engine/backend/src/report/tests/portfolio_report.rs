@@ -6,9 +6,16 @@ use crate::report::PortfolioReport;
 
 #[test]
 fn generate_portfolio_report() {
-    let positions = vec![Position::new(AssetId::new("AAPL"), 10.0, CostBasis::new(150.0, 1500.0))];
+    let positions = vec![Position::new(
+        AssetId::new("AAPL"),
+        10.0,
+        CostBasis::new(150.0, 1500.0),
+    )];
     let state = PortfolioState::new(positions, 500.0);
-    let history = PriceHistory::new("AAPL", vec![PricePoint::new("2025-01-15", 150.0, 155.0, 148.0, 152.0)]);
+    let history = PriceHistory::new(
+        "AAPL",
+        vec![PricePoint::new("2025-01-15", 150.0, 155.0, 148.0, 152.0)],
+    );
     let market = MarketSnapshot::new("AAPL", 152.0, history, "2025-01-15");
     let config = EngineConfig::default();
     let gate = FeatureGateConfig::from_config(&config);

@@ -22,7 +22,15 @@ fn sample_replay() -> ReplayFile {
     let tb = ThesisBreakRisk::compute(ThesisDirection::Unchanged);
     let risk = RiskScore::compute(dd, cc, vr, tb);
 
-    ReplayFile::new("2025-01-15T10:00:00Z", asset, market, pnl, risk, SentimentLabel::Neutral, EngineConfig::default())
+    ReplayFile::new(
+        "2025-01-15T10:00:00Z",
+        asset,
+        market,
+        pnl,
+        risk,
+        SentimentLabel::Neutral,
+        EngineConfig::default(),
+    )
 }
 
 #[test]
