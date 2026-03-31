@@ -107,6 +107,7 @@ members = [
   "projects/products/unstable/tiny_search/ui",
   "projects/products/unstable/state_machine_lab/backend",
   "projects/products/unstable/state_machine_lab/ui",
+  "projects/products/unstable/monster_catcher/backend",
 ]
 resolver = "2"
 
