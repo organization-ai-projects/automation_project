@@ -2,9 +2,9 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::automation::{commands::InstallHooksOptions, execute};
+use crate::automation::execute;
 
-pub(crate) fn run_install_hooks(_opts: InstallHooksOptions) -> Result<(), String> {
+pub(crate) fn run_install_hooks() -> Result<(), String> {
     execute::ensure_git_repo()?;
     let root = execute::repo_root()?;
     let hooks_dir = execute::git_hooks_dir(&root)?;

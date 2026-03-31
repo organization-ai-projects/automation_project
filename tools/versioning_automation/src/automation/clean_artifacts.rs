@@ -1,28 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::automation::commands::CleanArtifactsOptions;
-
-use super::execute::{ensure_git_repo, repo_root, run_command_status};
-
-pub(crate) fn run_clean_artifacts(opts: CleanArtifactsOptions) -> Result<(), String> {
-    ensure_git_repo()?;
-    let root = repo_root()?;
-
-    remove_dir_if_exists(&root.join("target"))?;
-    remove_named_dirs_under(&root.join("projects"), "ui_dist")?;
-    if opts.include_node_modules {
-        remove_named_dirs_under(&root, "node_modules")?;
-    }
-    remove_nested_cargo_locks(&root.join("projects"), &root.join("Cargo.lock"))?;
-    remove_files_by_suffixes(&root, &[".profraw", ".gcda", ".gcno", "~", ".bak", ".tmp"])?;
-
-    run_command_status("cargo", &["clean"], false)?;
-    println!("Build artifacts cleaned successfully.");
-    Ok(())
-}
-
-fn remove_dir_if_exists(path: &Path) -> Result<(), String> {
+pub(crate) fn remove_dir_if_exists(path: &Path) -> Result<(), String> {
     if path.exists() {
         fs::remove_dir_all(path)
             .map_err(|e| format!("Failed to remove directory '{}': {e}", path.display()))?;
@@ -30,7 +9,7 @@ fn remove_dir_if_exists(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn remove_named_dirs_under(root: &Path, target_name: &str) -> Result<(), String> {
+pub(crate) fn remove_named_dirs_under(root: &Path, target_name: &str) -> Result<(), String> {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
         Err(_) => return Ok(()),
@@ -53,7 +32,10 @@ fn remove_named_dirs_under(root: &Path, target_name: &str) -> Result<(), String>
     Ok(())
 }
 
-fn remove_nested_cargo_locks(projects_root: &Path, root_lock: &Path) -> Result<(), String> {
+pub(crate) fn remove_nested_cargo_locks(
+    projects_root: &Path,
+    root_lock: &Path,
+) -> Result<(), String> {
     if !projects_root.exists() {
         return Ok(());
     }
@@ -84,7 +66,7 @@ fn remove_nested_cargo_locks_recursive(dir: &Path, root_lock: &Path) -> Result<(
     Ok(())
 }
 
-fn remove_files_by_suffixes(root: &Path, suffixes: &[&str]) -> Result<(), String> {
+pub(crate) fn remove_files_by_suffixes(root: &Path, suffixes: &[&str]) -> Result<(), String> {
     if suffixes.is_empty() || !root.exists() {
         return Ok(());
     }

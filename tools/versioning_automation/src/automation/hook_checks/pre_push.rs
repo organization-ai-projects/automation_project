@@ -1,49 +1,10 @@
 //! tools/versioning_automation/src/automation/hook_checks/pre_push.rs
-use std::env;
+use crate::automation::execute;
 
-use crate::{
-    automation::{commands, execute},
-    repo_name,
-};
-
-pub(crate) fn run_pre_push_check(opts: commands::PrePushCheckOptions) -> Result<(), String> {
-    run_pre_push_check_with_skip(opts, env::var("SKIP_PRE_PUSH").unwrap_or_default() == "1")
-}
-
-pub(super) fn run_pre_push_check_with_skip(
-    opts: commands::PrePushCheckOptions,
-    skip_pre_push: bool,
+pub(crate) fn validate_pre_push_commit_policies(
+    commits: &str,
+    repo: Option<&str>,
 ) -> Result<(), String> {
-    let _ = opts;
-    if skip_pre_push {
-        println!("Pre-push checks skipped (SKIP_PRE_PUSH=1)");
-        return Ok(());
-    }
-    execute::ensure_git_repo()?;
-    let upstream = execute::resolve_upstream_or_default();
-    let commits =
-        execute::run_git_output_preserve(&["log", &format!("{upstream}..HEAD"), "--format=%B"])
-            .unwrap_or_default();
-    let repo = repo_name::resolve_repo_name(None).ok();
-
-    validate_pre_push_commit_policies(&commits, repo.as_deref())?;
-
-    let changed_files = execute::compute_changed_files(&upstream)?;
-    if changed_files.is_empty() {
-        println!("Pre-push checks passed (no changed files)");
-        return Ok(());
-    }
-    let markdown_files = execute::markdown_files_from(changed_files.as_slice());
-    let docs_or_scripts_only = execute::is_docs_or_scripts_only_change(&changed_files);
-
-    if docs_or_scripts_only {
-        return run_pre_push_docs_scripts_mode(changed_files.as_slice(), markdown_files.as_slice());
-    }
-
-    run_pre_push_rust_mode(changed_files.as_slice(), markdown_files.as_slice())
-}
-
-fn validate_pre_push_commit_policies(commits: &str, repo: Option<&str>) -> Result<(), String> {
     if commits.trim().is_empty() {
         return Ok(());
     }
@@ -51,7 +12,7 @@ fn validate_pre_push_commit_policies(commits: &str, repo: Option<&str>) -> Resul
     execute::validate_part_of_only_policy(commits, repo)
 }
 
-fn run_pre_push_docs_scripts_mode(
+pub(crate) fn run_pre_push_docs_scripts_mode(
     changed_files: &[String],
     markdown_files: &[String],
 ) -> Result<(), String> {
@@ -63,7 +24,7 @@ fn run_pre_push_docs_scripts_mode(
     Ok(())
 }
 
-fn run_pre_push_rust_mode(
+pub(crate) fn run_pre_push_rust_mode(
     changed_files: &[String],
     markdown_files: &[String],
 ) -> Result<(), String> {
@@ -91,7 +52,7 @@ fn run_pre_push_rust_mode(
     Ok(())
 }
 
-fn collect_changed_crates(changed_files: &[String]) -> Result<Vec<String>, String> {
+pub(crate) fn collect_changed_crates(changed_files: &[String]) -> Result<Vec<String>, String> {
     let changed_file_text = changed_files.join("\n");
     let mut crates = execute::collect_crates_from_changed_files(&changed_file_text)?;
     crates.sort();
@@ -99,7 +60,7 @@ fn collect_changed_crates(changed_files: &[String]) -> Result<Vec<String>, Strin
     Ok(crates)
 }
 
-fn build_quality_check_args(
+pub(crate) fn build_quality_check_args(
     crates: &mut [String],
     has_lockfile: bool,
 ) -> (Vec<String>, Vec<String>) {

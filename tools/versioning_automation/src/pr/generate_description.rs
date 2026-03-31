@@ -235,16 +235,6 @@ pub(crate) fn gh_edit_pr_body(pr_number: &str, body: &str) -> Result<(), String>
     )
 }
 
-pub(crate) fn current_branch_name() -> Result<String, String> {
-    let branch = git_cli::output_trim(&["rev-parse", "--abbrev-ref", "HEAD"])
-        .map_err(|err| format!("Error: failed to detect current branch: {err}"))?;
-    if branch.is_empty() {
-        return Err("Error: unable to determine head branch in --dry-run mode.".to_string());
-    }
-
-    Ok(branch)
-}
-
 pub(crate) fn render_duplicate_mode_message(
     mode: &str,
     targets: &BTreeMap<String, String>,

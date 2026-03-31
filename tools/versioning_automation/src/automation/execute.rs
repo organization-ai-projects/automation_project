@@ -1,105 +1,18 @@
 //! tools/versioning_automation/src/automation/execute.rs
 use std::collections::{self, BTreeSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::{env, fs};
 
-use crate::lazy_regex::{
-    BRANCH_NAME_REGEX, COMMIT_MESSAGE_FORMAT_REGEX, ISSUE_PREFIX_REGEX, SCOPE_EXTRACTION_REGEX,
-};
+use crate::lazy_regex::{COMMIT_MESSAGE_FORMAT_REGEX, ISSUE_PREFIX_REGEX, SCOPE_EXTRACTION_REGEX};
 use crate::pr::extract_effective_issue_ref_records;
 use common_json::Json;
 
-use crate::automation::commands::{
-    AuditSecurityOptions, AutomationAction, CiWatchPrOptions, CommitMsgCheckOptions,
-    PostCheckoutCheckOptions, PreBranchCreateCheckOptions, PrepareCommitMsgOptions,
-    SyncMainDevCiOptions, TestCoverageOptions,
-};
-use crate::automation::parse::parse;
-use crate::automation::render::print_usage;
-use crate::automation::{
-    audit_issue_status, changed_crates, check_dependencies, check_merge_conflicts, hook_checks,
-    install_hooks, pre_add_review, ui_build,
-};
 use crate::parent_field::extract_parent_field;
 use crate::repo_name::resolve_repo_name_optional;
 use crate::{gh_cli, git_cli};
 
-pub(crate) fn run(args: &[String]) -> i32 {
-    match parse(args) {
-        Ok(action) => run_action(action),
-        Err(message) => {
-            eprintln!("{message}");
-            2
-        }
-    }
-}
-
-fn run_action(action: AutomationAction) -> i32 {
-    match action {
-        AutomationAction::CommitMsgCheck(opts) => run_commit_msg_check(opts),
-        AutomationAction::Help => {
-            print_usage();
-            0
-        }
-        AutomationAction::AuditIssueStatus(opts) => {
-            to_exit_code(audit_issue_status::run_audit_issue_status(opts))
-        }
-        AutomationAction::AuditSecurity(opts) => to_exit_code(run_audit_security(opts)),
-        AutomationAction::BuildAccountsUi(opts) => {
-            to_exit_code(ui_build::run_build_accounts_ui(opts))
-        }
-        AutomationAction::BuildUiBundles(opts) => {
-            to_exit_code(ui_build::run_build_ui_bundles(opts))
-        }
-        AutomationAction::BuildAndCheckUiBundles(opts) => {
-            to_exit_code(ui_build::run_build_and_check_ui_bundles(opts))
-        }
-        AutomationAction::PreAddReview(opts) => {
-            to_exit_code(pre_add_review::run_pre_add_review(opts))
-        }
-        AutomationAction::PreCommitCheck(opts) => {
-            to_exit_code(hook_checks::run_pre_commit_check(opts))
-        }
-        AutomationAction::PostCheckoutCheck(opts) => to_exit_code(run_post_checkout_check(opts)),
-        AutomationAction::PrePushCheck(opts) => to_exit_code(hook_checks::run_pre_push_check(opts)),
-        AutomationAction::ReleasePrepare(opts) => {
-            to_exit_code(super::release_prepare::run_release_prepare(opts))
-        }
-        AutomationAction::TestCoverage(opts) => to_exit_code(run_test_coverage(opts)),
-        AutomationAction::ChangedCrates(opts) => {
-            to_exit_code(changed_crates::run_changed_crates(opts))
-        }
-        AutomationAction::CheckMergeConflicts(opts) => {
-            to_exit_code(check_merge_conflicts::run_check_merge_conflicts(opts))
-        }
-        AutomationAction::CheckDependencies(opts) => {
-            to_exit_code(check_dependencies::run_check_dependencies(opts))
-        }
-        AutomationAction::CleanArtifacts(opts) => {
-            to_exit_code(super::clean_artifacts::run_clean_artifacts(opts))
-        }
-        AutomationAction::InstallHooks(opts) => {
-            to_exit_code(install_hooks::run_install_hooks(opts))
-        }
-        AutomationAction::CheckPriorityIssues(opts) => to_exit_code(
-            super::check_priority_issues::run_check_priority_issues(opts),
-        ),
-        AutomationAction::LabelsSync(opts) => {
-            to_exit_code(super::labels_sync::run_labels_sync(opts))
-        }
-        AutomationAction::CiWatchPr(opts) => to_exit_code(run_ci_watch_pr(opts)),
-        AutomationAction::SyncMainDevCi(opts) => to_exit_code(run_sync_main_dev_ci(opts)),
-        AutomationAction::PrepareCommitMsg(opts) => to_exit_code(run_prepare_commit_msg(opts)),
-        AutomationAction::PreBranchCreateCheck(opts) => {
-            to_exit_code(run_pre_branch_create_check(opts))
-        }
-    }
-}
-
-fn to_exit_code(result: Result<(), String>) -> i32 {
+pub(crate) fn to_exit_code(result: Result<(), String>) -> i32 {
     match result {
         Ok(()) => 0,
         Err(message) => {
@@ -109,211 +22,7 @@ fn to_exit_code(result: Result<(), String>) -> i32 {
     }
 }
 
-fn run_commit_msg_check(opts: CommitMsgCheckOptions) -> i32 {
-    const RC_INVALID_FORMAT: i32 = 3;
-    const RC_MIXED_CATEGORY: i32 = 6;
-    const RC_SCOPE_MISSING: i32 = 7;
-    const RC_SCOPE_MISMATCH: i32 = 8;
-
-    if std::env::var("SKIP_COMMIT_VALIDATION").unwrap_or_default() == "1" {
-        return 0;
-    }
-
-    let commit_msg_path = PathBuf::from(&opts.file);
-    if !commit_msg_path.is_file() {
-        eprintln!("commit-msg-check: missing or invalid --file");
-        return RC_INVALID_FORMAT;
-    }
-
-    let message = fs::read_to_string(&commit_msg_path)
-        .map_err(|e| format!("Failed to read '{}': {e}", commit_msg_path.display()));
-    let Ok(message) = message else {
-        eprintln!("{}", message.unwrap_err());
-        return RC_INVALID_FORMAT;
-    };
-    let subject = first_non_comment_subject_line(&message);
-    let subject = subject.as_deref().unwrap_or_default();
-
-    match parse_subject_max_len() {
-        Ok(Some(max_len)) if subject.chars().count() > max_len => {
-            eprintln!(
-                "Commit subject too long: {}/{} characters.",
-                subject.chars().count(),
-                max_len
-            );
-            return 9;
-        }
-        Ok(_) => {}
-        Err(message) => {
-            eprintln!("{message}");
-            return RC_INVALID_FORMAT;
-        }
-    }
-
-    let format_re = match COMMIT_MESSAGE_FORMAT_REGEX.as_ref() {
-        Ok(re) => re,
-        Err(_) => {
-            eprintln!("Failed to compile commit message regex");
-            return RC_INVALID_FORMAT;
-        }
-    };
-    if !format_re.is_match(subject) {
-        eprintln!("Invalid commit message format: '{subject}'");
-        return RC_INVALID_FORMAT;
-    }
-
-    let footer_status = crate::issues::run(&[
-        "validate-footer".to_string(),
-        "--file".to_string(),
-        opts.file.clone(),
-    ]);
-    if footer_status != 0 {
-        return footer_status;
-    }
-
-    let staged_files_text =
-        match run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRUD"])
-        {
-            Ok(value) => value,
-            Err(message) => {
-                eprintln!("{message}");
-                return 1;
-            }
-        };
-    let staged_files = staged_files_text
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-
-    let format_categories = collect_format_categories(&staged_files);
-    if format_categories.len() > 1 {
-        eprintln!(
-            "Mixed file format categories are not allowed in one commit: {}",
-            format_categories.join(", ")
-        );
-        return RC_MIXED_CATEGORY;
-    }
-
-    let required_scopes = match detect_required_scopes(&staged_files) {
-        Ok(value) => value,
-        Err(message) => {
-            eprintln!("{message}");
-            return 1;
-        }
-    };
-    if !required_scopes.is_empty() {
-        let commit_scopes = extract_scopes_from_commit_subject(subject);
-        if commit_scopes.is_empty() {
-            eprintln!("Missing required scope in commit message.");
-            return RC_SCOPE_MISSING;
-        }
-        let missing = required_scopes
-            .into_iter()
-            .filter(|required| !commit_scopes.iter().any(|scope| scope == required))
-            .collect::<Vec<_>>();
-        if !missing.is_empty() {
-            eprintln!(
-                "Commit scope does not match touched files. Missing: {}",
-                missing.join(", ")
-            );
-            return RC_SCOPE_MISMATCH;
-        }
-    }
-
-    0
-}
-
-fn run_prepare_commit_msg(opts: PrepareCommitMsgOptions) -> Result<(), String> {
-    if std::env::var("SKIP_PREPARE_COMMIT_MSG").unwrap_or_default() == "1" {
-        return Ok(());
-    }
-
-    let path = PathBuf::from(&opts.file);
-    if !path.is_file() {
-        return Ok(());
-    }
-    let source = opts.source.unwrap_or_default();
-    if matches!(source.as_str(), "message" | "merge" | "squash" | "commit") {
-        return Ok(());
-    }
-
-    let current = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read '{}': {e}", path.display()))?;
-    if has_non_comment_content(&current) {
-        return Ok(());
-    }
-
-    let branch = run_git_output(&["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_default();
-    if branch.trim().is_empty() || branch.trim() == "HEAD" {
-        return Ok(());
-    }
-
-    let staged_files_text =
-        run_git_output_preserve(&["diff", "--cached", "--name-only", "--diff-filter=ACMRU"])?;
-    let staged_files = staged_files_text
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    if staged_files.is_empty() {
-        return Ok(());
-    }
-
-    let (commit_type, fallback_warning) = detect_commit_type_from_context(&staged_files);
-    let scopes = detect_required_scopes(&staged_files)?;
-    let scopes_csv = scopes.join(",");
-    let description = derive_description(branch.trim(), &staged_files);
-    let subject = if scopes_csv.is_empty() {
-        format!("{commit_type}(workspace): {description}")
-    } else {
-        format!("{commit_type}({scopes_csv}): {description}")
-    };
-
-    let mut rendered = String::new();
-    rendered.push_str(&subject);
-    rendered.push_str("\n\n");
-    rendered.push_str("# Auto-generated from branch and staged files.\n");
-    if let Some(warning) = fallback_warning {
-        rendered.push_str(warning);
-        rendered.push('\n');
-    }
-    rendered.push_str("# Edit freely before saving this commit.\n");
-
-    fs::write(&path, rendered).map_err(|e| format!("Failed to write '{}': {e}", path.display()))?;
-    Ok(())
-}
-
-fn run_pre_branch_create_check(opts: PreBranchCreateCheckOptions) -> Result<(), String> {
-    let branch = opts.branch.trim();
-    if branch.is_empty() {
-        return Err("No branch name provided.".to_string());
-    }
-    let re = BRANCH_NAME_REGEX
-        .as_ref()
-        .map_err(|e| format!("Regex error: {e}"))?;
-    if !re.is_match(branch) {
-        return Err(format!(
-            "Invalid branch name '{branch}'. Expected (feature|fix|hotfix|release)/<name>"
-        ));
-    }
-    if branch_exists_local(branch) {
-        return Err(format!("Branch '{branch}' already exists locally."));
-    }
-    let marker = format!("[{branch}]");
-    let worktrees = run_git_output(&["worktree", "list"])?;
-    if worktrees.lines().any(|line| line.contains(&marker)) {
-        return Err(format!(
-            "Branch '{branch}' is already in use by another worktree."
-        ));
-    }
-    println!("Branch name '{branch}' is valid.");
-    Ok(())
-}
-
-fn first_non_comment_subject_line(message: &str) -> Option<String> {
+pub(crate) fn first_non_comment_subject_line(message: &str) -> Option<String> {
     message
         .lines()
         .map(str::trim)
@@ -321,8 +30,8 @@ fn first_non_comment_subject_line(message: &str) -> Option<String> {
         .map(ToString::to_string)
 }
 
-fn parse_subject_max_len() -> Result<Option<usize>, String> {
-    let raw = std::env::var("COMMIT_MSG_SUBJECT_MAX_LEN").unwrap_or_default();
+pub(crate) fn parse_subject_max_len() -> Result<Option<usize>, String> {
+    let raw = env::var("COMMIT_MSG_SUBJECT_MAX_LEN").unwrap_or_default();
     if raw.trim().is_empty() {
         return Ok(None);
     }
@@ -336,14 +45,14 @@ fn parse_subject_max_len() -> Result<Option<usize>, String> {
     Ok(Some(parsed))
 }
 
-fn has_non_comment_content(message: &str) -> bool {
+pub(crate) fn has_non_comment_content(message: &str) -> bool {
     message
         .lines()
         .map(str::trim)
         .any(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
-fn collect_format_categories(staged_files: &[String]) -> Vec<String> {
+pub(crate) fn collect_format_categories(staged_files: &[String]) -> Vec<String> {
     let mut categories = BTreeSet::new();
     for file in staged_files {
         if is_shell_file_path(file) {
@@ -363,7 +72,7 @@ fn collect_format_categories(staged_files: &[String]) -> Vec<String> {
     categories.into_iter().collect()
 }
 
-fn detect_required_scopes(staged_files: &[String]) -> Result<Vec<String>, String> {
+pub(crate) fn detect_required_scopes(staged_files: &[String]) -> Result<Vec<String>, String> {
     let root = repo_root()?;
     let mut scopes = BTreeSet::new();
     for file in staged_files {
@@ -472,7 +181,7 @@ fn common_path_scope(staged_files: &[String]) -> String {
     }
 }
 
-fn extract_scopes_from_commit_subject(subject: &str) -> Vec<String> {
+pub(crate) fn extract_scopes_from_commit_subject(subject: &str) -> Vec<String> {
     let re = match SCOPE_EXTRACTION_REGEX.as_ref() {
         Ok(re) => re,
         Err(e) => {
@@ -499,7 +208,9 @@ fn extract_scopes_from_commit_subject(subject: &str) -> Vec<String> {
     scopes
 }
 
-fn detect_commit_type_from_context(staged_files: &[String]) -> (String, Option<&'static str>) {
+pub(crate) fn detect_commit_type_from_context(
+    staged_files: &[String],
+) -> (String, Option<&'static str>) {
     if is_docs_only_change(staged_files) {
         return ("docs".to_string(), None);
     }
@@ -514,14 +225,14 @@ fn detect_commit_type_from_context(staged_files: &[String]) -> (String, Option<&
     )
 }
 
-fn is_docs_only_change(staged_files: &[String]) -> bool {
+pub(crate) fn is_docs_only_change(staged_files: &[String]) -> bool {
     !staged_files.is_empty()
         && staged_files.iter().all(|file| {
             file.ends_with(".md") || file.starts_with("documentation/") || file.starts_with("docs/")
         })
 }
 
-fn is_tests_only_change(staged_files: &[String]) -> bool {
+pub(crate) fn is_tests_only_change(staged_files: &[String]) -> bool {
     !staged_files.is_empty()
         && staged_files.iter().all(|file| {
             file.contains("/tests/")
@@ -531,7 +242,7 @@ fn is_tests_only_change(staged_files: &[String]) -> bool {
         })
 }
 
-fn derive_description(branch: &str, staged_files: &[String]) -> String {
+pub(crate) fn derive_description(branch: &str, staged_files: &[String]) -> String {
     let mut name = branch.to_string();
     for prefix in [
         "feat/",
@@ -579,7 +290,7 @@ fn derive_description(branch: &str, staged_files: &[String]) -> String {
     "update changes".to_string()
 }
 
-fn run_audit_security(_opts: AuditSecurityOptions) -> Result<(), String> {
+pub(crate) fn run_audit_security() -> Result<(), String> {
     ensure_git_repo()?;
     if !command_available("cargo-audit") {
         return Err("cargo-audit not found. Install with: cargo install cargo-audit".to_string());
@@ -588,7 +299,7 @@ fn run_audit_security(_opts: AuditSecurityOptions) -> Result<(), String> {
     run_command_status("cargo", &["audit"], false)
 }
 
-fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String> {
+pub(crate) fn run_post_checkout_check() -> Result<(), String> {
     let upstream_branch = resolve_upstream_or_default();
 
     let commit_messages =
@@ -629,7 +340,7 @@ fn run_post_checkout_check(_opts: PostCheckoutCheckOptions) -> Result<(), String
     Ok(())
 }
 
-fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
+pub(crate) fn run_test_coverage() -> Result<(), String> {
     ensure_git_repo()?;
     require_command(
         "cargo-tarpaulin",
@@ -644,7 +355,7 @@ fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
         )
     })?;
 
-    let formats_raw = std::env::var("COVERAGE_FORMATS").unwrap_or_else(|_| "html".to_string());
+    let formats_raw = env::var("COVERAGE_FORMATS").unwrap_or_else(|_| "html".to_string());
     let include_lcov = formats_raw.to_lowercase().contains("lcov");
     let include_json = formats_raw.to_lowercase().contains("json");
 
@@ -674,239 +385,6 @@ fn run_test_coverage(_opts: TestCoverageOptions) -> Result<(), String> {
         "Coverage report generated: {}/index.html",
         coverage_dir.display()
     );
-    Ok(())
-}
-
-fn run_ci_watch_pr(opts: CiWatchPrOptions) -> Result<(), String> {
-    let pr_number = match opts.pr_number {
-        Some(value) => value,
-        None => {
-            let branch = run_git_output(&["branch", "--show-current"])?;
-            if branch.trim().is_empty() {
-                return Err("No PR provided and unable to detect current branch.".to_string());
-            }
-            let value = gh_cli::output_trim(&[
-                "pr",
-                "list",
-                "--head",
-                branch.trim(),
-                "--json",
-                "number",
-                "--jq",
-                ".[0].number",
-            ])
-            .map_err(|e| {
-                format!(
-                    "Failed to run gh pr list --head {} --json number --jq .[0].number: {e}",
-                    branch.trim()
-                )
-            })?;
-            if value.trim().is_empty() || value.trim() == "null" {
-                return Err(format!("No PR found for branch '{}'.", branch.trim()));
-            }
-            value.trim().to_string()
-        }
-    };
-
-    let start = Instant::now();
-    loop {
-        if start.elapsed().as_secs() > opts.max_wait {
-            return Err(format!("Timeout: CI not complete after {}s", opts.max_wait));
-        }
-
-        let output = gh_cli::output_trim(&[
-            "pr",
-            "view",
-            &pr_number,
-            "--json",
-            "state,mergeable,statusCheckRollup",
-        ])
-        .map_err(|e| {
-            format!(
-                "Failed to run gh pr view {} --json state,mergeable,statusCheckRollup: {e}",
-                pr_number
-            )
-        })?;
-        let parsed = parse_json_object(&output, "PR JSON")?;
-        let checks = parsed
-            .get("statusCheckRollup")
-            .and_then(Json::as_array)
-            .cloned()
-            .unwrap_or_default();
-        let total = checks.len();
-
-        if total == 0 {
-            thread::sleep(Duration::from_secs(opts.poll_interval));
-            continue;
-        }
-
-        let pending = checks
-            .iter()
-            .filter(|check| {
-                check
-                    .as_object()
-                    .and_then(|object| object.get("conclusion"))
-                    .and_then(Json::as_str)
-                    .is_none()
-            })
-            .count();
-        let success = checks
-            .iter()
-            .filter(|check| {
-                check
-                    .as_object()
-                    .and_then(|object| object.get("conclusion"))
-                    .and_then(Json::as_str)
-                    == Some("SUCCESS")
-            })
-            .count();
-        let failure = checks
-            .iter()
-            .filter(|check| {
-                check
-                    .as_object()
-                    .and_then(|object| object.get("conclusion"))
-                    .and_then(Json::as_str)
-                    == Some("FAILURE")
-            })
-            .count();
-        let state = object_string_or_default(&parsed, "state", "UNKNOWN");
-        let mergeable = object_string_or_default(&parsed, "mergeable", "UNKNOWN");
-
-        println!(
-            "[{} s] State: {} | Mergeable: {} | Checks: {}/{} passed, {} failed, {} pending",
-            start.elapsed().as_secs(),
-            state,
-            mergeable,
-            success,
-            total,
-            failure,
-            pending
-        );
-
-        if failure > 0 {
-            return Err(format!("CI failed for PR #{}.", pr_number));
-        }
-
-        if pending == 0 && success == total {
-            println!("All checks passed for PR #{}.", pr_number);
-            break;
-        }
-
-        thread::sleep(Duration::from_secs(opts.poll_interval));
-    }
-
-    Ok(())
-}
-
-fn run_sync_main_dev_ci(opts: SyncMainDevCiOptions) -> Result<(), String> {
-    if std::env::var("CI").unwrap_or_default() != "true" {
-        return Err("This command can only be executed in CI (CI=true).".to_string());
-    }
-
-    run_git(&["fetch", &opts.remote])?;
-
-    let main_ref = format!("{}/{}", opts.remote, opts.main);
-    let dev_ref = format!("{}/{}", opts.remote, opts.dev);
-
-    let main_sha = run_git_output(&["rev-parse", &main_ref])?;
-    let dev_sha = run_git_output(&["rev-parse", &dev_ref])?;
-    if main_sha == dev_sha {
-        println!("No sync needed - dev is already up to date with main");
-        return Ok(());
-    }
-
-    if run_git(&["merge-base", "--is-ancestor", &main_ref, &dev_ref]).is_ok() {
-        println!("No sync needed - dev already contains all commits from main");
-        return Ok(());
-    }
-
-    if branch_exists_local(&opts.sync_branch) {
-        let _ = run_git(&["branch", "-D", &opts.sync_branch]);
-    }
-    if branch_exists_remote(&opts.remote, &opts.sync_branch) {
-        let _ = run_git(&["push", &opts.remote, "--delete", &opts.sync_branch]);
-    }
-
-    run_git(&["switch", "-C", &opts.sync_branch, &main_ref])?;
-    run_git(&["push", "-f", &opts.remote, &opts.sync_branch])?;
-
-    let pr_output = gh_cli::output_trim(&[
-        "pr",
-        "create",
-        "--base",
-        &opts.dev,
-        "--head",
-        &opts.sync_branch,
-        "--title",
-        "chore: sync main into dev",
-        "--body",
-        "Automated sync after merge into main.",
-    ])
-    .map_err(|e| {
-        format!(
-            "Failed to run gh pr create --base {} --head {}: {e}",
-            opts.dev, opts.sync_branch
-        )
-    })?;
-
-    let pr_url = pr_output.trim().to_string();
-    if pr_url.is_empty() {
-        return Err("Failed to create sync PR (empty response).".to_string());
-    }
-
-    let stable_timeout = std::env::var("STABLE_TIMEOUT_SECS")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(120);
-    let deadline = Instant::now() + Duration::from_secs(stable_timeout);
-
-    let mergeable = loop {
-        if Instant::now() >= deadline {
-            return Err("PR did not stabilize in time.".to_string());
-        }
-        let value = gh_cli::output_trim(&[
-            "pr",
-            "view",
-            &pr_url,
-            "--json",
-            "mergeable",
-            "--jq",
-            ".mergeable // \"UNKNOWN\"",
-        ])
-        .map_err(|e| {
-            format!(
-                "Failed to run gh pr view {} --json mergeable --jq .mergeable // \"UNKNOWN\": {e}",
-                pr_url
-            )
-        })?;
-        if value != "UNKNOWN" {
-            break value;
-        }
-        thread::sleep(Duration::from_secs(5));
-    };
-
-    if mergeable == "CONFLICTING" {
-        return Err("PR has merge conflicts. Cannot enable auto-merge.".to_string());
-    }
-    if mergeable != "MERGEABLE" {
-        return Err(format!("PR is not mergeable (status: {mergeable})."));
-    }
-
-    gh_cli::status(&[
-        "pr",
-        "merge",
-        &pr_url,
-        "--auto",
-        "--merge",
-        "--delete-branch",
-    ])
-    .map_err(|e| {
-        format!(
-            "Failed to run gh pr merge {} --auto --merge --delete-branch: {e}",
-            pr_url
-        )
-    })?;
     Ok(())
 }
 
@@ -943,7 +421,7 @@ pub(crate) fn validate_part_of_only_policy(
     }
     let Some(repo_name) = repo else {
         if remote_policy_warn_only()
-            || std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
+            || env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
         {
             println!("Assignment policy check skipped (repo unresolved).");
             return Ok(());
@@ -953,7 +431,7 @@ pub(crate) fn validate_part_of_only_policy(
     let current_login = gh_cli::output_trim(&["api", "user", "--jq", ".login"]).unwrap_or_default();
     if current_login.trim().is_empty() {
         if remote_policy_warn_only()
-            || std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
+            || env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() == "1"
         {
             println!("Assignment policy check skipped (login unresolved).");
             return Ok(());
@@ -998,8 +476,7 @@ pub(crate) fn validate_part_of_only_policy(
             violations.push(issue);
         }
     }
-    if !violations.is_empty() && std::env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() != "1"
-    {
+    if !violations.is_empty() && env::var("ALLOW_PART_OF_ONLY_PUSH").unwrap_or_default() != "1" {
         return Err(format!(
             "Push blocked by assignment policy for issues: {}",
             violations
@@ -1013,8 +490,8 @@ pub(crate) fn validate_part_of_only_policy(
 }
 
 fn remote_policy_warn_only() -> bool {
-    let hooks_policy = std::env::var("HOOKS_REMOTE_POLICY").unwrap_or_default();
-    let allow_offline = std::env::var("ALLOW_OFFLINE_REMOTE_CHECKS").unwrap_or_default();
+    let hooks_policy = env::var("HOOKS_REMOTE_POLICY").unwrap_or_default();
+    let allow_offline = env::var("ALLOW_OFFLINE_REMOTE_CHECKS").unwrap_or_default();
     hooks_policy == "warn" || allow_offline == "1"
 }
 
@@ -1131,8 +608,40 @@ pub(crate) fn compute_changed_files(upstream: &str) -> Result<Vec<String>, Strin
 }
 
 pub(crate) fn resolve_upstream_or_default() -> String {
-    run_git_output(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    git_rev_parse(&["--abbrev-ref", "--symbolic-full-name", "@{u}"])
         .unwrap_or_else(|_| "origin/dev".to_string())
+}
+
+pub(crate) fn ensure_git_repo() -> Result<(), String> {
+    if git_rev_parse(&["--is-inside-work-tree"]).is_ok() {
+        Ok(())
+    } else {
+        Err("Not a git repository".to_string())
+    }
+}
+
+pub(crate) fn current_branch() -> Result<String, String> {
+    let branch = git_branch(&["--show-current"])?;
+    if branch.is_empty() {
+        return Err("Not on a branch (detached HEAD).".to_string());
+    }
+    Ok(branch)
+}
+
+pub(crate) fn current_branch_name() -> Result<String, String> {
+    git_rev_parse(&["--abbrev-ref", "HEAD"])
+        .map_err(|e| format!("Failed to get current branch name: {e}"))
+}
+
+pub(crate) fn get_merged_branches(base_branch: &str) -> Result<Vec<String>, String> {
+    let output = git_branch(&["--merged", base_branch])?;
+    let branches = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToString::to_string)
+        .collect();
+    Ok(branches)
 }
 
 fn parse_non_empty_lines(text: &str) -> Vec<String> {
@@ -1247,16 +756,8 @@ pub(crate) fn require_command(command: &str, install_hint: &str) -> Result<(), S
     }
 }
 
-pub(crate) fn ensure_git_repo() -> Result<(), String> {
-    if crate::git_cli::status_success(&["rev-parse", "--is-inside-work-tree"]) {
-        Ok(())
-    } else {
-        Err("Not a git repository.".to_string())
-    }
-}
-
 pub(crate) fn repo_root() -> Result<PathBuf, String> {
-    let root = run_git_output(&["rev-parse", "--show-toplevel"])?;
+    let root = git_rev_parse(&["--show-toplevel"])?;
     if root.trim().is_empty() {
         return Err("Unable to resolve git repository root.".to_string());
     }
@@ -1327,6 +828,10 @@ pub(crate) fn run_git(args: &[&str]) -> Result<(), String> {
     git_cli::status(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
 
+pub(crate) fn branch_exists_remote(remote: &str, branch_name: &str) -> bool {
+    git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
+}
+
 pub(crate) fn run_git_output(args: &[&str]) -> Result<String, String> {
     git_cli::output_trim(args).map_err(|e| format!("Failed to run git {}: {e}", args.join(" ")))
 }
@@ -1336,7 +841,7 @@ pub(crate) fn run_git_output_preserve(args: &[&str]) -> Result<String, String> {
 }
 
 pub(crate) fn git_hooks_dir(root: &Path) -> Result<PathBuf, String> {
-    let output = run_git_output(&["rev-parse", "--git-path", "hooks"])?;
+    let output = git_rev_parse(&["--git-path", "hooks"])?;
     let path = PathBuf::from(output.trim());
     if path.is_absolute() {
         Ok(path)
@@ -1358,17 +863,13 @@ fn is_executable_candidate(_path: &Path) -> bool {
     true
 }
 
-fn branch_exists_local(branch_name: &str) -> bool {
+pub(crate) fn branch_exists_local(branch_name: &str) -> bool {
     git_cli::status_success(&[
         "show-ref",
         "--verify",
         "--quiet",
         &format!("refs/heads/{branch_name}"),
     ])
-}
-
-fn branch_exists_remote(remote: &str, branch_name: &str) -> bool {
-    git_cli::status_success(&["ls-remote", "--exit-code", "--heads", remote, branch_name])
 }
 
 pub(crate) fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>, String> {
@@ -1380,7 +881,7 @@ pub(crate) fn parse_json_array(payload: &str, context: &str) -> Result<Vec<Json>
         .ok_or_else(|| format!("Expected JSON array for {context}"))
 }
 
-fn parse_json_object(
+pub(crate) fn parse_json_object(
     payload: &str,
     context: &str,
 ) -> Result<collections::HashMap<String, Json>, String> {
@@ -1404,7 +905,7 @@ pub(crate) fn object_string(object: &collections::HashMap<String, Json>, key: &s
         .to_string()
 }
 
-fn object_string_or_default(
+pub(crate) fn object_string_or_default(
     object: &collections::HashMap<String, Json>,
     key: &str,
     default: &str,
@@ -1415,4 +916,191 @@ fn object_string_or_default(
     } else {
         value
     }
+}
+
+pub(crate) fn run_git_passthrough(args: &[&str]) -> Result<(), String> {
+    let mut cmd = Command::new("git");
+    cmd.args(args);
+    let status = cmd
+        .status()
+        .map_err(|err| format!("failed to execute git {}: {}", args.join(" "), err))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "git {} failed with exit status {:?}",
+            args.join(" "),
+            status.code()
+        ))
+    }
+}
+
+pub(crate) fn run_git_output_allow_failure(args: &[&str]) -> Option<String> {
+    git_cli::output_trim(args).ok()
+}
+
+pub(crate) fn git_fetch_prune(remote: &str) -> Result<(), String> {
+    run_git(&["fetch", remote, "--prune"])
+}
+
+pub(crate) fn is_protected_branch(branch_name: &str) -> bool {
+    matches!(branch_name, "main" | "dev")
+}
+
+pub(crate) fn require_non_protected_branch(branch_name: &str) -> Result<(), String> {
+    if is_protected_branch(branch_name) {
+        return Err(format!("Cannot operate on protected branch: {branch_name}"));
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_branch_name(branch_name: &str) -> Result<(), String> {
+    if branch_name.trim().is_empty() {
+        return Err("Branch name cannot be empty".to_string());
+    }
+
+    if branch_name.contains(' ') {
+        return Err(format!(
+            "Invalid branch name (contains spaces): '{branch_name}'"
+        ));
+    }
+
+    let allowed_prefixes = [
+        "feature/",
+        "feat/",
+        "fix/",
+        "fixture/",
+        "doc/",
+        "docs/",
+        "refactor/",
+        "test/",
+        "tests/",
+        "chore/",
+    ];
+
+    if allowed_prefixes
+        .iter()
+        .any(|prefix| branch_name.starts_with(prefix))
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "Invalid branch name '{branch_name}'. Must start with one of: {}",
+            allowed_prefixes.join(", ")
+        ))
+    }
+}
+
+pub(crate) fn validate_branch_type(branch_type: &str) -> Result<(), String> {
+    match branch_type {
+        "feature" | "feat" | "fixture" | "fix" | "chore" | "refactor" | "doc" | "docs" | "test"
+        | "tests" => Ok(()),
+        _ => Err(format!(
+            "Invalid type '{branch_type}'. Must be one of: feature, feat, fixture, fix, chore, refactor, doc, docs, test, tests"
+        )),
+    }
+}
+
+pub(crate) fn sanitize_description(description: &str) -> String {
+    description
+        .to_lowercase()
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | '0'..='9' | '-' => ch,
+            ' ' | '_' => '-',
+            _ => '\0',
+        })
+        .filter(|ch| *ch != '\0')
+        .collect::<String>()
+}
+
+pub(crate) fn require_clean_tree() -> Result<(), String> {
+    let unstaged_clean = git_cli::status_success(&["diff", "--quiet"]);
+    let staged_clean = git_cli::status_success(&["diff", "--cached", "--quiet"]);
+
+    if unstaged_clean && staged_clean {
+        Ok(())
+    } else {
+        Err("Working tree is dirty. Commit/stash your changes first.".to_string())
+    }
+}
+
+//if success returns true, if failed returns false.
+pub(crate) fn has_upstream() -> bool {
+    git_rev_parse(&["--abbrev-ref", "--symbolic-full-name", "@{u}"]).is_ok()
+}
+
+pub(crate) fn validate_commit_message(message: &str) -> Result<(), String> {
+    let regex = match COMMIT_MESSAGE_FORMAT_REGEX.as_ref() {
+        Ok(re) => re,
+        Err(err) => return Err(format!("Invalid regex: {err}")),
+    };
+    if regex.is_match(message) {
+        Ok(())
+    } else {
+        Err("Invalid commit message format. Expected '<type>(<scope>): <message>' or '<type>: <message>'".to_string())
+    }
+}
+
+pub(crate) fn list_gone_branches() -> Result<Vec<String>, String> {
+    let output = git_branch(&["-vv"])?;
+    let mut branches = collections::BTreeSet::new();
+    for line in output.lines() {
+        if !line.contains(": gone]") {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let first = parts.next().unwrap_or_default();
+        let branch = if first == "*" {
+            parts.next().unwrap_or_default()
+        } else {
+            first
+        };
+        if !branch.is_empty() {
+            branches.insert(branch.to_string());
+        }
+    }
+    Ok(branches.into_iter().collect())
+}
+
+pub(crate) fn last_deleted_branch_file() -> Option<PathBuf> {
+    let git_dir = git_rev_parse(&["--git-dir"]).ok()?;
+    Some(PathBuf::from(git_dir).join("last_deleted_branch"))
+}
+
+pub(crate) fn save_last_deleted_branch(branch_name: &str) -> Result<(), String> {
+    let Some(path) = last_deleted_branch_file() else {
+        return Ok(());
+    };
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|err| format!("Cannot create state dir: {err}"))?;
+    }
+
+    fs::write(path, branch_name).map_err(|err| format!("Cannot write state file: {err}"))
+}
+
+pub(crate) fn load_last_deleted_branch() -> Option<String> {
+    let path = last_deleted_branch_file()?;
+    let content = fs::read_to_string(path).ok()?;
+    let value = content.trim().to_string();
+    if value.is_empty() { None } else { Some(value) }
+}
+
+fn git_rev_parse(args: &[&str]) -> Result<String, String> {
+    let mut cmd = vec!["rev-parse"];
+    cmd.extend_from_slice(args);
+    git_cli::output_trim(&cmd)
+        .map_err(|e| format!("Failed to run git rev-parse {}: {e}", args.join(" ")))
+}
+
+fn git_branch(args: &[&str]) -> Result<String, String> {
+    let mut cmd = vec!["branch"];
+    cmd.extend_from_slice(args);
+    git_cli::output_trim(&cmd)
+        .map_err(|e| format!("Failed to run git branch {}: {e}", args.join(" ")))
+}
+
+pub(crate) fn resolve_branch_sha(branch_ref: &str) -> Result<String, String> {
+    git_rev_parse(&[branch_ref])
 }

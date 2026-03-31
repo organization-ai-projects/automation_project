@@ -1,7 +1,5 @@
 //! tools/versioning_automation/src/app.rs
-use crate::automation;
 use crate::cli_action::CliAction;
-use crate::git;
 use crate::issues;
 use crate::pr;
 use std::path::Path;
@@ -98,9 +96,9 @@ fn run_issue_native(args: &[String]) -> i32 {
 }
 
 fn run_git_native(args: &[String]) -> i32 {
-    git::run(args)
+    GitAction::run_action(args)
 }
 
 fn run_automation_native(args: &[String]) -> i32 {
-    automation::run(args)
+    run(args)
 }

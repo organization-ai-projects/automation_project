@@ -2,14 +2,15 @@
 use std::fs;
 
 use crate::{
+    automation::current_branch_name,
     errors_code::{E_DEPENDENCY, E_GIT, E_NO_DATA, E_USAGE},
     issues::take_value,
     pr::{
         CommitInfo, MainPrRefSnapshot,
         commands::PrDuplicateActionsOptions,
         generate_description::{
-            current_branch_name, gh_create_pr, gh_edit_pr_body, gh_read_pr_body,
-            render_duplicate_mode_message, replace_validation_gate,
+            gh_create_pr, gh_edit_pr_body, gh_read_pr_body, render_duplicate_mode_message,
+            replace_validation_gate,
         },
     },
     pr_run_snapshot::PrRunSnapshot,

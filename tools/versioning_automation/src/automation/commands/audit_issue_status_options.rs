@@ -5,14 +5,10 @@ use common_json::Json;
 
 use crate::{
     automation::{
-        audit_issue_status::{extract_issue_refs_from_text, render_issue_audit_report},
-        execute::{
-            ensure_git_repo, object_string, object_u64, parse_json_array, run_git_output_preserve,
-        },
+        audit_issue_status,
+        execute::{self},
     },
-    gh_cli,
-    parent_field::extract_parent_field,
-    repo_name::resolve_repo_name,
+    gh_cli, git, parent_field, repo_name,
 };
 
 #[derive(Debug, Clone)]
@@ -26,8 +22,8 @@ pub(crate) struct AuditIssueStatusOptions {
 
 impl AuditIssueStatusOptions {
     pub(crate) fn run_audit_issue_status(self) -> Result<(), String> {
-        ensure_git_repo()?;
-        let repo = resolve_repo_name(self.repo).map_err(|e| e.to_string())?;
+        git::ensure_git_repo()?;
+        let repo = repo_name::resolve_repo_name(self.repo).map_err(|e| e.to_string())?;
         let range = format!("{}..{}", self.base_ref, self.head_ref);
 
         let open_issues_json = gh_cli::output_trim(&[
@@ -43,12 +39,12 @@ impl AuditIssueStatusOptions {
             &repo,
         ])
         .map_err(|e| format!("Failed to run gh issue list: {e}"))?;
-        let open_issues = parse_json_array(&open_issues_json, "open issues JSON")?;
+        let open_issues = execute::parse_json_array(&open_issues_json, "open issues JSON")?;
         let total_open = open_issues.len();
 
-        let commit_messages = run_git_output_preserve(&["log", &range, "--format=%B"])?;
+        let commit_messages = execute::run_git_output_preserve(&["log", &range, "--format=%B"])?;
         let (closing_refs, reopen_refs, part_refs) =
-            extract_issue_refs_from_text(&commit_messages)?;
+            audit_issue_status::extract_issue_refs_from_text(&commit_messages)?;
 
         let mut would_close_items = Vec::new();
         let mut would_reopen_items = Vec::new();
@@ -60,15 +56,16 @@ impl AuditIssueStatusOptions {
             let Some(obj) = issue.as_object() else {
                 continue;
             };
-            let number = object_u64(obj, "number");
+            let number = execute::object_u64(obj, "number");
             if number == 0 {
                 continue;
             }
             let issue_id = number.to_string();
-            let title = object_string(obj, "title");
-            let url = object_string(obj, "url");
-            let body = object_string(obj, "body");
-            let parent = extract_parent_field(&body).unwrap_or_else(|| "(none)".to_string());
+            let title = execute::object_string(obj, "title");
+            let url = execute::object_string(obj, "url");
+            let body = execute::object_string(obj, "body");
+            let parent =
+                parent_field::extract_parent_field(&body).unwrap_or_else(|| "(none)".to_string());
 
             let labels_csv = obj
                 .get("labels")
@@ -77,7 +74,7 @@ impl AuditIssueStatusOptions {
                     labels
                         .iter()
                         .filter_map(|label| label.as_object())
-                        .map(|label_obj| object_string(label_obj, "name").to_lowercase())
+                        .map(|label_obj| execute::object_string(label_obj, "name").to_lowercase())
                         .collect::<Vec<_>>()
                         .join(",")
                 })
@@ -97,7 +94,7 @@ impl AuditIssueStatusOptions {
             }
         }
 
-        let report = render_issue_audit_report(
+        let report = audit_issue_status::render_issue_audit_report(
             &repo,
             &range,
             total_open,

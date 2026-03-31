@@ -2,9 +2,9 @@
 use std::collections::BTreeSet;
 use std::process::Command;
 
-use crate::automation::{commands::PreAddReviewOptions, execute};
+use crate::automation::execute;
 
-pub(crate) fn run_pre_add_review(_opts: PreAddReviewOptions) -> Result<(), String> {
+pub(crate) fn run_pre_add_review() -> Result<(), String> {
     execute::ensure_git_repo()?;
     let mut issues = 0u32;
 
