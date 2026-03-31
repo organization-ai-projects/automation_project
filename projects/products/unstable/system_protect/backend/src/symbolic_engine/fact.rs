@@ -20,15 +20,16 @@ impl Fact {
         }
     }
 
+    #[allow(dead_code)]
     pub fn matches_pattern(
         &self,
         subject: Option<&str>,
         predicate: Option<&str>,
         object: Option<&str>,
     ) -> bool {
-        let s_match = subject.map_or(true, |s| self.subject == s);
-        let p_match = predicate.map_or(true, |p| self.predicate == p);
-        let o_match = object.map_or(true, |o| self.object == o);
+        let s_match = subject.is_none_or(|s| self.subject == s);
+        let p_match = predicate.is_none_or(|p| self.predicate == p);
+        let o_match = object.is_none_or(|o| self.object == o);
         s_match && p_match && o_match
     }
 }

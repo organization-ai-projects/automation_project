@@ -8,6 +8,7 @@ pub struct Request {
 }
 
 impl Request {
+    #[allow(dead_code)]
     pub fn new(payload: RequestPayload) -> Self {
         Self { payload }
     }

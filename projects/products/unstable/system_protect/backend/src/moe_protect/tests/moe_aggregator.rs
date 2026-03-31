@@ -26,12 +26,7 @@ fn aggregator_returns_single_verdict_directly() {
 #[test]
 fn aggregator_picks_highest_confidence_weighted_action() {
     let verdicts = vec![
-        ExpertVerdict::new(
-            ExpertId::new("av"),
-            ProtectionAction::Block,
-            0.95,
-            "virus",
-        ),
+        ExpertVerdict::new(ExpertId::new("av"), ProtectionAction::Block, 0.95, "virus"),
         ExpertVerdict::new(
             ExpertId::new("fw"),
             ProtectionAction::Block,

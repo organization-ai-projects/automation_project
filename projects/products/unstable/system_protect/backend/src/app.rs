@@ -27,14 +27,12 @@ pub fn run() -> Result<(), Error> {
         };
 
         let payload = match request.payload {
-            RequestPayload::AnalyzeThreat { threat_event } => {
-                match engine.analyze(threat_event) {
-                    Ok(result) => ResponsePayload::ProtectionResult { result },
-                    Err(e) => ResponsePayload::Error {
-                        message: e.to_string(),
-                    },
-                }
-            }
+            RequestPayload::AnalyzeThreat { threat_event } => match engine.analyze(threat_event) {
+                Ok(result) => ResponsePayload::ProtectionResult { result },
+                Err(e) => ResponsePayload::Error {
+                    message: e.to_string(),
+                },
+            },
             RequestPayload::ListExperts => {
                 let experts = engine.list_experts();
                 ResponsePayload::ExpertList { experts }

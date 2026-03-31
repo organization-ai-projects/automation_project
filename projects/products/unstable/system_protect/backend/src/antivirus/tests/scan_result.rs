@@ -9,10 +9,7 @@ fn clean_result_is_clean() {
 
 #[test]
 fn infected_result_has_signatures() {
-    let result = ScanResult::infected(
-        vec!["Virus.A".to_string(), "Trojan.B".to_string()],
-        "high",
-    );
+    let result = ScanResult::infected(vec!["Virus.A".to_string(), "Trojan.B".to_string()], "high");
     assert!(!result.is_clean);
     assert_eq!(result.matched_signatures.len(), 2);
     assert_eq!(result.severity, "high");

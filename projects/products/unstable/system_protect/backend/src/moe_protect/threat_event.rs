@@ -16,6 +16,7 @@ pub struct ThreatEvent {
 }
 
 impl ThreatEvent {
+    #[allow(dead_code)]
     pub fn new(
         threat_type: ThreatType,
         threat_level: ThreatLevel,
@@ -37,6 +38,7 @@ impl ThreatEvent {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_id(mut self, id: ThreatId) -> Self {
         self.id = id;
         self

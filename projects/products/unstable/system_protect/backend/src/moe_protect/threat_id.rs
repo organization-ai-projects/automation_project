@@ -5,6 +5,7 @@ use std::fmt;
 pub struct ThreatId(pub String);
 
 impl ThreatId {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         use sha2::{Digest, Sha256};
         let timestamp = std::time::SystemTime::now()
@@ -17,6 +18,7 @@ impl ThreatId {
         Self(hex::encode(&hash[..16]))
     }
 
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> Self {
         Self(s.to_string())
     }

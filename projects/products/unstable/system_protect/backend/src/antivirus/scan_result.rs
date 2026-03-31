@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScanResult {
     pub is_clean: bool,
@@ -8,6 +9,7 @@ pub struct ScanResult {
 }
 
 impl ScanResult {
+    #[allow(dead_code)]
     pub fn clean() -> Self {
         Self {
             is_clean: true,
@@ -16,6 +18,7 @@ impl ScanResult {
         }
     }
 
+    #[allow(dead_code)]
     pub fn infected(signatures: Vec<String>, severity: impl Into<String>) -> Self {
         Self {
             is_clean: false,

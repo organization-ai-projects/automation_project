@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageId(pub String);
 
 impl MessageId {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         use sha2::{Digest, Sha256};
         let timestamp = std::time::SystemTime::now()

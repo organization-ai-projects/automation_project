@@ -13,8 +13,8 @@ impl JsonCodec {
         if bytes_read == 0 {
             return Err(Error::EndOfInput);
         }
-        let request: Request = common_json::from_str(line.trim())
-            .map_err(|e| Error::Serialization(e.to_string()))?;
+        let request: Request =
+            common_json::from_str(line.trim()).map_err(|e| Error::Serialization(e.to_string()))?;
         Ok(request)
     }
 

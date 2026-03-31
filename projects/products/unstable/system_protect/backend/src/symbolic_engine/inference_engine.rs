@@ -122,10 +122,9 @@ impl InferenceEngine {
                 })
             });
 
-            if all_conditions_met {
-                if best_match.map_or(true, |best| rule.confidence > best.confidence) {
-                    best_match = Some(rule);
-                }
+            if all_conditions_met && best_match.is_none_or(|best| rule.confidence > best.confidence)
+            {
+                best_match = Some(rule);
             }
         }
 

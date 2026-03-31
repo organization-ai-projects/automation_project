@@ -18,7 +18,10 @@ impl MoeAggregator {
             return (
                 v.action.clone(),
                 v.confidence,
-                format!("Single expert verdict from {}: {}", v.expert_id, v.reasoning),
+                format!(
+                    "Single expert verdict from {}: {}",
+                    v.expert_id, v.reasoning
+                ),
             );
         }
 
@@ -26,10 +29,7 @@ impl MoeAggregator {
         let mut action_scores: Vec<(ProtectionAction, f64)> = Vec::new();
 
         for verdict in verdicts {
-            if let Some(entry) = action_scores
-                .iter_mut()
-                .find(|(a, _)| *a == verdict.action)
-            {
+            if let Some(entry) = action_scores.iter_mut().find(|(a, _)| *a == verdict.action) {
                 entry.1 += verdict.confidence;
             } else {
                 action_scores.push((verdict.action.clone(), verdict.confidence));

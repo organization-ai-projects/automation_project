@@ -45,6 +45,7 @@ impl RuleEngine {
         self.rules.iter().find(|rule| rule.matches(source, target))
     }
 
+    #[allow(dead_code)]
     pub fn rule_count(&self) -> usize {
         self.rules.len()
     }

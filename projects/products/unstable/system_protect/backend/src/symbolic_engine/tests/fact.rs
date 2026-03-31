@@ -15,9 +15,5 @@ fn fact_matches_partial_pattern() {
 #[test]
 fn fact_does_not_match_wrong_value() {
     let fact = Fact::new("threat", "is_type", "virus");
-    assert!(!fact.matches_pattern(
-        Some("threat"),
-        Some("is_type"),
-        Some("malware")
-    ));
+    assert!(!fact.matches_pattern(Some("threat"), Some("is_type"), Some("malware")));
 }

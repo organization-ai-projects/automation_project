@@ -18,11 +18,7 @@ impl SignatureDb {
             "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR",
             "high",
         ));
-        db.add(Signature::new(
-            "Suspicious-Exec",
-            "cmd.exe /c",
-            "medium",
-        ));
+        db.add(Signature::new("Suspicious-Exec", "cmd.exe /c", "medium"));
         db.add(Signature::new(
             "PowerShell-Download",
             "powershell -encodedcommand",
@@ -33,11 +29,7 @@ impl SignatureDb {
             "encrypt_all_files",
             "critical",
         ));
-        db.add(Signature::new(
-            "Keylogger-Hook",
-            "SetWindowsHookEx",
-            "high",
-        ));
+        db.add(Signature::new("Keylogger-Hook", "SetWindowsHookEx", "high"));
         db
     }
 
@@ -52,6 +44,7 @@ impl SignatureDb {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn count(&self) -> usize {
         self.signatures.len()
     }

@@ -12,11 +12,14 @@ pub enum Error {
     EndOfInput,
 
     #[error("analysis failed: {0}")]
+    #[allow(dead_code)]
     AnalysisFailed(String),
 
     #[error("invalid argument: {0}")]
+    #[allow(dead_code)]
     InvalidArgument(String),
 
-    #[error("expert error: {0}")]
-    ExpertError(String),
+    #[error("expert failure: {0}")]
+    #[allow(dead_code)]
+    ExpertFailure(String),
 }

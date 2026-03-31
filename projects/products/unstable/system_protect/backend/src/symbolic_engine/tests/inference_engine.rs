@@ -44,10 +44,7 @@ fn infers_alert_for_port_scan() {
 #[test]
 fn infers_log_for_low_severity_unknown() {
     let engine = InferenceEngine::with_defaults();
-    let event = make_event(
-        ThreatType::Custom("unknown".to_string()),
-        ThreatLevel::Info,
-    );
+    let event = make_event(ThreatType::Custom("unknown".to_string()), ThreatLevel::Info);
     let result = engine.infer(&event);
     assert!(result.is_some());
     let (action, _, _) = result.unwrap();
@@ -59,10 +56,14 @@ fn derive_facts_produces_type_and_level_facts() {
     let event = make_event(ThreatType::Virus, ThreatLevel::High);
     let facts = InferenceEngine::derive_facts(&event);
     assert!(facts.len() >= 2);
-    assert!(facts
-        .iter()
-        .any(|f| f.subject == "threat" && f.predicate == "is_type"));
-    assert!(facts
-        .iter()
-        .any(|f| f.subject == "threat" && f.predicate == "has_level"));
+    assert!(
+        facts
+            .iter()
+            .any(|f| f.subject == "threat" && f.predicate == "is_type")
+    );
+    assert!(
+        facts
+            .iter()
+            .any(|f| f.subject == "threat" && f.predicate == "has_level")
+    );
 }
