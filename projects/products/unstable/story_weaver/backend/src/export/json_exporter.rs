@@ -10,8 +10,8 @@ impl JsonExporter {
             report: report.clone(),
             events: events.to_vec(),
         };
-        let json_value = common_json::to_json(&export)
-            .map_err(|e| Error::Serialization(e.to_string()))?;
+        let json_value =
+            common_json::to_json(&export).map_err(|e| Error::Serialization(e.to_string()))?;
         Ok(canonical_json_pretty(&json_value, 0))
     }
 }

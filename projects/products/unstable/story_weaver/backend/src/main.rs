@@ -67,11 +67,12 @@ fn handle_run(args: &[String]) -> Result<(), diagnostics::Error> {
         i += 1;
     }
 
-    let script_path = script_path
-        .ok_or_else(|| diagnostics::Error::InvalidCli("--script <rules_file> is required".into()))?;
+    let script_path = script_path.ok_or_else(|| {
+        diagnostics::Error::InvalidCli("--script <rules_file> is required".into())
+    })?;
 
-    let script_data = std::fs::read_to_string(&script_path)
-        .map_err(|e| diagnostics::Error::Io(e.to_string()))?;
+    let script_data =
+        std::fs::read_to_string(&script_path).map_err(|e| diagnostics::Error::Io(e.to_string()))?;
     let script = dsl::ScriptParser::parse(&script_data)?;
 
     let cfg = config::StoryConfig {
@@ -110,8 +111,8 @@ fn handle_replay(args: &[String]) -> Result<(), diagnostics::Error> {
     let replay_path = &args[0];
     let export_markdown = args.iter().any(|a| a == "markdown");
 
-    let data = std::fs::read_to_string(replay_path)
-        .map_err(|e| diagnostics::Error::Io(e.to_string()))?;
+    let data =
+        std::fs::read_to_string(replay_path).map_err(|e| diagnostics::Error::Io(e.to_string()))?;
     let replay_file = replay::ReplayCodec::decode(&data)?;
     let report = replay::ReplayEngine::replay(&replay_file)?;
 
@@ -129,7 +130,5 @@ fn handle_replay(args: &[String]) -> Result<(), diagnostics::Error> {
 fn parse_u64_arg(val: Option<&String>, flag: &str) -> Result<u64, diagnostics::Error> {
     val.ok_or_else(|| diagnostics::Error::InvalidCli(format!("{flag} requires a value")))?
         .parse::<u64>()
-        .map_err(|_| {
-            diagnostics::Error::InvalidCli(format!("{flag} must be a positive integer"))
-        })
+        .map_err(|_| diagnostics::Error::InvalidCli(format!("{flag} must be a positive integer")))
 }

@@ -1,6 +1,6 @@
+use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
-use rand::Rng;
 
 pub struct SeededRng {
     rng: SmallRng,
