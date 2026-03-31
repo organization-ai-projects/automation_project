@@ -180,8 +180,8 @@ impl TacticsAi {
                 break;
             }
 
-            // Try X axis first (deterministic choice), then Y axis
-            let candidates = if dx.abs() >= dy.abs() {
+            // Prioritize movement along the axis with greater remaining distance
+            let candidates = if (to.x - pos.x).abs() >= (to.y - pos.y).abs() {
                 vec![
                     Position::new(pos.x + dx, pos.y),
                     Position::new(pos.x, pos.y + dy),
