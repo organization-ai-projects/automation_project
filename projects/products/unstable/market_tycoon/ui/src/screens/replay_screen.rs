@@ -1,0 +1,54 @@
+use crate::components::sim_report_view::SimReportView;
+use crate::components::status_banner::StatusBanner;
+
+pub struct ReplayScreen;
+
+impl ReplayScreen {
+    pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+        let mut replay_path = None;
+        let mut out_path = None;
+
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--replay" => {
+                    i += 1;
+                    replay_path = args.get(i).map(String::clone);
+                }
+                "--out" => {
+                    i += 1;
+                    out_path = args.get(i).map(String::clone);
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+
+        let replay = replay_path.ok_or("--replay is required")?;
+        let out = out_path.ok_or("--out is required")?;
+
+        StatusBanner::print("Starting replay...");
+
+        let backend_bin = std::env::var("MARKET_TYCOON_BACKEND_BIN")
+            .unwrap_or_else(|_| "market_tycoon_backend".to_string());
+
+        let status = std::process::Command::new(&backend_bin)
+            .args(["replay", "--replay", &replay, "--out", &out])
+            .status()
+            .map_err(|e| format!("Failed to run backend replay: {e}"))?;
+
+        if status.success() {
+            let report_data =
+                std::fs::read_to_string(&out).map_err(|e| format!("Failed to read report: {e}"))?;
+            SimReportView::display(&report_data);
+            StatusBanner::print("Replay completed successfully.");
+        } else {
+            StatusBanner::print(&format!(
+                "Backend exited with code: {:?}",
+                status.code()
+            ));
+        }
+
+        Ok(())
+    }
+}
