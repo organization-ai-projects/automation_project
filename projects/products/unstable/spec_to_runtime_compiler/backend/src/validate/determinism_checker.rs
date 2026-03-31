@@ -3,8 +3,8 @@ use crate::dsl::ast::SpecAst;
 
 const FORBIDDEN_TYPES: &[&str] = &["Instant", "SystemTime", "HashMap", "HashSet"];
 const DEFAULT_ABLE_TYPES: &[&str] = &[
-    "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64", "i128", "isize",
-    "f32", "f64", "bool", "String",
+    "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64", "i128", "isize", "f32",
+    "f64", "bool", "String",
 ];
 
 pub struct DeterminismChecker;
@@ -110,9 +110,11 @@ mod tests {
         let checker = DeterminismChecker;
         let result = checker.check(&ast);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("may not implement Default"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("may not implement Default")
+        );
     }
 }

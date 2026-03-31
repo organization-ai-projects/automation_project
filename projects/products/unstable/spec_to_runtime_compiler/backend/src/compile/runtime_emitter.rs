@@ -79,7 +79,12 @@ impl RuntimeEmitter {
                     .unwrap()
                     .fields
                     .iter()
-                    .map(|f| format!("{}: Default::default() /* TODO: replace with actual value */", f.name))
+                    .map(|f| {
+                        format!(
+                            "{}: Default::default() /* TODO: replace with actual value */",
+                            f.name
+                        )
+                    })
                     .collect();
                 format!("State::{} {{ {} }}", t.to, defaults.join(", "))
             } else {
@@ -124,7 +129,12 @@ impl RuntimeEmitter {
                 let defaults: Vec<String> = first
                     .fields
                     .iter()
-                    .map(|f| format!("{}: Default::default() /* TODO: replace with actual value */", f.name))
+                    .map(|f| {
+                        format!(
+                            "{}: Default::default() /* TODO: replace with actual value */",
+                            f.name
+                        )
+                    })
                     .collect();
                 format!("State::{} {{ {} }}", first.name, defaults.join(", "))
             }

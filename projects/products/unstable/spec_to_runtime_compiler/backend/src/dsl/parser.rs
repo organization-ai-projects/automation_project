@@ -207,10 +207,12 @@ mod tests {
         let mut parser = Parser::new("@state Idle {}");
         let result = parser.parse();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("unexpected character"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("unexpected character")
+        );
     }
 
     #[test]
@@ -222,13 +224,14 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_initial() {
-        let mut parser =
-            Parser::new("state A {}\nstate B {}\ninitial A\ninitial B");
+        let mut parser = Parser::new("state A {}\nstate B {}\ninitial A\ninitial B");
         let result = parser.parse();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("duplicate initial state"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("duplicate initial state")
+        );
     }
 }
