@@ -356,10 +356,7 @@ impl Parser {
                     self.advance();
                     let args = self.parse_arg_list()?;
                     self.expect(&RhlToken::CloseParen)?;
-                    Ok(RhlAst::Call {
-                        callee: name,
-                        args,
-                    })
+                    Ok(RhlAst::Call { callee: name, args })
                 } else if matches!(self.peek(), RhlToken::Dot) {
                     self.advance();
                     let field = self.parse_identifier()?;

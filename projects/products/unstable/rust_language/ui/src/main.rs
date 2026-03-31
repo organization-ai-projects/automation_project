@@ -18,9 +18,7 @@ fn main() {
 fn app() -> dioxus::prelude::Element {
     use dioxus::prelude::*;
 
-    let mut source_code = use_signal(|| {
-        String::from("fn main() {\n    let x = 42;\n}\n")
-    });
+    let mut source_code = use_signal(|| String::from("fn main() {\n    let x = 42;\n}\n"));
     let mut transpiled_output = use_signal(String::new);
     let mut error_output = use_signal(String::new);
 

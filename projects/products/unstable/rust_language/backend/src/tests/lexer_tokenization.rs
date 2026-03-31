@@ -38,10 +38,7 @@ fn tokenize_string_literal() {
     let tokens = lexer.tokenize().unwrap();
     assert_eq!(
         tokens,
-        vec![
-            RhlToken::StringLiteral("hello world".into()),
-            RhlToken::Eof,
-        ]
+        vec![RhlToken::StringLiteral("hello world".into()), RhlToken::Eof,]
     );
 }
 
@@ -49,10 +46,7 @@ fn tokenize_string_literal() {
 fn tokenize_float_literal() {
     let mut lexer = Lexer::new("3.14");
     let tokens = lexer.tokenize().unwrap();
-    assert_eq!(
-        tokens,
-        vec![RhlToken::FloatLiteral(3.14), RhlToken::Eof]
-    );
+    assert_eq!(tokens, vec![RhlToken::FloatLiteral(3.14), RhlToken::Eof]);
 }
 
 #[test]
@@ -125,10 +119,7 @@ fn tokenize_escape_sequences() {
     let tokens = lexer.tokenize().unwrap();
     assert_eq!(
         tokens,
-        vec![
-            RhlToken::StringLiteral("\n\t\\".into()),
-            RhlToken::Eof,
-        ]
+        vec![RhlToken::StringLiteral("\n\t\\".into()), RhlToken::Eof,]
     );
 }
 

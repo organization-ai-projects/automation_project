@@ -86,8 +86,7 @@ fn handle_check(args: &[String]) -> Result<(), diagnostics::error::Error> {
     match eng.compile_source(&source) {
         Ok(rust_code) => {
             println!("Compilation successful. Transpiled Rust:\n{rust_code}");
-            let mut validator =
-                ai_assist::transpile_validator::TranspileValidator::new()?;
+            let mut validator = ai_assist::transpile_validator::TranspileValidator::new()?;
             let analysis = validator.validate_transpilation(&content, &rust_code)?;
             println!("\nAI Validation:\n{analysis}");
         }
@@ -111,11 +110,8 @@ fn handle_init(args: &[String]) -> Result<(), diagnostics::error::Error> {
     }
 
     let name = &args[0];
-    let config = model::project_config::ProjectConfig::new(
-        name.clone(),
-        "0.1.0".into(),
-        "main.rhl".into(),
-    );
+    let config =
+        model::project_config::ProjectConfig::new(name.clone(), "0.1.0".into(), "main.rhl".into());
     let config_path = format!("{name}.ron");
     engine::ron_loader::RonLoader::save_config(std::path::Path::new(&config_path), &config)?;
     eprintln!("Project config written to {config_path}");

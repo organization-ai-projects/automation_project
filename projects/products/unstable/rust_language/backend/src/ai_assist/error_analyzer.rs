@@ -25,11 +25,7 @@ impl ErrorAnalyzer {
         Ok(result.output)
     }
 
-    pub fn suggest_fix(
-        &mut self,
-        source_code: &str,
-        error_message: &str,
-    ) -> Result<String, Error> {
+    pub fn suggest_fix(&mut self, source_code: &str, error_message: &str) -> Result<String, Error> {
         let prompt = format!(
             "Suggest a fix for this RHL compilation error.\n\nSource:\n{source_code}\n\nError:\n{error_message}"
         );
