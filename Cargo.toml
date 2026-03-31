@@ -100,6 +100,7 @@ members = [
   "projects/products/unstable/life_engine/ui",
   "tools/all_automation",
   "tools/versioning_automation",
+  "projects/products/unstable/market_tycoon/backend",
 ]
 resolver = "2"
 
