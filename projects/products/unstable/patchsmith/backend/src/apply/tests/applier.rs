@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use std::collections::BTreeMap;
 
     use crate::apply::applier::Applier;
@@ -112,4 +110,3 @@ mod tests {
         .unwrap();
         assert!(Applier::apply(&plan, &files(&[("a.txt", "short")])).is_err());
     }
-}
