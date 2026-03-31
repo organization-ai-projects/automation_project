@@ -1,5 +1,7 @@
 /// Unique document identifier (deterministic: derived from path).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub(crate) struct DocId(pub(crate) String);
 
 impl DocId {

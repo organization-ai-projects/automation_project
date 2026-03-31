@@ -107,9 +107,8 @@ fn run_query(args: &[String]) -> Result<(), diagnostics::error::Error> {
     let snapshot_path = snapshot.ok_or_else(|| {
         diagnostics::error::Error::InvalidArgument("--snapshot is required".to_string())
     })?;
-    let query_text = query_text.ok_or_else(|| {
-        diagnostics::error::Error::InvalidArgument("--q is required".to_string())
-    })?;
+    let query_text = query_text
+        .ok_or_else(|| diagnostics::error::Error::InvalidArgument("--q is required".to_string()))?;
 
     let idx =
         persistence::snapshot_codec::SnapshotCodec::load(std::path::Path::new(snapshot_path))?;

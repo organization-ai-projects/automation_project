@@ -28,7 +28,11 @@ impl InvertedIndex {
         }
     }
 
-    pub(crate) fn add_document(&mut self, doc_id: &DocId, tokens: &[crate::tokenize::token::Token]) {
+    pub(crate) fn add_document(
+        &mut self,
+        doc_id: &DocId,
+        tokens: &[crate::tokenize::token::Token],
+    ) {
         self.doc_count += 1;
         self.doc_lengths.insert(doc_id.0.clone(), tokens.len());
 

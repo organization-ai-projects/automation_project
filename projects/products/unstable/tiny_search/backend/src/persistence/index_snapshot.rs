@@ -28,8 +28,7 @@ impl IndexSnapshot {
                 actual: self.checksum.clone(),
             });
         }
-        common_json::from_str(&self.index_json)
-            .map_err(|e| Error::Deserialization(e.to_string()))
+        common_json::from_str(&self.index_json).map_err(|e| Error::Deserialization(e.to_string()))
     }
 
     fn compute_checksum(data: &str) -> String {
