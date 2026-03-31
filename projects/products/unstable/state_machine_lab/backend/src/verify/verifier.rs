@@ -1,5 +1,4 @@
 use crate::diagnostics::error::BackendError;
-use crate::model::event_id::EventId;
 use crate::model::machine::Machine;
 use crate::model::state_id::StateId;
 use crate::verify::invariant::Invariant;
@@ -104,6 +103,7 @@ impl Verifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::event_id::EventId;
     use crate::model::machine::{Machine, Transition};
     use crate::model::machine_id::MachineId;
     use std::collections::BTreeMap;
