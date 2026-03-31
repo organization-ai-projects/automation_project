@@ -44,7 +44,7 @@ impl TraceConverter {
         let tags = self.extract_tags(traces);
 
         DatasetEntry {
-            id: ProtocolId::default(),
+            id: ProtocolId::generate(),
             task_id,
             expert_id,
             input: input.to_string(),

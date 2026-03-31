@@ -35,7 +35,7 @@ impl Chunker {
             offset = byte_end;
 
             chunks.push(Chunk::new(
-                ProtocolId::default(),
+                ProtocolId::generate(),
                 content,
                 source,
                 byte_start,
@@ -68,7 +68,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                ProtocolId::default(),
+                ProtocolId::generate(),
                 trimmed,
                 source,
                 start,
@@ -102,7 +102,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                ProtocolId::default(),
+                ProtocolId::generate(),
                 trimmed,
                 source,
                 start,

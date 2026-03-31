@@ -25,7 +25,7 @@ pub(crate) fn handle_generate_code(
     }
 
     let ext = normalize_extension(language);
-    let file_path = ai_ws.join(format!("generated_{}.{}", ProtocolId::default(), ext));
+    let file_path = ai_ws.join(format!("generated_{}.{}", ProtocolId::generate(), ext));
 
     if !file_path.starts_with(ctx.run_dir) {
         return Err(anyhow::anyhow!("Attempted to write outside of run_dir"));

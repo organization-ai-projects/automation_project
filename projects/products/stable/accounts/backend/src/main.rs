@@ -77,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let token_service = TokenService::new_hs256(&jwt_secret).context("invalid jwt secret")?;
-    let subject = ProtocolId::default();
+    let subject = ProtocolId::generate();
     let token = token_service
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
         .context("issue token")?;

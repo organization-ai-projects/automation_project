@@ -526,7 +526,7 @@ impl MoePipeline {
                     .auto_improvement_status
                     .last_skip_reason = None;
                 self.push_trainer_trigger_event(TrainerTriggerEvent {
-                    event_id: ProtocolId::default(),
+                    event_id: ProtocolId::generate(),
                     model_version: model_version.clone(),
                     training_bundle_checksum: bundle.bundle_checksum.clone(),
                     included_entries: bundle.included_entries,

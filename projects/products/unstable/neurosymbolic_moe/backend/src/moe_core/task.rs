@@ -19,7 +19,7 @@ pub struct Task {
 
 impl Task {
     pub fn new(task_type: TaskType, input: impl Into<String>) -> Self {
-        Self::new_with_id(ProtocolId::default(), task_type, input)
+        Self::new_with_id(ProtocolId::generate(), task_type, input)
     }
 
     pub fn new_with_id(id: ProtocolId, task_type: TaskType, input: impl Into<String>) -> Self {

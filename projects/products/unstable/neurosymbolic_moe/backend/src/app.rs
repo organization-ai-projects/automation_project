@@ -346,7 +346,7 @@ fn register_default_cli_experts(pipeline: &mut MoePipeline) -> Result<(), DynErr
 
 fn add_default_cli_policy(pipeline: &mut MoePipeline) {
     pipeline.add_policy(Policy {
-        id: ProtocolId::default(),
+        id: ProtocolId::generate(),
         name: "Output Length Check".to_string(),
         description: "Ensures output is not too long".to_string(),
         policy_type: PolicyType::LengthLimit(10000),

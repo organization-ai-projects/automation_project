@@ -39,7 +39,7 @@ pub(crate) fn initialize_engine(
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
             let ts = current_timestamp_ms();
-            format!("{}_{}", ts, ProtocolId::default())
+            format!("{}_{}", ts, ProtocolId::generate())
         }
     };
 

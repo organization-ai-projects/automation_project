@@ -77,7 +77,7 @@ impl TokenService {
 
         let claims = Claims {
             sub: subject_id,
-            jti: ProtocolId::default(),
+            jti: ProtocolId::generate(),
             role,
             iat: now_s,
             exp: exp_s,

@@ -7,7 +7,7 @@ pub struct TaskId(pub ProtocolId);
 
 impl TaskId {
     pub fn new() -> Self {
-        Self(ProtocolId::default())
+        Self(ProtocolId::generate())
     }
 
     pub fn from_protocol_id(id: ProtocolId) -> Self {
