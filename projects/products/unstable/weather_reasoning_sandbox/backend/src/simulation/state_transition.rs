@@ -13,12 +13,9 @@ impl StateTransition {
         let avg_pressure: f64 = observations.iter().map(|o| o.pressure_hpa).sum::<f64>() / count;
         let avg_temp: f64 = observations.iter().map(|o| o.temperature_c).sum::<f64>() / count;
         let avg_humidity: f64 = observations.iter().map(|o| o.humidity_pct).sum::<f64>() / count;
-        let avg_wind: f64 =
-            observations.iter().map(|o| o.wind_speed_kmh).sum::<f64>() / count;
-        let avg_cloud: f64 =
-            observations.iter().map(|o| o.cloudiness_pct).sum::<f64>() / count;
-        let avg_precip: f64 =
-            observations.iter().map(|o| o.precipitation_mm).sum::<f64>() / count;
+        let avg_wind: f64 = observations.iter().map(|o| o.wind_speed_kmh).sum::<f64>() / count;
+        let avg_cloud: f64 = observations.iter().map(|o| o.cloudiness_pct).sum::<f64>() / count;
+        let avg_precip: f64 = observations.iter().map(|o| o.precipitation_mm).sum::<f64>() / count;
 
         let pressure_trend = avg_pressure - prior.pressure_hpa;
         let temperature_trend = avg_temp - prior.temperature_c;
@@ -51,18 +48,12 @@ impl StateTransition {
     }
 
     fn compute_precip_likelihood(humidity: f64, precip_mm: f64, cloud: f64) -> f64 {
-        let base = (humidity / 100.0) * 0.4
-            + (precip_mm / 50.0).min(1.0) * 0.4
-            + (cloud / 100.0) * 0.2;
+        let base =
+            (humidity / 100.0) * 0.4 + (precip_mm / 50.0).min(1.0) * 0.4 + (cloud / 100.0) * 0.2;
         base.clamp(0.0, 1.0)
     }
 
-    fn compute_storm_likelihood(
-        pressure_trend: f64,
-        wind: f64,
-        humidity: f64,
-        cloud: f64,
-    ) -> f64 {
+    fn compute_storm_likelihood(pressure_trend: f64, wind: f64, humidity: f64, cloud: f64) -> f64 {
         let pressure_factor = if pressure_trend < -5.0 {
             0.4
         } else if pressure_trend < -2.0 {

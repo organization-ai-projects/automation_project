@@ -41,10 +41,7 @@ fn replay_from_journal_yields_identical_output() {
         ReplayRunner::replay_from_journal(&output1.journal).unwrap();
 
     assert_eq!(report1.report_checksum, report2.report_checksum);
-    assert_eq!(
-        snapshot1.snapshot_checksum,
-        snapshot2.snapshot_checksum
-    );
+    assert_eq!(snapshot1.snapshot_checksum, snapshot2.snapshot_checksum);
     assert!(replay_result.is_equivalent);
 }
 

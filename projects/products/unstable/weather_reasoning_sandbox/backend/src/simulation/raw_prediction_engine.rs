@@ -91,10 +91,17 @@ impl RawPredictionEngine {
     fn build_rationale(state: &WeatherState, conf: &PredictionConfidence) -> String {
         format!(
             "Based on pressure={:.1}hPa(trend={:.2}),humidity={:.1}%,wind={:.1}km/h,cloud={:.1}%,instability={:.3}. Top confidence: clear={:.3},precip={:.3},storm={:.3},calm={:.3},windy={:.3}",
-            state.pressure_hpa, state.pressure_trend,
-            state.humidity_pct, state.wind_speed_kmh,
-            state.cloudiness_pct, state.instability_index,
-            conf.clear_sky, conf.precipitation, conf.storm, conf.calm, conf.windy,
+            state.pressure_hpa,
+            state.pressure_trend,
+            state.humidity_pct,
+            state.wind_speed_kmh,
+            state.cloudiness_pct,
+            state.instability_index,
+            conf.clear_sky,
+            conf.precipitation,
+            conf.storm,
+            conf.calm,
+            conf.windy,
         )
     }
 }

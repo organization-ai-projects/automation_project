@@ -17,10 +17,12 @@ impl CanonicalReportBuilder {
             .last()
             .map(|t| t.corrected_prediction.clone());
 
-        let total_violations: usize =
-            output.tick_reports.iter().map(|t| t.violations.len()).sum();
-        let total_corrections: usize =
-            output.tick_reports.iter().map(|t| t.corrections.len()).sum();
+        let total_violations: usize = output.tick_reports.iter().map(|t| t.violations.len()).sum();
+        let total_corrections: usize = output
+            .tick_reports
+            .iter()
+            .map(|t| t.corrections.len())
+            .sum();
 
         let mut report = ReportModel {
             metadata: output.metadata.clone(),

@@ -66,7 +66,9 @@ impl NarrativeEngine {
     }
 
     fn evaluate_conditions(conditions: &[Condition], state: &StoryState) -> bool {
-        conditions.iter().all(|c| Self::evaluate_condition(c, state))
+        conditions
+            .iter()
+            .all(|c| Self::evaluate_condition(c, state))
     }
 
     fn evaluate_condition(condition: &Condition, state: &StoryState) -> bool {
@@ -81,11 +83,7 @@ impl NarrativeEngine {
         }
     }
 
-    fn weighted_select<'a>(
-        rules: &[&'a Rule],
-        rng: &mut SeededRng,
-        step: u64,
-    ) -> &'a Rule {
+    fn weighted_select<'a>(rules: &[&'a Rule], rng: &mut SeededRng, step: u64) -> &'a Rule {
         let total_weight: u64 = rules.iter().map(|r| r.weight).sum();
         let roll = rng.draw_u64(&format!("step_{}_select", step)) % total_weight;
 
@@ -129,7 +127,10 @@ impl NarrativeEngine {
                         .cloned()
                         .unwrap_or(StateValue::Number(0));
                     state.add(variable, *amount);
-                    let new_value = state.get(variable).cloned().unwrap_or(StateValue::Number(0));
+                    let new_value = state
+                        .get(variable)
+                        .cloned()
+                        .unwrap_or(StateValue::Number(0));
                     event_log.push(StoryEvent {
                         step,
                         kind: StoryEventKind::StateChanged {

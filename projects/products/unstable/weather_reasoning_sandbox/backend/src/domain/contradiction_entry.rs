@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::domain::corrected_prediction::CorrectedPrediction;
 use crate::domain::constraint_violation::ConstraintViolation;
+use crate::domain::corrected_prediction::CorrectedPrediction;
 use crate::domain::correction_action::CorrectionAction;
 use crate::domain::raw_prediction::RawPrediction;
 use crate::domain::tick_index::TickIndex;

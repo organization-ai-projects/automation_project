@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::checksum_value::ChecksumValue;
-use crate::domain::corrected_prediction::CorrectedPrediction;
 use crate::domain::constraint_violation::ConstraintViolation;
+use crate::domain::corrected_prediction::CorrectedPrediction;
 use crate::domain::correction_action::CorrectionAction;
 use crate::domain::raw_prediction::RawPrediction;
 use crate::domain::run_metadata::RunMetadata;

@@ -36,7 +36,9 @@ impl ConstraintEngine {
                         description: rule.description().to_string(),
                         reason: format!(
                             "Pressure dropping {:.1}hPa with humidity {:.1}% but clear_sky confidence is {:.3}",
-                            state.pressure_trend, state.humidity_pct, prediction.confidence.clear_sky
+                            state.pressure_trend,
+                            state.humidity_pct,
+                            prediction.confidence.clear_sky
                         ),
                         severity: prediction.confidence.clear_sky - 0.3,
                     })
@@ -69,7 +71,9 @@ impl ConstraintEngine {
                         description: rule.description().to_string(),
                         reason: format!(
                             "Cloudiness {:.1}% and instability {:.3} too low for storm confidence {:.3}",
-                            state.cloudiness_pct, state.instability_index, prediction.confidence.storm
+                            state.cloudiness_pct,
+                            state.instability_index,
+                            prediction.confidence.storm
                         ),
                         severity: prediction.confidence.storm - 0.1,
                     })

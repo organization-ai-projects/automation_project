@@ -76,13 +76,13 @@ fn execute(command: CliCommand) -> Result<(), CliError> {
             Ok(())
         }
         CliCommand::Replay(args) => {
-            let output =
-                ReplaySimulation::execute(&args.replay_file).map_err(|e| CliError::ReplayError(e.to_string()))?;
+            let output = ReplaySimulation::execute(&args.replay_file)
+                .map_err(|e| CliError::ReplayError(e.to_string()))?;
 
             match args.output_mode {
                 OutputMode::Json => {
-                    let json = ExportReport::to_json(&output.report)
-                        .map_err(CliError::ExportError)?;
+                    let json =
+                        ExportReport::to_json(&output.report).map_err(CliError::ExportError)?;
                     println!("{json}");
                 }
                 OutputMode::Text => {

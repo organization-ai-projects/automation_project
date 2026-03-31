@@ -46,12 +46,9 @@ impl ReplayRunner {
         let snapshot =
             CanonicalSnapshotBuilder::build(&output).map_err(|e| ReplayError::Mismatch(e))?;
 
-        let report = CanonicalReportBuilder::build(
-            &output,
-            Some(snapshot.snapshot_checksum.clone()),
-            None,
-        )
-        .map_err(|e| ReplayError::Mismatch(e))?;
+        let report =
+            CanonicalReportBuilder::build(&output, Some(snapshot.snapshot_checksum.clone()), None)
+                .map_err(|e| ReplayError::Mismatch(e))?;
 
         let original_checksums = Self::extract_checksums(journal);
 

@@ -10,12 +10,16 @@ pub struct StoryEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StoryEventKind {
-    RuleApplied { rule_id: String },
+    RuleApplied {
+        rule_id: String,
+    },
     StateChanged {
         variable: String,
         old_value: StateValue,
         new_value: StateValue,
     },
-    Narration { message: String },
+    Narration {
+        message: String,
+    },
     NoApplicableRules,
 }

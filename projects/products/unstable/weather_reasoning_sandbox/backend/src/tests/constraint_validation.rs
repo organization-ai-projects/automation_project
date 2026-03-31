@@ -27,13 +27,7 @@ fn make_state(
     }
 }
 
-fn make_prediction(
-    clear: f64,
-    precip: f64,
-    storm: f64,
-    calm: f64,
-    windy: f64,
-) -> RawPrediction {
+fn make_prediction(clear: f64, precip: f64, storm: f64, calm: f64, windy: f64) -> RawPrediction {
     RawPrediction {
         forecast_label: "Test".to_string(),
         confidence: PredictionConfidence {
@@ -53,10 +47,12 @@ fn pressure_drop_clear_sky_triggers() {
     let prediction = make_prediction(0.8, 0.3, 0.1, 0.5, 0.1);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "PRESSURE_DROP_CLEAR_SKY"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "PRESSURE_DROP_CLEAR_SKY")
+    );
 }
 
 #[test]
@@ -65,10 +61,12 @@ fn low_humidity_precipitation_triggers() {
     let prediction = make_prediction(0.5, 0.7, 0.1, 0.5, 0.1);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "LOW_HUMIDITY_PRECIPITATION"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "LOW_HUMIDITY_PRECIPITATION")
+    );
 }
 
 #[test]
@@ -77,10 +75,12 @@ fn low_cloud_storm_triggers() {
     let prediction = make_prediction(0.5, 0.2, 0.5, 0.5, 0.1);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "LOW_CLOUD_STORM"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "LOW_CLOUD_STORM")
+    );
 }
 
 #[test]
@@ -89,10 +89,12 @@ fn high_wind_calm_triggers() {
     let prediction = make_prediction(0.5, 0.2, 0.1, 0.5, 0.3);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "HIGH_WIND_CALM"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "HIGH_WIND_CALM")
+    );
 }
 
 #[test]
@@ -101,10 +103,12 @@ fn instability_coherence_triggers() {
     let prediction = make_prediction(0.5, 0.2, 0.1, 0.5, 0.1);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "INSTABILITY_COHERENCE"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "INSTABILITY_COHERENCE")
+    );
 }
 
 #[test]
@@ -113,10 +117,12 @@ fn mutual_incoherence_triggers() {
     let prediction = make_prediction(0.9, 0.8, 0.7, 0.8, 0.9);
     let result = ConstraintEngine::validate(&state, &prediction);
     assert!(!result.is_coherent);
-    assert!(result
-        .violations
-        .iter()
-        .any(|v| v.rule.id() == "MUTUAL_INCOHERENCE"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|v| v.rule.id() == "MUTUAL_INCOHERENCE")
+    );
 }
 
 #[test]

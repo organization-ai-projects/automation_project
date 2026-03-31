@@ -18,8 +18,7 @@ pub struct DeterministicSerializer;
 
 impl DeterministicSerializer {
     pub fn serialize_canonical<T: Serialize>(value: &T) -> Result<String, String> {
-        let json = common_json::to_value(value)
-            .map_err(|e| format!("serialization error: {e}"))?;
+        let json = common_json::to_value(value).map_err(|e| format!("serialization error: {e}"))?;
         let sorted = Self::to_sorted(&json);
         Ok(Self::to_pretty_string(&sorted))
     }

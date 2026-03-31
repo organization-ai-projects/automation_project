@@ -64,8 +64,7 @@ impl CorrectionEngine {
         match &violation.rule {
             ConstraintRule::PressureDropClearSky => {
                 let original = confidence.clear_sky;
-                confidence.clear_sky =
-                    (confidence.clear_sky - violation.severity).clamp(0.0, 1.0);
+                confidence.clear_sky = (confidence.clear_sky - violation.severity).clamp(0.0, 1.0);
                 actions.push(CorrectionAction {
                     triggered_by: violation.rule.clone(),
                     field: "clear_sky".to_string(),

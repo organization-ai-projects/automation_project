@@ -65,10 +65,7 @@ impl SimulationEngine {
         }
     }
 
-    fn build_slices(
-        tick_count: u64,
-        observations: &[ObservationRecord],
-    ) -> Vec<ObservationSlice> {
+    fn build_slices(tick_count: u64, observations: &[ObservationRecord]) -> Vec<ObservationSlice> {
         if observations.is_empty() || tick_count == 0 {
             return Vec::new();
         }

@@ -31,11 +31,8 @@ impl RunSimulation {
             SimulationEngine::run(seed, tick_count, dataset_id, dataset_checksum, observations);
 
         let snapshot = CanonicalSnapshotBuilder::build(&output)?;
-        let report = CanonicalReportBuilder::build(
-            &output,
-            Some(snapshot.snapshot_checksum.clone()),
-            None,
-        )?;
+        let report =
+            CanonicalReportBuilder::build(&output, Some(snapshot.snapshot_checksum.clone()), None)?;
 
         Ok(RunOutput {
             report,

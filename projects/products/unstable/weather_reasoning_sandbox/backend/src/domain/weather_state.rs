@@ -39,12 +39,18 @@ impl WeatherState {
     pub fn canonical_string(&self) -> String {
         format!(
             "p={:.2},pt={:.4},t={:.2},tt={:.4},h={:.2},ht={:.4},w={:.2},wt={:.4},c={:.2},pl={:.4},sl={:.4},ii={:.4},conf={:.4}",
-            self.pressure_hpa, self.pressure_trend,
-            self.temperature_c, self.temperature_trend,
-            self.humidity_pct, self.humidity_trend,
-            self.wind_speed_kmh, self.wind_trend,
-            self.cloudiness_pct, self.precipitation_likelihood,
-            self.storm_likelihood, self.instability_index,
+            self.pressure_hpa,
+            self.pressure_trend,
+            self.temperature_c,
+            self.temperature_trend,
+            self.humidity_pct,
+            self.humidity_trend,
+            self.wind_speed_kmh,
+            self.wind_trend,
+            self.cloudiness_pct,
+            self.precipitation_likelihood,
+            self.storm_likelihood,
+            self.instability_index,
             self.confidence,
         )
     }

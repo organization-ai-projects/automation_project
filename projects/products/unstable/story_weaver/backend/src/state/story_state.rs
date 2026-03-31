@@ -15,9 +15,7 @@ pub struct StoryState {
 
 impl StoryState {
     pub fn new(initial: BTreeMap<String, StateValue>) -> Self {
-        Self {
-            variables: initial,
-        }
+        Self { variables: initial }
     }
 
     pub fn get(&self, key: &str) -> Option<&StateValue> {
@@ -31,7 +29,8 @@ impl StoryState {
     pub fn add(&mut self, key: &str, amount: i64) {
         if let Some(StateValue::Number(n)) = self.variables.get(key) {
             let new_val = n + amount;
-            self.variables.insert(key.to_string(), StateValue::Number(new_val));
+            self.variables
+                .insert(key.to_string(), StateValue::Number(new_val));
         }
     }
 

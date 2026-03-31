@@ -1,8 +1,8 @@
+use crate::domain::constraint_violation::ConstraintViolation;
 use crate::domain::contradiction_entry::ContradictionEntry;
 use crate::domain::contradiction_memory::ContradictionMemory;
 use crate::domain::corrected_prediction::CorrectedPrediction;
 use crate::domain::correction_action::CorrectionAction;
-use crate::domain::constraint_violation::ConstraintViolation;
 use crate::domain::raw_prediction::RawPrediction;
 use crate::domain::tick_index::TickIndex;
 

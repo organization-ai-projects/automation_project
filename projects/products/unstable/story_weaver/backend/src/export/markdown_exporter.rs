@@ -45,7 +45,10 @@ impl MarkdownExporter {
 
         md.push_str("\n## Summary\n\n");
         md.push_str(&format!("- **Run Hash:** `{}`\n", report.run_hash));
-        md.push_str(&format!("- **Snapshot Hash:** `{}`\n", report.snapshot_hash));
+        md.push_str(&format!(
+            "- **Snapshot Hash:** `{}`\n",
+            report.snapshot_hash
+        ));
         md.push_str(&format!("- **Total Events:** {}\n", report.event_count));
         md
     }
