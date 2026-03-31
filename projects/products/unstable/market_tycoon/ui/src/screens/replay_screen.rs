@@ -43,10 +43,7 @@ impl ReplayScreen {
             SimReportView::display(&report_data);
             StatusBanner::print("Replay completed successfully.");
         } else {
-            StatusBanner::print(&format!(
-                "Backend exited with code: {:?}",
-                status.code()
-            ));
+            StatusBanner::print(&format!("Backend exited with code: {:?}", status.code()));
         }
 
         Ok(())

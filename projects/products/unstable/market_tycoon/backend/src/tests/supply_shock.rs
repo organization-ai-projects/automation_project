@@ -13,7 +13,9 @@ fn no_supply_means_no_sales() {
         companies: vec![CompanyConfig {
             name: "NoSupply".into(),
             budget: 10000,
-            stores: vec![StoreConfig { name: "Empty Store".into() }],
+            stores: vec![StoreConfig {
+                name: "Empty Store".into(),
+            }],
         }],
         contracts: vec![],
         pricing_policy: PricingPolicy::default(),

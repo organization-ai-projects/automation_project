@@ -2,11 +2,11 @@ use crate::config::sim_config::{CompanyConfig, SimConfig, StoreConfig};
 use crate::demand::customer_segment::CustomerSegment;
 use crate::demand::demand_model::DemandModel;
 use crate::model::good::Good;
+use crate::model::store_id::StoreId;
 use crate::pricing::pricing_policy::PricingPolicy;
 use crate::report::sim_report::SimReport;
 use crate::supply::contract::Contract;
 use crate::supply::supplier::SupplierId;
-use crate::model::store_id::StoreId;
 
 #[test]
 fn single_chain_is_profitable() {
@@ -16,7 +16,9 @@ fn single_chain_is_profitable() {
         companies: vec![CompanyConfig {
             name: "ProfitCo".into(),
             budget: 50000,
-            stores: vec![StoreConfig { name: "Main Store".into() }],
+            stores: vec![StoreConfig {
+                name: "Main Store".into(),
+            }],
         }],
         contracts: vec![Contract {
             supplier_id: SupplierId(0),

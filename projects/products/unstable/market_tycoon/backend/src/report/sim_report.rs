@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use crate::SimEngine;
 use crate::config::sim_config::SimConfig;
 use crate::events::event_log::EventLog;
 use crate::report::company_report::CompanyReport;
 use crate::report::run_hash::RunHash;
-use crate::SimEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimReport {
@@ -26,7 +26,8 @@ impl SimReport {
             .companies
             .iter()
             .map(|(id, c)| {
-                let store_count = engine.stores.values().filter(|s| s.owner() == *id).count() as u64;
+                let store_count =
+                    engine.stores.values().filter(|s| s.owner() == *id).count() as u64;
                 CompanyReport {
                     company_id: *id,
                     name: c.name().to_string(),

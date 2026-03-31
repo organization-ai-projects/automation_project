@@ -12,7 +12,9 @@ fn from_scenario_preserves_seed_and_ticks() {
         companies: vec![CompanyConfig {
             name: "Corp".into(),
             budget: 10000,
-            stores: vec![StoreConfig { name: "Store A".into() }],
+            stores: vec![StoreConfig {
+                name: "Store A".into(),
+            }],
         }],
         contracts: vec![],
         pricing_policy: PricingPolicy::default(),
