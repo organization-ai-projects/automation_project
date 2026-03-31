@@ -95,6 +95,9 @@ members = [
   "projects/products/unstable/neurosymbolic_moe/ui",
   "projects/products/unstable/wasm_console_ui/backend",
   "projects/products/unstable/wasm_console_ui/ui",
+  "projects/products/unstable/patchsmith/backend",
+  "projects/products/unstable/life_engine/backend",
+  "projects/products/unstable/life_engine/ui",
   "tools/all_automation",
   "tools/versioning_automation",
 ]
