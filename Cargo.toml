@@ -96,6 +96,7 @@ members = [
   "projects/products/unstable/wasm_console_ui/backend",
   "projects/products/unstable/wasm_console_ui/ui",
   "projects/products/unstable/patchsmith/backend",
+  "projects/products/unstable/investment_decision_engine/backend",
   "projects/products/unstable/life_engine/backend",
   "projects/products/unstable/life_engine/ui",
   "tools/all_automation",
@@ -104,6 +105,8 @@ members = [
   "projects/products/unstable/market_tycoon/ui",
   "projects/products/unstable/tiny_search/backend",
   "projects/products/unstable/tiny_search/ui",
+  "projects/products/unstable/state_machine_lab/backend",
+  "projects/products/unstable/state_machine_lab/ui",
 ]
 resolver = "2"
 

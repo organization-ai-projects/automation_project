@@ -34,7 +34,9 @@ fn main() {
         "validate" => handle_validate(&args[2..]),
         "serve" => handle_serve(&args[2..]),
         _ => {
-            eprintln!("Usage: market_tycoon_backend <run|replay|snapshot|validate|serve> [OPTIONS]");
+            eprintln!(
+                "Usage: market_tycoon_backend <run|replay|snapshot|validate|serve> [OPTIONS]"
+            );
             process::exit(2);
         }
     };
@@ -77,17 +79,33 @@ fn handle_run(args: &[String]) -> Result<(), Error> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--ticks" => { i += 1; ticks = parse_u64_arg(args.get(i), "--ticks")?; }
-            "--seed" => { i += 1; seed = parse_u64_arg(args.get(i), "--seed")?; }
-            "--scenario" => { i += 1; scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?)); }
-            "--out" => { i += 1; out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?)); }
-            "--replay-out" => { i += 1; replay_out = Some(PathBuf::from(require_arg(args.get(i), "--replay-out")?)); }
+            "--ticks" => {
+                i += 1;
+                ticks = parse_u64_arg(args.get(i), "--ticks")?;
+            }
+            "--seed" => {
+                i += 1;
+                seed = parse_u64_arg(args.get(i), "--seed")?;
+            }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
+            "--replay-out" => {
+                i += 1;
+                replay_out = Some(PathBuf::from(require_arg(args.get(i), "--replay-out")?));
+            }
             flag => return Err(Error::InvalidCli(format!("Unknown flag: {flag}"))),
         }
         i += 1;
     }
 
-    let scenario_file = scenario_path.ok_or_else(|| Error::InvalidCli("--scenario is required".into()))?;
+    let scenario_file =
+        scenario_path.ok_or_else(|| Error::InvalidCli("--scenario is required".into()))?;
     let report_file = out_path.ok_or_else(|| Error::InvalidCli("--out is required".into()))?;
 
     let scen = scenario::scenario_loader::ScenarioLoader::load_from_file(&scenario_file)?;
@@ -116,8 +134,14 @@ fn handle_replay(args: &[String]) -> Result<(), Error> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--replay" => { i += 1; replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?)); }
-            "--out" => { i += 1; out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?)); }
+            "--replay" => {
+                i += 1;
+                replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
             flag => return Err(Error::InvalidCli(format!("Unknown flag: {flag}"))),
         }
         i += 1;
@@ -143,9 +167,18 @@ fn handle_snapshot(args: &[String]) -> Result<(), Error> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--replay" => { i += 1; replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?)); }
-            "--at-tick" => { i += 1; at_tick = parse_u64_arg(args.get(i), "--at-tick")?; }
-            "--out" => { i += 1; out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?)); }
+            "--replay" => {
+                i += 1;
+                replay_path = Some(PathBuf::from(require_arg(args.get(i), "--replay")?));
+            }
+            "--at-tick" => {
+                i += 1;
+                at_tick = parse_u64_arg(args.get(i), "--at-tick")?;
+            }
+            "--out" => {
+                i += 1;
+                out_path = Some(PathBuf::from(require_arg(args.get(i), "--out")?));
+            }
             flag => return Err(Error::InvalidCli(format!("Unknown flag: {flag}"))),
         }
         i += 1;
@@ -169,7 +202,10 @@ fn handle_validate(args: &[String]) -> Result<(), Error> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--scenario" => { i += 1; scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?)); }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
             flag => return Err(Error::InvalidCli(format!("Unknown flag: {flag}"))),
         }
         i += 1;
@@ -187,7 +223,10 @@ fn handle_serve(args: &[String]) -> Result<(), Error> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--scenario" => { i += 1; scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?)); }
+            "--scenario" => {
+                i += 1;
+                scenario_path = Some(PathBuf::from(require_arg(args.get(i), "--scenario")?));
+            }
             flag => return Err(Error::InvalidCli(format!("Unknown flag: {flag}"))),
         }
         i += 1;
@@ -199,9 +238,11 @@ fn handle_serve(args: &[String]) -> Result<(), Error> {
 }
 
 pub(crate) struct SimEngine {
-    pub(crate) companies: std::collections::BTreeMap<model::company_id::CompanyId, model::company::Company>,
+    pub(crate) companies:
+        std::collections::BTreeMap<model::company_id::CompanyId, model::company::Company>,
     pub(crate) stores: std::collections::BTreeMap<model::store_id::StoreId, model::store::Store>,
-    pub(crate) inventories: std::collections::BTreeMap<model::store_id::StoreId, model::inventory::Inventory>,
+    pub(crate) inventories:
+        std::collections::BTreeMap<model::store_id::StoreId, model::inventory::Inventory>,
     pub(crate) ledger: finance::ledger::Ledger,
     pub(crate) clock: time::tick_clock::TickClock,
     pub(crate) rng_state: u64,
@@ -235,7 +276,10 @@ pub(crate) fn create_engine(config: &config::sim_config::SimConfig) -> SimEngine
     }
 }
 
-pub(crate) fn run_simulation(engine: &mut SimEngine, config: &config::sim_config::SimConfig) -> events::event_log::EventLog {
+pub(crate) fn run_simulation(
+    engine: &mut SimEngine,
+    config: &config::sim_config::SimConfig,
+) -> events::event_log::EventLog {
     let mut event_log = events::event_log::EventLog::new();
 
     while !engine.clock.is_done() {

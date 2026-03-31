@@ -2,11 +2,11 @@ use crate::config::sim_config::{CompanyConfig, SimConfig, StoreConfig};
 use crate::demand::customer_segment::CustomerSegment;
 use crate::demand::demand_model::DemandModel;
 use crate::model::good::Good;
+use crate::model::store_id::StoreId;
 use crate::pricing::pricing_policy::PricingPolicy;
 use crate::report::sim_report::SimReport;
 use crate::supply::contract::Contract;
 use crate::supply::supplier::SupplierId;
-use crate::model::store_id::StoreId;
 
 #[test]
 fn two_runs_same_seed_produce_same_hash() {
@@ -16,7 +16,9 @@ fn two_runs_same_seed_produce_same_hash() {
         companies: vec![CompanyConfig {
             name: "TestCo".into(),
             budget: 100000,
-            stores: vec![StoreConfig { name: "Store A".into() }],
+            stores: vec![StoreConfig {
+                name: "Store A".into(),
+            }],
         }],
         contracts: vec![Contract {
             supplier_id: SupplierId(0),

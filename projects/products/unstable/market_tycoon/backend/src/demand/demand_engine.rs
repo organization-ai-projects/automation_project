@@ -25,12 +25,21 @@ impl DemandEngine {
         for segment in segments {
             let demand = Self::compute_demand(segment, model, rng_val);
             for (sid, inv) in inventories.iter_mut() {
-                let price = inv.get_price(&segment.good).map(|p| p.cents()).unwrap_or(model.base_price_reference);
+                let price = inv
+                    .get_price(&segment.good)
+                    .map(|p| p.cents())
+                    .unwrap_or(model.base_price_reference);
                 let units_to_buy = demand.min(inv.get_stock(&segment.good));
                 if units_to_buy > 0 && inv.remove_stock(segment.good, units_to_buy) {
                     let revenue = price * units_to_buy as i64;
                     ledger.record(Transaction::sale(*tick, *sid, revenue));
-                    event_log.push(SimEvent::sale(*tick, *sid, segment.good, units_to_buy, revenue));
+                    event_log.push(SimEvent::sale(
+                        *tick,
+                        *sid,
+                        segment.good,
+                        units_to_buy,
+                        revenue,
+                    ));
                 }
             }
         }

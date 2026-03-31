@@ -2,10 +2,10 @@ use crate::config::sim_config::{CompanyConfig, SimConfig, StoreConfig};
 use crate::demand::customer_segment::CustomerSegment;
 use crate::demand::demand_model::DemandModel;
 use crate::model::good::Good;
+use crate::model::store_id::StoreId;
 use crate::pricing::pricing_policy::PricingPolicy;
 use crate::supply::contract::Contract;
 use crate::supply::supplier::SupplierId;
-use crate::model::store_id::StoreId;
 
 #[test]
 fn pricing_war_reduces_margins() {
@@ -16,12 +16,16 @@ fn pricing_war_reduces_margins() {
             CompanyConfig {
                 name: "AlphaCorp".into(),
                 budget: 100000,
-                stores: vec![StoreConfig { name: "Alpha Store".into() }],
+                stores: vec![StoreConfig {
+                    name: "Alpha Store".into(),
+                }],
             },
             CompanyConfig {
                 name: "BetaCorp".into(),
                 budget: 100000,
-                stores: vec![StoreConfig { name: "Beta Store".into() }],
+                stores: vec![StoreConfig {
+                    name: "Beta Store".into(),
+                }],
             },
         ],
         contracts: vec![

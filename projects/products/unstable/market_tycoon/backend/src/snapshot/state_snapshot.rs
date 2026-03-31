@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::SimEngine;
 use crate::events::event_log::EventLog;
 use crate::snapshot::snapshot_hash::SnapshotHash;
-use crate::SimEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateSnapshot {
