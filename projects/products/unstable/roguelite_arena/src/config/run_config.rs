@@ -50,13 +50,9 @@ impl RunConfig {
                 }
                 "--scenario" => {
                     i += 1;
-                    scenario_path = Some(PathBuf::from(
-                        args.get(i).ok_or_else(|| {
-                            RogueliteArenaError::InvalidConfig(
-                                "missing --scenario value".to_string(),
-                            )
-                        })?,
-                    ));
+                    scenario_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
+                        RogueliteArenaError::InvalidConfig("missing --scenario value".to_string())
+                    })?));
                 }
                 "--out" => {
                     i += 1;
@@ -67,9 +63,7 @@ impl RunConfig {
                 "--replay-out" => {
                     i += 1;
                     replay_out_path = Some(PathBuf::from(args.get(i).ok_or_else(|| {
-                        RogueliteArenaError::InvalidConfig(
-                            "missing --replay-out value".to_string(),
-                        )
+                        RogueliteArenaError::InvalidConfig("missing --replay-out value".to_string())
                     })?));
                 }
                 _ => {}

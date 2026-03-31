@@ -104,17 +104,15 @@ fn parse_replay_args(
         match args[i].as_str() {
             "--replay" => {
                 i += 1;
-                replay_path = Some(std::path::PathBuf::from(
-                    args.get(i)
-                        .ok_or_else(|| RogueliteArenaError::InvalidConfig("missing --replay value".to_string()))?,
-                ));
+                replay_path = Some(std::path::PathBuf::from(args.get(i).ok_or_else(|| {
+                    RogueliteArenaError::InvalidConfig("missing --replay value".to_string())
+                })?));
             }
             "--out" => {
                 i += 1;
-                out_path = Some(std::path::PathBuf::from(
-                    args.get(i)
-                        .ok_or_else(|| RogueliteArenaError::InvalidConfig("missing --out value".to_string()))?,
-                ));
+                out_path = Some(std::path::PathBuf::from(args.get(i).ok_or_else(|| {
+                    RogueliteArenaError::InvalidConfig("missing --out value".to_string())
+                })?));
             }
             _ => {}
         }

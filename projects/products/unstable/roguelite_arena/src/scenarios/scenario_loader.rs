@@ -30,9 +30,24 @@ impl ScenarioLoader {
                 player_attack: 12,
                 player_defense: 5,
                 waves: vec![
-                    WaveTemplate { enemy_count: 3, enemy_hp: 30, enemy_attack: 8, enemy_defense: 3 },
-                    WaveTemplate { enemy_count: 2, enemy_hp: 50, enemy_attack: 15, enemy_defense: 6 },
-                    WaveTemplate { enemy_count: 1, enemy_hp: 100, enemy_attack: 20, enemy_defense: 10 },
+                    WaveTemplate {
+                        enemy_count: 3,
+                        enemy_hp: 30,
+                        enemy_attack: 8,
+                        enemy_defense: 3,
+                    },
+                    WaveTemplate {
+                        enemy_count: 2,
+                        enemy_hp: 50,
+                        enemy_attack: 15,
+                        enemy_defense: 6,
+                    },
+                    WaveTemplate {
+                        enemy_count: 1,
+                        enemy_hp: 100,
+                        enemy_attack: 20,
+                        enemy_defense: 10,
+                    },
                 ],
             },
             _ => Scenario {
@@ -41,8 +56,18 @@ impl ScenarioLoader {
                 player_attack: 10,
                 player_defense: 3,
                 waves: vec![
-                    WaveTemplate { enemy_count: 2, enemy_hp: 20, enemy_attack: 5, enemy_defense: 2 },
-                    WaveTemplate { enemy_count: 3, enemy_hp: 25, enemy_attack: 7, enemy_defense: 3 },
+                    WaveTemplate {
+                        enemy_count: 2,
+                        enemy_hp: 20,
+                        enemy_attack: 5,
+                        enemy_defense: 2,
+                    },
+                    WaveTemplate {
+                        enemy_count: 3,
+                        enemy_hp: 25,
+                        enemy_attack: 7,
+                        enemy_defense: 3,
+                    },
                 ],
             },
         }

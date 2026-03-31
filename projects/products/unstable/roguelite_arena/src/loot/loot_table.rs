@@ -17,11 +17,36 @@ impl LootTable {
     pub(crate) fn default_table() -> Self {
         Self {
             items: vec![
-                LootEntry { name: "Iron Sword".to_string(), attack_bonus: 2, defense_bonus: 0, hp_bonus: 0 },
-                LootEntry { name: "Wooden Shield".to_string(), attack_bonus: 0, defense_bonus: 2, hp_bonus: 0 },
-                LootEntry { name: "Health Potion".to_string(), attack_bonus: 0, defense_bonus: 0, hp_bonus: 10 },
-                LootEntry { name: "Rusty Dagger".to_string(), attack_bonus: 1, defense_bonus: 0, hp_bonus: 0 },
-                LootEntry { name: "Leather Armor".to_string(), attack_bonus: 0, defense_bonus: 1, hp_bonus: 5 },
+                LootEntry {
+                    name: "Iron Sword".to_string(),
+                    attack_bonus: 2,
+                    defense_bonus: 0,
+                    hp_bonus: 0,
+                },
+                LootEntry {
+                    name: "Wooden Shield".to_string(),
+                    attack_bonus: 0,
+                    defense_bonus: 2,
+                    hp_bonus: 0,
+                },
+                LootEntry {
+                    name: "Health Potion".to_string(),
+                    attack_bonus: 0,
+                    defense_bonus: 0,
+                    hp_bonus: 10,
+                },
+                LootEntry {
+                    name: "Rusty Dagger".to_string(),
+                    attack_bonus: 1,
+                    defense_bonus: 0,
+                    hp_bonus: 0,
+                },
+                LootEntry {
+                    name: "Leather Armor".to_string(),
+                    attack_bonus: 0,
+                    defense_bonus: 1,
+                    hp_bonus: 5,
+                },
             ],
         }
     }

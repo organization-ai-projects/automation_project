@@ -93,11 +93,7 @@ impl CombatEngine {
             if state.current_wave.as_ref().map_or(true, |w| w.is_cleared()) {
                 if (state.wave_index as usize) < scenario.waves.len() {
                     let template = &scenario.waves[state.wave_index as usize];
-                    let wave = Self::spawn_wave(
-                        state.wave_index,
-                        template,
-                        &mut enemy_id_counter,
-                    );
+                    let wave = Self::spawn_wave(state.wave_index, template, &mut enemy_id_counter);
                     event_log.record(
                         current_tick,
                         ArenaEvent::WaveStarted {
@@ -187,7 +183,9 @@ impl CombatEngine {
                             state.enemies_killed += 1;
                             event_log.record(
                                 current_tick,
-                                ArenaEvent::EnemyDefeated { enemy_id: enemy_mut.id },
+                                ArenaEvent::EnemyDefeated {
+                                    enemy_id: enemy_mut.id,
+                                },
                             );
 
                             // Loot drop
@@ -212,7 +210,8 @@ impl CombatEngine {
                             state.player.attack += item.attack_bonus;
                             state.player.defense += item.defense_bonus;
                             state.player.max_hp += item.hp_bonus;
-                            state.player.hp = (state.player.hp + item.hp_bonus).min(state.player.max_hp);
+                            state.player.hp =
+                                (state.player.hp + item.hp_bonus).min(state.player.max_hp);
                             state.player.equipped_items.push(item.id);
 
                             event_log.record(
@@ -264,11 +263,8 @@ impl CombatEngine {
                         resolved_index: enemy_hit_resolved as usize,
                     });
 
-                    let enemy_result = Self::resolve_hit(
-                        enemy_attack,
-                        state.player.defense,
-                        enemy_hit_resolved,
-                    );
+                    let enemy_result =
+                        Self::resolve_hit(enemy_attack, state.player.defense, enemy_hit_resolved);
 
                     let enemy_dmg = enemy_result.damage_dealt();
                     total_damage_taken += enemy_dmg as u64;
@@ -311,11 +307,7 @@ impl CombatEngine {
         Ok(report)
     }
 
-    fn spawn_wave(
-        wave_index: u32,
-        template: &WaveTemplate,
-        enemy_id_counter: &mut u32,
-    ) -> Wave {
+    fn spawn_wave(wave_index: u32, template: &WaveTemplate, enemy_id_counter: &mut u32) -> Wave {
         let mut enemies = Vec::new();
         for _ in 0..template.enemy_count {
             enemies.push(Enemy {
@@ -339,7 +331,9 @@ impl CombatEngine {
         } else if roll >= 90 {
             let base = attacker_power.saturating_sub(defender_defense / 2);
             let crit_damage = (base * 2).max(1);
-            HitResult::Critical { amount: crit_damage }
+            HitResult::Critical {
+                amount: crit_damage,
+            }
         } else {
             let damage = attacker_power.saturating_sub(defender_defense).max(1);
             HitResult::Damage { amount: damage }

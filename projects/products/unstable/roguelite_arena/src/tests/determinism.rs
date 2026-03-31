@@ -16,6 +16,9 @@ fn full_run_deterministic_across_scenarios() {
 fn run_report_has_valid_hash() {
     let scenario = ScenarioLoader::default_scenario("arena_basic");
     let (report, _) = CombatEngine::run(&scenario, 50, 42).unwrap();
-    assert!(!report.run_hash.0.is_empty(), "run hash should not be empty");
+    assert!(
+        !report.run_hash.0.is_empty(),
+        "run hash should not be empty"
+    );
     assert_eq!(report.run_hash.0.len(), 64, "sha256 hex should be 64 chars");
 }

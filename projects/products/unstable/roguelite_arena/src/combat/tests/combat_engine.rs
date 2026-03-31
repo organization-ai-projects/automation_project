@@ -43,8 +43,18 @@ fn snapshot_hashes_computed_every_10_ticks() {
         player_attack: 5,
         player_defense: 10,
         waves: vec![
-            WaveTemplate { enemy_count: 5, enemy_hp: 100, enemy_attack: 1, enemy_defense: 3 },
-            WaveTemplate { enemy_count: 5, enemy_hp: 100, enemy_attack: 1, enemy_defense: 3 },
+            WaveTemplate {
+                enemy_count: 5,
+                enemy_hp: 100,
+                enemy_attack: 1,
+                enemy_defense: 3,
+            },
+            WaveTemplate {
+                enemy_count: 5,
+                enemy_hp: 100,
+                enemy_attack: 1,
+                enemy_defense: 3,
+            },
         ],
     };
     let (report, _) = CombatEngine::run(&scenario, 30, 42).unwrap();
