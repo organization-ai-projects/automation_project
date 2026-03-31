@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 
 use protocol::ProtocolId;
+use common::Id128;
 
 use crate::{
     aggregator::AggregationStrategy,
@@ -46,7 +47,7 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
         .with_max_governance_state_snapshots(8)
         .with_max_traces(256)
         .build();
-    let expert_id = ProtocolId::generate();
+    let expert_id = ProtocolId::new(Id128::new(0, None, None));
     runtime_pipeline.register_expert(Box::new(EchoExpert::new_with_id(
         expert_id,
         "runtime_wired",
@@ -72,7 +73,7 @@ pub(crate) fn run_runtime_persistence_checks_with_report()
         relevance: 0.7,
         metadata: HashMap::new(),
     })?;
-    let session_id = ProtocolId::generate();
+    let session_id = ProtocolId::new(Id128::new(0, None, None));
     runtime_pipeline.put_session_buffer(&session_id, "note", "persist");
     let runtime_task = Task::new_with_id(session_id, TaskType::CodeGeneration, "clean")
         .with_metadata("session_id", session_id.to_string())

@@ -3,6 +3,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use protocol::ProtocolId;
+use common::Id128;
 use threadpool::ThreadPool;
 
 use crate::{
@@ -44,7 +45,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     tracing::info!("Buffer variants wired: {}", buffer_variants.len());
 
     let task_id = moe_core::TaskId::new();
-    let valid_protocol_id = ProtocolId::generate();
+    let valid_protocol_id = ProtocolId::new(Id128::new(0, None, None));
     let expert_id = ExpertId::new();
 
     let entry = BufferEntry::new("k", "v", 1)
@@ -96,7 +97,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     let mut direct_working = WorkingBuffer::new(1);
     direct_working.put("direct", "value", None);
     let mut direct_sessions = SessionBuffer::new();
-    let direct_session_id = ProtocolId::generate();
+    let direct_session_id = ProtocolId::new(Id128::new(0, None, None));
     direct_sessions.create_session(&direct_session_id);
     direct_sessions.put(&direct_session_id, "k", "v");
     tracing::info!(
@@ -125,7 +126,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     let mut dataset_store = DatasetStore::new();
     dataset_store.add_entry(dataset_entry.clone());
     let manual_entry = DatasetEntry {
-        id: ProtocolId::generate(),
+        id: ProtocolId::new(Id128::new(0, None, None)),
         task_id: task_id.clone(),
         expert_id: expert_id.clone(),
         input: "manual-input".to_string(),
@@ -284,7 +285,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
 
     let mut feedback_store = FeedbackStore::new();
     feedback_store.add(FeedbackEntry {
-        id: ProtocolId::generate(),
+        id: ProtocolId::new(Id128::new(0, None, None)),
         task_id: task_id.clone(),
         expert_id: expert_id.clone(),
         feedback_type: FeedbackType::Positive,
@@ -368,7 +369,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     );
 
     let mut chunk = Chunk::new(
-        ProtocolId::generate(),
+        ProtocolId::new(Id128::new(0, None, None)),
         "Rust systems programming",
         "doc://a",
         0,
@@ -396,7 +397,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     retriever.add_document(chunk);
     retriever.add_document(
         Chunk::new(
-            ProtocolId::generate(),
+            ProtocolId::new(Id128::new(0, None, None)),
             "Rust async ecosystem",
             "doc://b",
             0,
@@ -415,13 +416,13 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     let retrieved = retriever_port.retrieve(&query)?;
 
     let synthetic =
-        RetrievalResult::new(ProtocolId::generate(), "manual context", 0.4, "manual://ctx")
+        RetrievalResult::new(ProtocolId::new(Id128::new(0, None, None)), "manual context", 0.4, "manual://ctx")
             .with_metadata("kind", "manual");
     let mut all_results = retrieved.clone();
     all_results.push(synthetic);
 
     let task_for_context = Task::new_with_id(
-        ProtocolId::generate(),
+        ProtocolId::new(Id128::new(0, None, None)),
         TaskType::Retrieval,
         "need retrieval context",
     )
@@ -498,28 +499,28 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
 
     let mut guard = PolicyGuard::new();
     guard.add_policy(Policy {
-        id: ProtocolId::from_str("safety").unwrap_or_else(|_| ProtocolId::generate()),
+        id: ProtocolId::from_str("safety").unwrap_or_else(|_| ProtocolId::new(Id128::new(0, None, None))),
         name: "Safety".to_string(),
         description: "Unsafe marker check".to_string(),
         policy_type: PolicyType::SafetyCheck,
         active: true,
     });
     guard.add_policy(Policy {
-        id: ProtocolId::from_str("format").unwrap_or_else(|_| ProtocolId::generate()),
+        id: ProtocolId::from_str("format").unwrap_or_else(|_| ProtocolId::new(Id128::new(0, None, None))),
         name: "Format".to_string(),
         description: "Format check".to_string(),
         policy_type: PolicyType::FormatValidation,
         active: true,
     });
     guard.add_policy(Policy {
-        id: ProtocolId::from_str("content").unwrap_or_else(|_| ProtocolId::generate()),
+        id: ProtocolId::from_str("content").unwrap_or_else(|_| ProtocolId::new(Id128::new(0, None, None))),
         name: "Content".to_string(),
         description: "Content check".to_string(),
         policy_type: PolicyType::ContentFilter,
         active: true,
     });
     guard.add_policy(Policy {
-        id: ProtocolId::from_str("custom").unwrap_or_else(|_| ProtocolId::generate()),
+        id: ProtocolId::from_str("custom").unwrap_or_else(|_| ProtocolId::new(Id128::new(0, None, None))),
         name: "Custom".to_string(),
         description: "Custom check".to_string(),
         policy_type: PolicyType::Custom("always-pass".to_string()),
@@ -536,7 +537,7 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     let first_policy_result: Option<PolicyResult> = policy_results.first().cloned();
     guard.validate_strict(&output)?;
     let removed_policy = guard
-        .remove_policy(&ProtocolId::from_str("custom").unwrap_or_else(|_| ProtocolId::generate()));
+        .remove_policy(&ProtocolId::from_str("custom").unwrap_or_else(|_| ProtocolId::new(Id128::new(0, None, None))));
     tracing::info!(
         "Policy guard: results={} active={} removed_custom={}",
         policy_results.len(),
@@ -552,18 +553,18 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
     }
 
     let mut registry = ExpertRegistry::new();
-    let router_codegen_id = ProtocolId::generate();
+    let router_codegen_id = ProtocolId::new(Id128::new(0, None, None));
     registry.register(Box::new(SpecializedExpert::code_generation_with_id(
         router_codegen_id,
         "router_codegen",
     )))?;
-    let router_retrieval_id = ProtocolId::generate();
+    let router_retrieval_id = ProtocolId::new(Id128::new(0, None, None));
     registry.register(Box::new(SpecializedExpert::validation_with_id(
         router_retrieval_id,
         "router_validator",
     )))?;
     let route_task = Task::new_with_id(
-        ProtocolId::generate(),
+        ProtocolId::new(Id128::new(0, None, None)),
         TaskType::CodeGeneration,
         "build routing",
     );
@@ -603,24 +604,24 @@ pub(crate) fn cmd_impl_check() -> Result<(), DynError> {
         .with_max_traces(128)
         .build();
     pipeline.register_expert(Box::new(SpecializedExpert::code_generation_with_id(
-        ProtocolId::generate(),
+        ProtocolId::new(Id128::new(0, None, None)),
         "pipeline_codegen",
     )))?;
     pipeline.add_policy(Policy {
-        id: ProtocolId::generate(),
+        id: ProtocolId::new(Id128::new(0, None, None)),
         name: "Length".to_string(),
         description: "max length".to_string(),
         policy_type: PolicyType::LengthLimit(10_000),
         active: true,
     });
     let pipeline_task = Task::new_with_id(
-        ProtocolId::generate(),
+        ProtocolId::new(Id128::new(0, None, None)),
         TaskType::CodeGeneration,
         "build component graph",
     );
     let pipeline_result = pipeline.execute(pipeline_task)?;
     pipeline.add_feedback(FeedbackEntry {
-        id: ProtocolId::generate(),
+        id: ProtocolId::new(Id128::new(0, None, None)),
         task_id: task_id.clone(),
         expert_id: expert_id.clone(),
         feedback_type: FeedbackType::Suggestion,

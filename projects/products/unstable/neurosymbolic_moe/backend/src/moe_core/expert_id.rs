@@ -1,4 +1,5 @@
 use protocol::ProtocolId;
+use common::Id128;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
@@ -8,7 +9,7 @@ pub(crate) struct ExpertId(pub(crate) ProtocolId);
 
 impl ExpertId {
     pub fn new() -> Self {
-        Self(ProtocolId::generate())
+        Self(ProtocolId::new(Id128::new(0, None, None)))
     }
 
     pub fn from_protocol_id(id: ProtocolId) -> Self {

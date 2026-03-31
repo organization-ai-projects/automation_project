@@ -1,5 +1,6 @@
 //! projects/products/unstable/neurosymbolic_moe/backend/src/retrieval_engine/chunker.rs
 use protocol::ProtocolId;
+use common::Id128;
 use serde::{Deserialize, Serialize};
 
 use super::chunk::Chunk;
@@ -35,7 +36,7 @@ impl Chunker {
             offset = byte_end;
 
             chunks.push(Chunk::new(
-                ProtocolId::generate(),
+                ProtocolId::new(Id128::new(0, None, None)),
                 content,
                 source,
                 byte_start,
@@ -68,7 +69,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                ProtocolId::generate(),
+                ProtocolId::new(Id128::new(0, None, None)),
                 trimmed,
                 source,
                 start,
@@ -102,7 +103,7 @@ impl Chunker {
             let end = start + trimmed.len();
 
             chunks.push(Chunk::new(
-                ProtocolId::generate(),
+                ProtocolId::new(Id128::new(0, None, None)),
                 trimmed,
                 source,
                 start,

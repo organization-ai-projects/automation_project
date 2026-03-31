@@ -4,6 +4,7 @@ use crate::moe_core::{ExpertId, TaskId, TraceRecord};
 
 use super::{DatasetEntry, Outcome};
 use protocol::ProtocolId;
+use common::Id128;
 
 #[derive(Debug, Clone)]
 pub struct TraceConverter;
@@ -44,7 +45,7 @@ impl TraceConverter {
         let tags = self.extract_tags(traces);
 
         DatasetEntry {
-            id: ProtocolId::generate(),
+            id: ProtocolId::new(Id128::new(0, None, None)),
             task_id,
             expert_id,
             input: input.to_string(),

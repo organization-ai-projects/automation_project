@@ -17,6 +17,7 @@ use anyhow::Context;
 use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use protocol::protocol_id::ProtocolId;
+use common::Id128;
 use protocol::{Command, CommandType, Metadata, Payload};
 use security::{Role, TokenService};
 #[cfg(unix)]
@@ -77,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let token_service = TokenService::new_hs256(&jwt_secret).context("invalid jwt secret")?;
-    let subject = ProtocolId::generate();
+    let subject = ProtocolId::new(Id128::new(0, None, None));
     let token = token_service
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
         .context("issue token")?;

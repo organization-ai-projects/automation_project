@@ -13,14 +13,6 @@ impl ProtocolId {
         Self(id)
     }
 
-    /// Generates a fresh protocol identity with a unique timestamp and random fields.
-    ///
-    /// Use this when creating a new protocol-level identifier. Prefer this over
-    /// `ProtocolId::default()` at any call site that requires a genuinely unique identity.
-    pub fn generate() -> Self {
-        Self(Id128::new(0, None, None))
-    }
-
     pub fn to_hex(&self) -> String {
         self.0.to_hex()
     }

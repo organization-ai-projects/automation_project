@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use protocol::ProtocolId;
+use common::Id128;
 
 use crate::moe_core::{
     ExecutionContext, Expert, ExpertCapability, ExpertError, ExpertId, ExpertMetadata,
@@ -23,7 +24,7 @@ pub(crate) struct SpecializedExpert {
 
 impl SpecializedExpert {
     pub(crate) fn planning(name: &str) -> Self {
-        Self::planning_with_id(ProtocolId::generate(), name)
+        Self::planning_with_id(ProtocolId::new(Id128::new(0, None, None)), name)
     }
 
     pub(crate) fn planning_with_id(id: ProtocolId, name: &str) -> Self {
@@ -40,7 +41,7 @@ impl SpecializedExpert {
     }
 
     pub(crate) fn code_generation(name: &str) -> Self {
-        Self::code_generation_with_id(ProtocolId::generate(), name)
+        Self::code_generation_with_id(ProtocolId::new(Id128::new(0, None, None)), name)
     }
 
     pub(crate) fn code_generation_with_id(id: ProtocolId, name: &str) -> Self {
@@ -54,7 +55,7 @@ impl SpecializedExpert {
     }
 
     pub(crate) fn code_transformation(name: &str) -> Self {
-        Self::code_transformation_with_id(ProtocolId::generate(), name)
+        Self::code_transformation_with_id(ProtocolId::new(Id128::new(0, None, None)), name)
     }
 
     pub(crate) fn code_transformation_with_id(id: ProtocolId, name: &str) -> Self {
@@ -71,7 +72,7 @@ impl SpecializedExpert {
     }
 
     pub(crate) fn validation(name: &str) -> Self {
-        Self::validation_with_id(ProtocolId::generate(), name)
+        Self::validation_with_id(ProtocolId::new(Id128::new(0, None, None)), name)
     }
 
     pub(crate) fn validation_with_id(id: ProtocolId, name: &str) -> Self {

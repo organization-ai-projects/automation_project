@@ -1,5 +1,6 @@
 // projects/products/code_agent_sandbox/src/engine/engine_init.rs
 use anyhow::{Context, Result};
+use common::Id128;
 use common_time::timestamp_utils::current_timestamp_ms;
 use std::fs;
 
@@ -39,7 +40,7 @@ pub(crate) fn initialize_engine(
         Some(id) if !id.trim().is_empty() => id.trim().to_string(),
         _ => {
             let ts = current_timestamp_ms();
-            format!("{}_{}", ts, ProtocolId::generate())
+            format!("{}_{}", ts, ProtocolId::new(Id128::new(0, None, None)))
         }
     };
 

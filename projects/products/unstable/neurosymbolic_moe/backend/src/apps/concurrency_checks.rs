@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use protocol::ProtocolId;
+use common::Id128;
 
 use crate::{
     apps::DynError,
@@ -19,8 +20,8 @@ pub(crate) fn run_concurrent_pipeline_checks() -> Result<(), DynError> {
 pub(crate) fn run_concurrent_pipeline_checks_with_report()
 -> Result<ConcurrentOperationalReport, DynError> {
     let concurrent_pipeline = ConcurrentMoePipeline::from_builder(MoePipelineBuilder::new());
-    let expert_id = ProtocolId::generate();
-    let task_id = ProtocolId::generate();
+    let expert_id = ProtocolId::new(Id128::new(0, None, None));
+    let task_id = ProtocolId::new(Id128::new(0, None, None));
     concurrent_pipeline.register_expert(Box::new(EchoExpert::new_with_id(
         expert_id,
         "concurrent_runtime",

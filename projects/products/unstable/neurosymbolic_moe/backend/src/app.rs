@@ -11,6 +11,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+use common::Id128;
 use protocol::ProtocolId;
 
 use crate::aggregator::AggregationStrategy;
@@ -346,7 +347,7 @@ fn register_default_cli_experts(pipeline: &mut MoePipeline) -> Result<(), DynErr
 
 fn add_default_cli_policy(pipeline: &mut MoePipeline) {
     pipeline.add_policy(Policy {
-        id: ProtocolId::generate(),
+        id: ProtocolId::new(Id128::new(0, None, None)),
         name: "Output Length Check".to_string(),
         description: "Ensures output is not too long".to_string(),
         policy_type: PolicyType::LengthLimit(10000),

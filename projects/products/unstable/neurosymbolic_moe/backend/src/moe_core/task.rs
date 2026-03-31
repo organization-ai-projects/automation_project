@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use protocol::ProtocolId;
+use common::Id128;
 
 use super::task_id::TaskId;
 use super::task_priority::TaskPriority;
@@ -19,7 +20,7 @@ pub struct Task {
 
 impl Task {
     pub fn new(task_type: TaskType, input: impl Into<String>) -> Self {
-        Self::new_with_id(ProtocolId::generate(), task_type, input)
+        Self::new_with_id(ProtocolId::new(Id128::new(0, None, None)), task_type, input)
     }
 
     pub fn new_with_id(id: ProtocolId, task_type: TaskType, input: impl Into<String>) -> Self {

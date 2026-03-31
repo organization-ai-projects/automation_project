@@ -61,7 +61,7 @@ pub struct RunId(ProtocolId);
 
 impl RunId {
     pub fn new() -> Self {
-        let protocol_id = ProtocolId::generate();
+        let protocol_id = ProtocolId::new(Id128::new(0, None, None));
         Self(protocol_id)
     }
 }
@@ -83,7 +83,7 @@ pub struct ActorId(ProtocolId);
 
 impl ActorId {
     pub fn new() -> Self {
-        let protocol_id = ProtocolId::generate();
+        let protocol_id = ProtocolId::new(Id128::new(0, None, None));
         Self(protocol_id)
     }
 }

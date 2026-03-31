@@ -2,6 +2,7 @@
 use std::{cmp, collections};
 
 use protocol::ProtocolId;
+use common::Id128;
 
 use crate::dataset_engine;
 use crate::memory_engine::{MemoryQuery, MemoryStore};
@@ -526,7 +527,7 @@ impl MoePipeline {
                     .auto_improvement_status
                     .last_skip_reason = None;
                 self.push_trainer_trigger_event(TrainerTriggerEvent {
-                    event_id: ProtocolId::generate(),
+                    event_id: ProtocolId::new(Id128::new(0, None, None)),
                     model_version: model_version.clone(),
                     training_bundle_checksum: bundle.bundle_checksum.clone(),
                     included_entries: bundle.included_entries,

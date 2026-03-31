@@ -1,4 +1,5 @@
 use protocol::ProtocolId;
+use common::Id128;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -7,7 +8,7 @@ pub struct TaskId(pub ProtocolId);
 
 impl TaskId {
     pub fn new() -> Self {
-        Self(ProtocolId::generate())
+        Self(ProtocolId::new(Id128::new(0, None, None)))
     }
 
     pub fn from_protocol_id(id: ProtocolId) -> Self {
