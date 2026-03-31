@@ -9,7 +9,10 @@ use crate::neurosymbolic::NeurosymbolicEngine;
 
 /// Runs the full analysis pipeline: structural analysis, linting, and
 /// neurosymbolic AI insights.
-pub fn run_pipeline(config: &AnalyzerConfig, source: &str) -> Result<PipelineResult, AnalyzerError> {
+pub fn run_pipeline(
+    config: &AnalyzerConfig,
+    source: &str,
+) -> Result<PipelineResult, AnalyzerError> {
     let source_hash = {
         let mut hasher = Sha256::new();
         hasher.update(source.as_bytes());

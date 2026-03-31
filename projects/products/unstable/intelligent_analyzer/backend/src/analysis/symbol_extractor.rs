@@ -23,7 +23,9 @@ impl SymbolExtractor {
             for keyword in &["let ", "const ", "fn "] {
                 if let Some(rest) = trimmed.strip_prefix(keyword) {
                     let rest = rest.trim_start_matches("mut ");
-                    if let Some(name) = rest.split(|c: char| !c.is_alphanumeric() && c != '_').next()
+                    if let Some(name) = rest
+                        .split(|c: char| !c.is_alphanumeric() && c != '_')
+                        .next()
                     {
                         let name = name.trim();
                         if !name.is_empty() {
@@ -43,7 +45,10 @@ impl SymbolExtractor {
                 for word in trimmed.split(|c: char| !c.is_alphanumeric() && c != '_') {
                     let word = word.trim();
                     if !word.is_empty()
-                        && word.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_')
+                        && word
+                            .chars()
+                            .next()
+                            .is_some_and(|c| c.is_alphabetic() || c == '_')
                         && defined_names.contains(&word.to_string())
                     {
                         references.push((word.to_string(), line_num));

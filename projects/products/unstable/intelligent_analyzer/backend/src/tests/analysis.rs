@@ -8,8 +8,11 @@ use crate::analysis::SymbolExtractor;
 fn detect_unused_variable() {
     let source = "let x = 42;\nlet y = 10;\nprintln!(\"{}\", y);\n";
     let findings = CodeAnalysis::analyze(source);
-    assert!(findings.iter().any(|f| f.kind == FindingKind::UnusedVariable
-        && f.message.contains("x")));
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.kind == FindingKind::UnusedVariable && f.message.contains("x"))
+    );
 }
 
 #[test]
@@ -27,7 +30,11 @@ fn no_finding_when_all_variables_used() {
 fn detect_scope_violation() {
     let source = "fn main() {\n  let x = 1;\n}\n}\n";
     let findings = CodeAnalysis::analyze(source);
-    assert!(findings.iter().any(|f| f.kind == FindingKind::ScopeViolation));
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.kind == FindingKind::ScopeViolation)
+    );
 }
 
 #[test]
