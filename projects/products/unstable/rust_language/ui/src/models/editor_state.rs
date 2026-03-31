@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum EditorError {
     #[error("empty source code")]
     EmptySource,
-    #[error("missing .rhl content")]
+    #[error("missing .rhl content: {0}")]
     InvalidContent(String),
 }
 
