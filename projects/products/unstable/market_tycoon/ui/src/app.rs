@@ -1,25 +1,36 @@
-use crate::state::app_state::AppState;
+//! projects/products/unstable/market_tycoon/ui/src/app.rs
+use crate::state::AppState;
+use dioxus::prelude::*;
 
-pub struct App {
+pub(crate) struct App {
     state: AppState,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             state: AppState::new(),
         }
     }
 
-    pub fn state(&self) -> &AppState {
+    pub(crate) fn state(&self) -> &AppState {
         &self.state
     }
 
-    pub fn update_status(&mut self, status: String) {
+    pub(crate) fn update_status(&mut self, status: String) {
         self.state.set_status(status);
     }
 
-    pub fn set_report(&mut self, report_json: String) {
+    pub(crate) fn set_report(&mut self, report_json: String) {
         self.state.set_report(report_json);
     }
+}
+
+pub(crate) fn app() -> Element {
+    rsx!(
+        div {
+            h1 { "Market Tycoon UI" }
+            p { "Welcome to the application!" }
+        }
+    )
 }

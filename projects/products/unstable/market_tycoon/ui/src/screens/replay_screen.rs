@@ -1,10 +1,11 @@
-use crate::components::sim_report_view::SimReportView;
-use crate::components::status_banner::StatusBanner;
+//! projects/products/unstable/market_tycoon/ui/src/screens/replay_screen.rs
+use std::{env, error, fs, process};
 
-pub struct ReplayScreen;
+use crate::components::{SimReportView, StatusBanner};
+pub(crate) struct ReplayScreen;
 
 impl ReplayScreen {
-    pub fn execute(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn execute(args: &[String]) -> Result<(), Box<dyn error::Error>> {
         let mut replay_path = None;
         let mut out_path = None;
 
@@ -29,17 +30,17 @@ impl ReplayScreen {
 
         StatusBanner::print("Starting replay...");
 
-        let backend_bin = std::env::var("MARKET_TYCOON_BACKEND_BIN")
+        let backend_bin = env::var("MARKET_TYCOON_BACKEND_BIN")
             .unwrap_or_else(|_| "market_tycoon_backend".to_string());
 
-        let status = std::process::Command::new(&backend_bin)
+        let status = process::Command::new(&backend_bin)
             .args(["replay", "--replay", &replay, "--out", &out])
             .status()
             .map_err(|e| format!("Failed to run backend replay: {e}"))?;
 
         if status.success() {
             let report_data =
-                std::fs::read_to_string(&out).map_err(|e| format!("Failed to read report: {e}"))?;
+                fs::read_to_string(&out).map_err(|e| format!("Failed to read report: {e}"))?;
             SimReportView::display(&report_data);
             StatusBanner::print("Replay completed successfully.");
         } else {

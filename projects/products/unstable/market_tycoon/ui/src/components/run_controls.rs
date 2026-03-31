@@ -1,4 +1,5 @@
-pub struct RunControls {
+//! projects/products/unstable/market_tycoon/ui/src/components/run_controls.rs
+pub(crate) struct RunControls {
     seed: u64,
     ticks: u64,
 }

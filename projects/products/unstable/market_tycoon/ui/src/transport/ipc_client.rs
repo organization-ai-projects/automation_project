@@ -1,29 +1,19 @@
+//! projects/products/unstable/market_tycoon/ui/src/transport/ipc_client.rs
+use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
-use thiserror::Error;
+use crate::transport::IpcError;
 
-#[derive(Debug, Error)]
-pub enum IpcError {
-    #[error("process error: {0}")]
-    Process(String),
-
-    #[error("io error: {0}")]
-    Io(String),
-
-    #[error("protocol error: {0}")]
-    Protocol(String),
-}
-
-pub struct IpcClient {
+pub(crate) struct IpcClient {
     child: Child,
     next_id: u64,
 }
 
 impl IpcClient {
-    pub fn spawn(scenario: &Path) -> Result<Self, IpcError> {
-        let backend_bin = std::env::var("MARKET_TYCOON_BACKEND_BIN")
+    pub(crate) fn spawn(scenario: &Path) -> Result<Self, IpcError> {
+        let backend_bin = env::var("MARKET_TYCOON_BACKEND_BIN")
             .unwrap_or_else(|_| "market_tycoon_backend".to_string());
 
         let child = Command::new(&backend_bin)
@@ -39,7 +29,7 @@ impl IpcClient {
         Ok(Self { child, next_id: 1 })
     }
 
-    pub fn send_raw(&mut self, request_json: &str) -> Result<String, IpcError> {
+    pub(crate) fn send_raw(&mut self, request_json: &str) -> Result<String, IpcError> {
         let stdin = self
             .child
             .stdin
@@ -61,7 +51,7 @@ impl IpcClient {
         Ok(line)
     }
 
-    pub fn new_run(&mut self, seed: u64, ticks: u64) -> Result<String, IpcError> {
+    pub(crate) fn new_run(&mut self, seed: u64, ticks: u64) -> Result<String, IpcError> {
         let id = self.next_id;
         self.next_id += 1;
         let msg =
@@ -69,21 +59,21 @@ impl IpcClient {
         self.send_raw(&msg)
     }
 
-    pub fn run_to_end(&mut self) -> Result<String, IpcError> {
+    pub(crate) fn run_to_end(&mut self) -> Result<String, IpcError> {
         let id = self.next_id;
         self.next_id += 1;
         let msg = format!(r#"{{"id":{id},"request":{{"type":"RunToEnd"}}}}"#);
         self.send_raw(&msg)
     }
 
-    pub fn get_report(&mut self) -> Result<String, IpcError> {
+    pub(crate) fn get_report(&mut self) -> Result<String, IpcError> {
         let id = self.next_id;
         self.next_id += 1;
         let msg = format!(r#"{{"id":{id},"request":{{"type":"GetReport"}}}}"#);
         self.send_raw(&msg)
     }
 
-    pub fn shutdown(mut self) {
+    pub(crate) fn shutdown(mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }

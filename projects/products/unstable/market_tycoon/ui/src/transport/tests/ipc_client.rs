@@ -1,4 +1,4 @@
-use crate::transport::ipc_client::IpcError;
+use crate::transport::IpcError;
 
 #[test]
 fn ipc_error_display() {
