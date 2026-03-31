@@ -126,6 +126,7 @@ members = [
   "projects/products/unstable/rust_language/backend",
   "projects/products/unstable/rust_language/ui",
   "projects/products/unstable/fuzz_harness/backend",
+  "projects/products/unstable/fuzz_harness/ui",
 ]
 resolver = "2"
 

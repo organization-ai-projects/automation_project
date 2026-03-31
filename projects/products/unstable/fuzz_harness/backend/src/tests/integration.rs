@@ -1,3 +1,4 @@
+use crate::io::JsonCodec;
 use crate::model::{FuzzResult, FuzzTarget};
 use crate::replay::ReplayEngine;
 use crate::replay::ReplayFile;
@@ -92,4 +93,38 @@ fn full_pipeline_deterministic() {
 
     assert_eq!(shrink_a.shrunk_input.data, shrink_b.shrunk_input.data);
     assert_eq!(shrink_a.shrink_steps, shrink_b.shrink_steps);
+}
+
+#[test]
+fn replay_file_round_trip_via_json() {
+    let report = FuzzRunner::run(&DummyTarget, 42, 1000).unwrap();
+    let first_failure = &report.failures[0];
+
+    let replay = ReplayFile {
+        target_name: "dummy".to_string(),
+        seed: 42,
+        input: first_failure.input.clone(),
+        failure_message: first_failure.message.clone(),
+    };
+
+    let dir = std::env::temp_dir().join("fuzz_harness_test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("test_replay.json");
+
+    JsonCodec::save_replay_file(&replay, &path).unwrap();
+    let loaded = JsonCodec::load_replay_file(&path).unwrap();
+
+    assert_eq!(loaded.target_name, replay.target_name);
+    assert_eq!(loaded.seed, replay.seed);
+    assert_eq!(loaded.input.data, replay.input.data);
+    assert_eq!(loaded.input.index, replay.input.index);
+    assert_eq!(loaded.failure_message, replay.failure_message);
+
+    let result = ReplayEngine::replay(&DummyTarget, &loaded).unwrap();
+    match result {
+        FuzzResult::Fail(_) => {}
+        FuzzResult::Pass => panic!("loaded replay should reproduce the failure"),
+    }
+
+    std::fs::remove_dir_all(&dir).ok();
 }
