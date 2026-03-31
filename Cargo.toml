@@ -111,12 +111,16 @@ members = [
   "projects/products/unstable/system_protect/ui",
   "projects/products/unstable/monster_catcher/backend",
   "projects/products/unstable/monster_catcher/ui",
+  "projects/products/unstable/roguelite_arena/backend",
+  "projects/products/unstable/roguelite_arena/ui",
   "projects/products/unstable/econ_sandbox/backend",
   "projects/products/unstable/econ_sandbox/ui",
   "projects/products/unstable/tactics_grid/backend",
   "projects/products/unstable/tactics_grid/ui",
   "projects/products/unstable/weather_reasoning_sandbox/backend",
   "projects/products/unstable/weather_reasoning_sandbox/ui",
+  "projects/products/unstable/story_weaver/backend",
+  "projects/products/unstable/story_weaver/ui",
 ]
 resolver = "2"
 
