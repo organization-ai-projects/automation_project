@@ -15,7 +15,7 @@ impl NeurosymbolicEngine {
         Ok(Self { ai })
     }
 
-    /// Analyse source code using the hybrid neuro-symbolic strategy.
+    /// Analyze source code using the hybrid neuro-symbolic strategy.
     pub fn analyze(&mut self, source: &str) -> Result<Vec<Insight>, AnalyzerError> {
         let task = Task::new_code_analysis(source.to_string());
         let result = self

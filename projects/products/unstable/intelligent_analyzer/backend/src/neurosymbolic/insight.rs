@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::insight_kind::InsightKind;
 
-/// An AI-generated insight about the analysed source code.
+/// An AI-generated insight about the analyzed source code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Insight {
     pub kind: InsightKind,
