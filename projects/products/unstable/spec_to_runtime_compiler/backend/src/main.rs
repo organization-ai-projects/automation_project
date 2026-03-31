@@ -275,11 +275,9 @@ fn compile_from_source(
     let project_emitter = ProjectEmitter::new();
     let project_artifacts = project_emitter.emit(&runtime_spec);
 
-    let artifact_count =
-        runtime_artifacts.len() + test_artifacts.len() + project_artifacts.len();
+    let artifact_count = runtime_artifacts.len() + test_artifacts.len() + project_artifacts.len();
 
-    let manifest_hash =
-        output::artifact_manifest::compute_manifest_hash(&runtime_artifacts);
+    let manifest_hash = output::artifact_manifest::compute_manifest_hash(&runtime_artifacts);
     let manifest = build_manifest(&runtime_artifacts, &manifest_hash);
     let manifest_json = common_json::to_string(&manifest)
         .map_err(|e| CompilerError::Internal(format!("manifest serialization failed: {e}")))?;

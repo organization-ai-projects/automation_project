@@ -60,12 +60,10 @@ mod tests {
     #[test]
     fn detects_self_loop() {
         let ast = SpecAst {
-            states: vec![
-                StateNode {
-                    name: "Idle".to_string(),
-                    fields: vec![],
-                },
-            ],
+            states: vec![StateNode {
+                name: "Idle".to_string(),
+                fields: vec![],
+            }],
             transitions: vec![TransitionNode {
                 from: "Idle".to_string(),
                 to: "Idle".to_string(),

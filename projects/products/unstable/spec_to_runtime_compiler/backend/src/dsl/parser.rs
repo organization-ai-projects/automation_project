@@ -173,7 +173,8 @@ mod tests {
 
     #[test]
     fn parse_transition() {
-        let mut parser = Parser::new("state Idle {}\nstate Running {}\ntransition Idle -> Running on start {}");
+        let mut parser =
+            Parser::new("state Idle {}\nstate Running {}\ntransition Idle -> Running on start {}");
         let ast = parser.parse().unwrap();
         assert_eq!(ast.transitions.len(), 1);
         assert_eq!(ast.transitions[0].from, "Idle");

@@ -45,11 +45,7 @@ impl RuntimeEmitter {
 
         out.push_str("#[derive(Debug, Clone, PartialEq)]\n");
         out.push_str("pub enum Event {\n");
-        let mut events: Vec<&str> = spec
-            .transitions
-            .iter()
-            .map(|t| t.event.as_str())
-            .collect();
+        let mut events: Vec<&str> = spec.transitions.iter().map(|t| t.event.as_str()).collect();
         events.sort();
         events.dedup();
         for event in &events {
@@ -181,7 +177,8 @@ mod tests {
 
     #[test]
     fn emit_is_deterministic() {
-        let source = "state Idle {}\nstate Running { tick: u64 }\ntransition Idle -> Running on start {}";
+        let source =
+            "state Idle {}\nstate Running { tick: u64 }\ntransition Idle -> Running on start {}";
 
         let mut parser1 = Parser::new(source);
         let ast1 = parser1.parse().unwrap();

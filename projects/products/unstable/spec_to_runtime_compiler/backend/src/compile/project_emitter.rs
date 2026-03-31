@@ -44,10 +44,7 @@ edition = "2021"
         }
         out.push_str("\n## Transitions\n\n");
         for t in &spec.transitions {
-            out.push_str(&format!(
-                "- {} → {} on `{}`\n",
-                t.from, t.to, t.event
-            ));
+            out.push_str(&format!("- {} → {} on `{}`\n", t.from, t.to, t.event));
         }
         out.push_str("\n## Invariants\n\n");
         for inv in &spec.invariants {
