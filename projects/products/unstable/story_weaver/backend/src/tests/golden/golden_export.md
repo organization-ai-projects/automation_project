@@ -11,46 +11,55 @@
 - **Rule Applied:** enter_forest
 - *location*: "village" → "forest"
 - You step into the dark forest.
+
 ### Step 1
 
 - **Rule Applied:** find_sword
 - *has_sword*: false → true
 - You find a gleaming sword.
+
 ### Step 2
 
 - **Rule Applied:** take_damage
 - *health*: 100 → 90
 - A branch scratches you.
+
 ### Step 3
 
 - **Rule Applied:** take_damage
 - *health*: 90 → 80
 - A branch scratches you.
+
 ### Step 4
 
 - **Rule Applied:** take_damage
 - *health*: 80 → 70
 - A branch scratches you.
+
 ### Step 5
 
 - **Rule Applied:** take_damage
 - *health*: 70 → 60
 - A branch scratches you.
+
 ### Step 6
 
 - **Rule Applied:** take_damage
 - *health*: 60 → 50
 - A branch scratches you.
+
 ### Step 7
 
 - **Rule Applied:** take_damage
 - *health*: 50 → 40
 - A branch scratches you.
+
 ### Step 8
 
 - **Rule Applied:** take_damage
 - *health*: 40 → 30
 - A branch scratches you.
+
 ### Step 9
 
 - **Rule Applied:** take_damage
