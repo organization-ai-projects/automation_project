@@ -1,5 +1,5 @@
-use crate::diagnostics::error::PatchsmithError;
 use super::dsl_op::DslOp;
+use crate::diagnostics::error::PatchsmithError;
 
 pub struct DslParser;
 
@@ -18,7 +18,9 @@ impl DslParser {
 
     fn validate(op: &DslOp) -> Result<(), PatchsmithError> {
         match op {
-            DslOp::ReplaceRange { file, start, end, .. } => {
+            DslOp::ReplaceRange {
+                file, start, end, ..
+            } => {
                 if file.is_empty() {
                     return Err(PatchsmithError::Parse(
                         "ReplaceRange: file must not be empty".into(),

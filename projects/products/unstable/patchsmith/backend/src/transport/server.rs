@@ -43,24 +43,22 @@ fn handle_request(request: Request, state: &mut ServerState) -> Response {
         Request::VerifyPlan {
             plan_json,
             file_contents,
-        } => {
-            match common_json::from_json_str::<crate::plan::patch_plan::PatchPlan>(&plan_json) {
-                Ok(plan) => match Applier::apply(&plan, &file_contents) {
-                    Ok(result) => {
-                        let verify = Verifier::verify(&plan, &result);
-                        let report = PatchReport::from_verify(&verify, plan.ops.len());
-                        let json = common_json::to_string(&report).unwrap_or_default();
-                        Response::VerifyReport { report_json: json }
-                    }
-                    Err(e) => Response::Error {
-                        message: e.to_string(),
-                    },
-                },
+        } => match common_json::from_json_str::<crate::plan::patch_plan::PatchPlan>(&plan_json) {
+            Ok(plan) => match Applier::apply(&plan, &file_contents) {
+                Ok(result) => {
+                    let verify = Verifier::verify(&plan, &result);
+                    let report = PatchReport::from_verify(&verify, plan.ops.len());
+                    let json = common_json::to_string(&report).unwrap_or_default();
+                    Response::VerifyReport { report_json: json }
+                }
                 Err(e) => Response::Error {
-                    message: format!("plan decode error: {e}"),
+                    message: e.to_string(),
                 },
-            }
-        }
+            },
+            Err(e) => Response::Error {
+                message: format!("plan decode error: {e}"),
+            },
+        },
         Request::Shutdown => Response::Ok,
     }
 }
@@ -69,9 +67,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
-    let mut state = ServerState {
-        current_plan: None,
-    };
+    let mut state = ServerState { current_plan: None };
 
     for line in stdin.lock().lines() {
         let line = line?;

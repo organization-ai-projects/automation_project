@@ -46,8 +46,7 @@ impl Applier {
                         content.len()
                     )));
                 }
-                let mut result =
-                    String::with_capacity(content.len() - (end - start) + text.len());
+                let mut result = String::with_capacity(content.len() - (end - start) + text.len());
                 result.push_str(&content[..start]);
                 result.push_str(text);
                 result.push_str(&content[end..]);

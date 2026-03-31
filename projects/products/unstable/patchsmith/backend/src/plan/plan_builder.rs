@@ -18,13 +18,26 @@ impl PlanBuilder {
         let mut hasher = Sha256::new();
         for op in &ops {
             let fragment = match op {
-                DslOp::ReplaceRange { file, start, end, text } => {
+                DslOp::ReplaceRange {
+                    file,
+                    start,
+                    end,
+                    text,
+                } => {
                     format!("ReplaceRange\0{file}\0{start}\0{end}\0{text}\0")
                 }
-                DslOp::ReplaceFirst { file, pattern, text } => {
+                DslOp::ReplaceFirst {
+                    file,
+                    pattern,
+                    text,
+                } => {
                     format!("ReplaceFirst\0{file}\0{pattern}\0{text}\0")
                 }
-                DslOp::InsertAfter { file, pattern, text } => {
+                DslOp::InsertAfter {
+                    file,
+                    pattern,
+                    text,
+                } => {
                     format!("InsertAfter\0{file}\0{pattern}\0{text}\0")
                 }
                 DslOp::DeleteRange { file, start, end } => {

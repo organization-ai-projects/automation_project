@@ -1,11 +1,11 @@
+mod apply;
 mod cli;
+mod diagnostics;
 mod dsl;
 mod plan;
-mod apply;
-mod verify;
 mod report;
-mod diagnostics;
 mod transport;
+mod verify;
 
 use std::collections::BTreeMap;
 
