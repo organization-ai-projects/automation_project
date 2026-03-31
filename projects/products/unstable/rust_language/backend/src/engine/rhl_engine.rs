@@ -41,7 +41,7 @@ impl RhlEngine {
 
     pub fn compile_to_binary(&self, source: &SourceFile) -> Result<BinaryFormat, Error> {
         let rust_code = self.compile_source(source)?;
-        BinaryEncoder::encode_ast_to_binary(&rust_code)
+        BinaryEncoder::encode_rust_to_binary(&rust_code)
     }
 
     pub fn compile_string(&self, source_code: &str) -> Result<String, Error> {

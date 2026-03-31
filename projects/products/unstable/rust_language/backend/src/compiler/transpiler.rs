@@ -165,7 +165,8 @@ impl Transpiler {
             }
             RhlAst::StringLiteral(s) => {
                 out.push('"');
-                out.push_str(&s.replace('\\', "\\\\").replace('"', "\\\""));
+                let escaped: String = s.chars().flat_map(|c| c.escape_default()).collect();
+                out.push_str(&escaped);
                 out.push('"');
             }
             RhlAst::BoolLiteral(b) => {

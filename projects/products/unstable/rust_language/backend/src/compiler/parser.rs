@@ -42,7 +42,6 @@ impl Parser {
             Ok(())
         } else {
             Err(Error::Parser {
-                line: 0,
                 message: format!("expected {expected:?}, found {tok:?}"),
             })
         }
@@ -58,13 +57,11 @@ impl Parser {
                     RhlToken::KeywordFn => self.parse_fn_decl(),
                     RhlToken::KeywordStruct => self.parse_struct_decl(),
                     _ => Err(Error::Parser {
-                        line: 0,
                         message: "expected fn or struct after pub".into(),
                     }),
                 }
             }
             _ => Err(Error::Parser {
-                line: 0,
                 message: format!("unexpected top-level token: {:?}", self.peek()),
             }),
         }
@@ -156,7 +153,6 @@ impl Parser {
                 Ok(name)
             }
             _ => Err(Error::Parser {
-                line: 0,
                 message: format!("expected type name, found {tok:?}"),
             }),
         }
@@ -364,31 +360,17 @@ impl Parser {
                         object: Box::new(RhlAst::Identifier(name)),
                         field,
                     })
-                } else if matches!(self.peek(), RhlToken::Equals)
-                    && !matches!(self.peek(), RhlToken::DoubleEquals)
-                {
-                    // Check if it's actually `=` (assignment) and not `==`
-                    if let Some(next) = self.tokens.get(self.pos) {
-                        if matches!(next, RhlToken::Equals) {
-                            // Check the token after `=`
-                            if let Some(after) = self.tokens.get(self.pos + 1) {
-                                if matches!(after, RhlToken::Equals) {
-                                    // It's `==` handled by comparison
-                                    return Ok(RhlAst::Identifier(name));
-                                }
-                            }
-                            self.advance();
-                            let value = self.parse_expression()?;
-                            if matches!(self.peek(), RhlToken::Semicolon) {
-                                self.advance();
-                            }
-                            return Ok(RhlAst::Assignment {
-                                target: name,
-                                value: Box::new(value),
-                            });
-                        }
+                } else if matches!(self.peek(), RhlToken::Equals) {
+                    // Handle simple assignment `=`
+                    self.advance();
+                    let value = self.parse_expression()?;
+                    if matches!(self.peek(), RhlToken::Semicolon) {
+                        self.advance();
                     }
-                    Ok(RhlAst::Identifier(name))
+                    Ok(RhlAst::Assignment {
+                        target: name,
+                        value: Box::new(value),
+                    })
                 } else {
                     Ok(RhlAst::Identifier(name))
                 }
@@ -400,7 +382,6 @@ impl Parser {
                 Ok(expr)
             }
             _ => Err(Error::Parser {
-                line: 0,
                 message: format!("unexpected token in expression: {tok:?}"),
             }),
         }
@@ -425,7 +406,6 @@ impl Parser {
             Ok(name)
         } else {
             Err(Error::Parser {
-                line: 0,
                 message: format!("expected identifier, found {tok:?}"),
             })
         }
