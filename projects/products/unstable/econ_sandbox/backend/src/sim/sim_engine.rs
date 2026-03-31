@@ -135,16 +135,22 @@ impl SimEngine {
         for &aid in &agent_ids {
             if let Some(agent) = self.agents.get_mut(&aid) {
                 let consumption: Vec<(Good, u64)> = agent.consumption.iter().map(|(&g, &a)| (g, a)).collect();
+                // Capture how much was actually consumed (limited by inventory)
+                let mut consumed_amounts: Vec<(Good, u64)> = Vec::new();
+                for &(good, amount) in &consumption {
+                    let held = agent.inventory.get(&good).copied().unwrap_or(0);
+                    let actual = amount.min(held);
+                    consumed_amounts.push((good, actual));
+                }
                 agent.consume();
-                for (good, amount) in consumption {
-                    let actual = amount.min(*agent.inventory.get(&good).unwrap_or(&0) + amount);
+                for (good, actual) in consumed_amounts {
                     if actual > 0 {
                         tick_events.push(SimEvent {
                             tick,
                             kind: SimEventKind::Consumed {
                                 agent_id: aid,
                                 good,
-                                amount: actual.min(amount),
+                                amount: actual,
                             },
                         });
                     }
