@@ -57,12 +57,7 @@ impl SimEngine {
                         era_name: new_era.display_name().to_string(),
                     },
                 );
-                Self::on_era_enter(
-                    &new_era,
-                    &mut state,
-                    &mut rng,
-                    &mut event_log,
-                );
+                Self::on_era_enter(&new_era, &mut state, &mut rng, &mut event_log);
                 prev_era = new_era;
             }
 
@@ -83,12 +78,9 @@ impl SimEngine {
             state.spatial_grid.clear();
             for p in &state.particles {
                 if p.alive {
-                    state.spatial_grid.insert(
-                        p.id.0,
-                        p.position.x,
-                        p.position.y,
-                        p.position.z,
-                    );
+                    state
+                        .spatial_grid
+                        .insert(p.id.0, p.position.x, p.position.y, p.position.z);
                 }
             }
 
@@ -247,12 +239,8 @@ impl SimEngine {
                     );
                     let mass = rng.next_range(1e9, 1e12) * crate::math::constants::SOLAR_MASS;
                     let gtype = galaxy_types[i % galaxy_types.len()];
-                    let galaxy = Galaxy::new(
-                        StructureId(state.next_structure_id),
-                        pos,
-                        mass,
-                        gtype,
-                    );
+                    let galaxy =
+                        Galaxy::new(StructureId(state.next_structure_id), pos, mass, gtype);
                     event_log.record(
                         tick,
                         SimEvent::GalaxyFormed {
@@ -299,12 +287,7 @@ impl SimEngine {
         }
     }
 
-    fn apply_physics(
-        state: &mut SimState,
-        rng: &mut SeededRng,
-        event_log: &mut EventLog,
-        dt: f64,
-    ) {
+    fn apply_physics(state: &mut SimState, rng: &mut SeededRng, event_log: &mut EventLog, dt: f64) {
         let tick = state.clock.current();
 
         if state.physics_config.gravity_enabled {

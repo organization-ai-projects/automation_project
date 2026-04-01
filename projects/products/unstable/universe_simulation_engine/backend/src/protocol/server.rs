@@ -38,6 +38,8 @@ fn print_usage() {
     println!("universe_simulation_engine - deterministic universe simulation");
     println!();
     println!("Commands:");
-    println!("  run --ticks N --seed S --ticks-per-era T --out <path> [--save-bin <path>] [--save-ron <path>] [--no-gravity] ...");
+    println!(
+        "  run --ticks N --seed S --ticks-per-era T --out <path> [--save-bin <path>] [--save-ron <path>] [--no-gravity] ..."
+    );
     println!("  convert --input-bin <path> --output-ron <path>");
 }

@@ -15,11 +15,7 @@ impl SnapshotHash {
             .map(|p| {
                 format!(
                     "{}:{:?}:{:.6}:{:.6}:{:.6}",
-                    p.id.0,
-                    p.kind,
-                    p.position.x,
-                    p.position.y,
-                    p.position.z
+                    p.id.0, p.kind, p.position.x, p.position.y, p.position.z
                 )
             })
             .collect::<Vec<_>>()

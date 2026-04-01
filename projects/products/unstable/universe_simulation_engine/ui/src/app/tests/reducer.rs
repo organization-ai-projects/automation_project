@@ -1,8 +1,8 @@
 #[cfg(test)]
 #[test]
 fn reducer_is_deterministic() {
-    use crate::app::{action::Action, app_state::AppState};
     use crate::app::reducer::Reducer;
+    use crate::app::{action::Action, app_state::AppState};
 
     let mut s1 = AppState::default();
     let mut s2 = AppState::default();
@@ -24,8 +24,8 @@ fn reducer_is_deterministic() {
 
 #[test]
 fn toggle_gravity() {
-    use crate::app::{action::Action, app_state::AppState};
     use crate::app::reducer::Reducer;
+    use crate::app::{action::Action, app_state::AppState};
 
     let mut state = AppState::default();
     assert!(state.gravity_enabled);
@@ -37,8 +37,8 @@ fn toggle_gravity() {
 
 #[test]
 fn set_seed() {
-    use crate::app::{action::Action, app_state::AppState};
     use crate::app::reducer::Reducer;
+    use crate::app::{action::Action, app_state::AppState};
 
     let mut state = AppState::default();
     Reducer::apply(&mut state, &Action::SetSeed(999));
@@ -47,8 +47,8 @@ fn set_seed() {
 
 #[test]
 fn run_lifecycle() {
-    use crate::app::{action::Action, app_state::AppState};
     use crate::app::reducer::Reducer;
+    use crate::app::{action::Action, app_state::AppState};
 
     let mut state = AppState::default();
     assert!(!state.running);

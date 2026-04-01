@@ -17,11 +17,7 @@ impl WeakNuclearEngine {
         }
     }
 
-    pub fn process_decays(
-        particles: &mut Vec<Particle>,
-        rng: &mut SeededRng,
-        next_id: &mut u64,
-    ) {
+    pub fn process_decays(particles: &mut Vec<Particle>, rng: &mut SeededRng, next_id: &mut u64) {
         let mut new_particles = Vec::new();
         for p in particles.iter_mut() {
             if !p.alive {
@@ -39,11 +35,8 @@ impl WeakNuclearEngine {
                         p.mass = ParticleKind::Proton.mass_kg();
                         p.charge = ParticleKind::Proton.charge();
 
-                        let electron = Particle::new(
-                            ParticleId(*next_id),
-                            ParticleKind::Electron,
-                            p.position,
-                        );
+                        let electron =
+                            Particle::new(ParticleId(*next_id), ParticleKind::Electron, p.position);
                         *next_id += 1;
                         let neutrino = Particle::new(
                             ParticleId(*next_id),

@@ -28,8 +28,7 @@ impl RunController {
                 }
                 "--ticks-per-era" => {
                     i += 1;
-                    config.ticks_per_era =
-                        args.get(i).and_then(|s| s.parse().ok()).unwrap_or(50);
+                    config.ticks_per_era = args.get(i).and_then(|s| s.parse().ok()).unwrap_or(50);
                 }
                 "--out" => {
                     i += 1;
@@ -69,8 +68,7 @@ impl RunController {
             i += 1;
         }
 
-        let out =
-            out_path.ok_or_else(|| EngineError::Sim("--out required".to_string()))?;
+        let out = out_path.ok_or_else(|| EngineError::Sim("--out required".to_string()))?;
 
         let report = SimEngine::run(&config)?;
 
@@ -81,8 +79,8 @@ impl RunController {
             ron_codec::save_ron(&report, &ron_path)?;
         }
 
-        let json = common_json::to_json_string(&report)
-            .map_err(|e| EngineError::Json(e.to_string()))?;
+        let json =
+            common_json::to_json_string(&report).map_err(|e| EngineError::Json(e.to_string()))?;
         std::fs::write(&out, json.as_bytes())?;
 
         Ok(format!("Run complete. RunHash: {}", report.run_hash.0))

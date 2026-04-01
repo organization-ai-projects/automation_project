@@ -5,11 +5,7 @@ use crate::structures::galaxy::Galaxy;
 pub struct DarkMatterEngine;
 
 impl DarkMatterEngine {
-    pub fn halo_gravitational_force(
-        halo_mass: f64,
-        obj_mass: f64,
-        displacement: &Vec3,
-    ) -> Vec3 {
+    pub fn halo_gravitational_force(halo_mass: f64, obj_mass: f64, displacement: &Vec3) -> Vec3 {
         let r_sq = displacement.length_squared();
         if r_sq < 1e-20 {
             return Vec3::zero();

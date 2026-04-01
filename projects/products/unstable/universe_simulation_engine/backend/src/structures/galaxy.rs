@@ -23,12 +23,7 @@ pub struct Galaxy {
 }
 
 impl Galaxy {
-    pub fn new(
-        id: StructureId,
-        position: Vec3,
-        mass: f64,
-        galaxy_type: GalaxyType,
-    ) -> Self {
+    pub fn new(id: StructureId, position: Vec3, mass: f64, galaxy_type: GalaxyType) -> Self {
         Self {
             id,
             position,

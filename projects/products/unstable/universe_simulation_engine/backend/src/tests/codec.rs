@@ -21,8 +21,7 @@ fn binary_round_trip() {
     let path = dir.join("test_report.usim");
 
     binary_codec::save_binary(&report, &path).unwrap();
-    let loaded: crate::report::sim_report::SimReport =
-        binary_codec::load_binary(&path).unwrap();
+    let loaded: crate::report::sim_report::SimReport = binary_codec::load_binary(&path).unwrap();
 
     assert_eq!(loaded.run_hash.0, report.run_hash.0);
     assert_eq!(loaded.ticks_run, report.ticks_run);
@@ -43,8 +42,7 @@ fn ron_round_trip() {
     let path = dir.join("test_report.ron");
 
     ron_codec::save_ron(&report, &path).unwrap();
-    let loaded: crate::report::sim_report::SimReport =
-        ron_codec::load_ron(&path).unwrap();
+    let loaded: crate::report::sim_report::SimReport = ron_codec::load_ron(&path).unwrap();
 
     assert_eq!(loaded.run_hash.0, report.run_hash.0);
     assert_eq!(loaded.ticks_run, report.ticks_run);
