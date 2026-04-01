@@ -1,0 +1,36 @@
+(
+  schema_version: 1,
+  id: "artifact_lab",
+  name: "Artifact Lab",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "artifact_lab_ui", title: "Artifact Lab", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "deterministic-pack",
+    "unpack",
+    "verify",
+    "canonical-manifest",
+  ],
+
+  domains: [
+    (id: "artifact_bundling", desc: "deterministic artifact packaging with canonical manifest"),
+    (id: "verification", desc: "sha256-based integrity verification"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
+  ),
+)
