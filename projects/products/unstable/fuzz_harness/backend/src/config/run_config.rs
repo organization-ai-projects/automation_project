@@ -56,9 +56,8 @@ impl RunConfig {
             }
             i += 1;
         }
-        let name = target_name.ok_or_else(|| {
-            FuzzHarnessError::InvalidConfig("--target is required".to_string())
-        })?;
+        let name = target_name
+            .ok_or_else(|| FuzzHarnessError::InvalidConfig("--target is required".to_string()))?;
         Ok(Self {
             target_name: name,
             seed,

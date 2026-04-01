@@ -12,10 +12,7 @@ impl JsonCodec {
             .map_err(|e| FuzzHarnessError::Json(e.to_string()))
     }
 
-    pub(crate) fn save_replay_file(
-        file: &ReplayFile,
-        path: &Path,
-    ) -> Result<(), FuzzHarnessError> {
+    pub(crate) fn save_replay_file(file: &ReplayFile, path: &Path) -> Result<(), FuzzHarnessError> {
         let json = common_json::to_json_string_pretty(file)
             .map_err(|e| FuzzHarnessError::Json(e.to_string()))?;
         std::fs::write(path, json)?;
