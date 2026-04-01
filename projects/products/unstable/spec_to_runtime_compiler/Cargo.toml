@@ -1,0 +1,3 @@
+# This file marks the spec_to_runtime_compiler root so Cargo does not flag it when
+# scanning subdirectories.  The actual crates live in backend/ and ui/.
+[workspace]
