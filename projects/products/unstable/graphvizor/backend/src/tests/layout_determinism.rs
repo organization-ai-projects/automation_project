@@ -4,16 +4,40 @@ use crate::layout::{LayeredDag, LayoutEngine, SimpleForce};
 fn diamond_graph() -> GraphDefinition {
     GraphDefinition {
         nodes: vec![
-            Node { id: "a".to_string(), label: None },
-            Node { id: "b".to_string(), label: None },
-            Node { id: "c".to_string(), label: None },
-            Node { id: "d".to_string(), label: None },
+            Node {
+                id: "a".to_string(),
+                label: None,
+            },
+            Node {
+                id: "b".to_string(),
+                label: None,
+            },
+            Node {
+                id: "c".to_string(),
+                label: None,
+            },
+            Node {
+                id: "d".to_string(),
+                label: None,
+            },
         ],
         edges: vec![
-            Edge { from: "a".to_string(), to: "b".to_string() },
-            Edge { from: "a".to_string(), to: "c".to_string() },
-            Edge { from: "b".to_string(), to: "d".to_string() },
-            Edge { from: "c".to_string(), to: "d".to_string() },
+            Edge {
+                from: "a".to_string(),
+                to: "b".to_string(),
+            },
+            Edge {
+                from: "a".to_string(),
+                to: "c".to_string(),
+            },
+            Edge {
+                from: "b".to_string(),
+                to: "d".to_string(),
+            },
+            Edge {
+                from: "c".to_string(),
+                to: "d".to_string(),
+            },
         ],
     }
 }
@@ -21,20 +45,38 @@ fn diamond_graph() -> GraphDefinition {
 fn linear_chain() -> GraphDefinition {
     GraphDefinition {
         nodes: vec![
-            Node { id: "start".to_string(), label: Some("Start".to_string()) },
-            Node { id: "middle".to_string(), label: Some("Middle".to_string()) },
-            Node { id: "end".to_string(), label: Some("End".to_string()) },
+            Node {
+                id: "start".to_string(),
+                label: Some("Start".to_string()),
+            },
+            Node {
+                id: "middle".to_string(),
+                label: Some("Middle".to_string()),
+            },
+            Node {
+                id: "end".to_string(),
+                label: Some("End".to_string()),
+            },
         ],
         edges: vec![
-            Edge { from: "start".to_string(), to: "middle".to_string() },
-            Edge { from: "middle".to_string(), to: "end".to_string() },
+            Edge {
+                from: "start".to_string(),
+                to: "middle".to_string(),
+            },
+            Edge {
+                from: "middle".to_string(),
+                to: "end".to_string(),
+            },
         ],
     }
 }
 
 fn single_node() -> GraphDefinition {
     GraphDefinition {
-        nodes: vec![Node { id: "solo".to_string(), label: Some("Solo Node".to_string()) }],
+        nodes: vec![Node {
+            id: "solo".to_string(),
+            label: Some("Solo Node".to_string()),
+        }],
         edges: vec![],
     }
 }
@@ -129,7 +171,10 @@ fn simple_force_single_node() {
 
 #[test]
 fn empty_graph_produces_no_positions() {
-    let graph = GraphDefinition { nodes: vec![], edges: vec![] };
+    let graph = GraphDefinition {
+        nodes: vec![],
+        edges: vec![],
+    };
     let p1 = LayeredDag.compute(&graph);
     let p2 = SimpleForce::default().compute(&graph);
     assert!(p1.is_empty());

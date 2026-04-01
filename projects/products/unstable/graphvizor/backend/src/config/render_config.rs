@@ -18,19 +18,15 @@ impl RenderConfig {
             match args[i].as_str() {
                 "--in" => {
                     i += 1;
-                    input_path = Some(std::path::PathBuf::from(
-                        args.get(i).ok_or_else(|| {
-                            GraphvizorError::InvalidConfig("missing --in value".to_string())
-                        })?,
-                    ));
+                    input_path = Some(std::path::PathBuf::from(args.get(i).ok_or_else(|| {
+                        GraphvizorError::InvalidConfig("missing --in value".to_string())
+                    })?));
                 }
                 "--out" => {
                     i += 1;
-                    output_path = Some(std::path::PathBuf::from(
-                        args.get(i).ok_or_else(|| {
-                            GraphvizorError::InvalidConfig("missing --out value".to_string())
-                        })?,
-                    ));
+                    output_path = Some(std::path::PathBuf::from(args.get(i).ok_or_else(|| {
+                        GraphvizorError::InvalidConfig("missing --out value".to_string())
+                    })?));
                 }
                 "--layout" => {
                     i += 1;
@@ -47,12 +43,10 @@ impl RenderConfig {
         }
 
         Ok(Self {
-            input_path: input_path.ok_or_else(|| {
-                GraphvizorError::InvalidConfig("--in is required".to_string())
-            })?,
-            output_path: output_path.ok_or_else(|| {
-                GraphvizorError::InvalidConfig("--out is required".to_string())
-            })?,
+            input_path: input_path
+                .ok_or_else(|| GraphvizorError::InvalidConfig("--in is required".to_string()))?,
+            output_path: output_path
+                .ok_or_else(|| GraphvizorError::InvalidConfig("--out is required".to_string()))?,
             layout,
         })
     }
