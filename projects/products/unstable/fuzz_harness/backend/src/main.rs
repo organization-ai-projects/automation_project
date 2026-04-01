@@ -19,6 +19,7 @@ use crate::config::RunConfig;
 use crate::diagnostics::FuzzHarnessError;
 use crate::io::JsonCodec;
 use crate::replay::ReplayEngine;
+use crate::replay::ReplayFile;
 use crate::runner::FuzzRunner;
 use crate::shrinker::InputShrinker;
 use crate::targets::resolve_target;
@@ -57,6 +58,18 @@ fn cmd_run(args: &[String]) -> Result<String, FuzzHarnessError> {
     let target = resolve_target(&config.target_name)?;
 
     let report = FuzzRunner::run(target.as_ref(), config.seed, config.iterations)?;
+
+    if let (Some(replay_out), Some(first_failure)) =
+        (&config.replay_out_path, report.failures.first())
+    {
+        let replay_file = ReplayFile {
+            target_name: config.target_name.clone(),
+            seed: config.seed,
+            input: first_failure.input.clone(),
+            failure_message: first_failure.message.clone(),
+        };
+        JsonCodec::save_replay_file(&replay_file, replay_out)?;
+    }
 
     if config.json_output {
         let json = JsonCodec::to_json_pretty(&report)?;
@@ -113,7 +126,7 @@ fn print_usage() {
     println!("fuzz_harness - deterministic fuzz runner for parsers/DSLs");
     println!();
     println!("Commands:");
-    println!("  run --target <name> --seed <u64> --iters N [--json]");
+    println!("  run --target <name> --seed <u64> --iters N [--json] [--replay-out <file>]");
     println!("  replay --target <file>");
     println!("  shrink --target <file> --out <file>");
 }

@@ -8,6 +8,7 @@ pub(crate) struct RunConfig {
     pub(crate) json_output: bool,
     pub(crate) file_path: Option<PathBuf>,
     pub(crate) out_path: Option<PathBuf>,
+    pub(crate) replay_out_path: Option<PathBuf>,
 }
 
 impl RunConfig {
@@ -16,6 +17,7 @@ impl RunConfig {
         let mut seed = 0u64;
         let mut iterations = 1000u64;
         let mut json_output = false;
+        let mut replay_out_path = None;
         let mut i = 0;
         while i < args.len() {
             match args[i].as_str() {
@@ -52,6 +54,13 @@ impl RunConfig {
                 "--json" => {
                     json_output = true;
                 }
+                "--replay-out" => {
+                    i += 1;
+                    let val = args.get(i).ok_or_else(|| {
+                        FuzzHarnessError::InvalidConfig("missing --replay-out value".to_string())
+                    })?;
+                    replay_out_path = Some(PathBuf::from(val.as_str()));
+                }
                 _ => {}
             }
             i += 1;
@@ -65,6 +74,7 @@ impl RunConfig {
             json_output,
             file_path: None,
             out_path: None,
+            replay_out_path,
         })
     }
 
@@ -96,6 +106,7 @@ impl RunConfig {
             json_output: false,
             file_path,
             out_path: None,
+            replay_out_path: None,
         })
     }
 
@@ -138,6 +149,7 @@ impl RunConfig {
             json_output: false,
             file_path,
             out_path,
+            replay_out_path: None,
         })
     }
 }
