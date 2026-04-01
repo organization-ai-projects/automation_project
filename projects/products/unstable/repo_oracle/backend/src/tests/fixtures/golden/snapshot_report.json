@@ -1,0 +1,130 @@
+{
+  "crate_graph": {
+    "crates": [
+      {
+        "dependencies": [],
+        "name": "crate_a",
+        "path": "crate_a"
+      },
+      {
+        "dependencies": [
+          "crate_a"
+        ],
+        "name": "crate_b",
+        "path": "crate_b"
+      },
+      {
+        "dependencies": [
+          "crate_a",
+          "crate_b"
+        ],
+        "name": "crate_c",
+        "path": "crate_c"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "crate_name": "crate_a",
+      "file_path": "crate_a/src/lib.rs",
+      "module_path": "crate_a",
+      "public_items": [
+        "Config",
+        "Processor",
+        "greet"
+      ]
+    },
+    {
+      "crate_name": "crate_b",
+      "file_path": "crate_b/src/lib.rs",
+      "module_path": "crate_b",
+      "public_items": [
+        "Status",
+        "transform"
+      ]
+    },
+    {
+      "crate_name": "crate_c",
+      "file_path": "crate_c/src/lib.rs",
+      "module_path": "crate_c",
+      "public_items": [
+        "Result",
+        "VERSION",
+        "utils"
+      ]
+    },
+    {
+      "crate_name": "crate_c",
+      "file_path": "crate_c/src/utils.rs",
+      "module_path": "crate_c::utils",
+      "public_items": [
+        "MAX_SIZE",
+        "helper"
+      ]
+    }
+  ],
+  "public_items": [
+    {
+      "crate_name": "crate_a",
+      "kind": "Struct",
+      "module_path": "crate_a",
+      "name": "Config"
+    },
+    {
+      "crate_name": "crate_c",
+      "kind": "Static",
+      "module_path": "crate_c::utils",
+      "name": "MAX_SIZE"
+    },
+    {
+      "crate_name": "crate_a",
+      "kind": "Trait",
+      "module_path": "crate_a",
+      "name": "Processor"
+    },
+    {
+      "crate_name": "crate_c",
+      "kind": "TypeAlias",
+      "module_path": "crate_c",
+      "name": "Result"
+    },
+    {
+      "crate_name": "crate_b",
+      "kind": "Enum",
+      "module_path": "crate_b",
+      "name": "Status"
+    },
+    {
+      "crate_name": "crate_c",
+      "kind": "Constant",
+      "module_path": "crate_c",
+      "name": "VERSION"
+    },
+    {
+      "crate_name": "crate_a",
+      "kind": "Function",
+      "module_path": "crate_a",
+      "name": "greet"
+    },
+    {
+      "crate_name": "crate_c",
+      "kind": "Function",
+      "module_path": "crate_c::utils",
+      "name": "helper"
+    },
+    {
+      "crate_name": "crate_b",
+      "kind": "Function",
+      "module_path": "crate_b",
+      "name": "transform"
+    },
+    {
+      "crate_name": "crate_c",
+      "kind": "Module",
+      "module_path": "crate_c",
+      "name": "utils"
+    }
+  ],
+  "root_path": "<ROOT>",
+  "snapshot_hash": "<HASH>"
+}
