@@ -1,0 +1,16 @@
+[package]
+name = "universe_simulation_engine_ui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "universe_simulation_engine_ui"
+path = "src/main.rs"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+dioxus = { version = "0.7.3", features = ["web"] }
+dioxus-web = "0.7.3"

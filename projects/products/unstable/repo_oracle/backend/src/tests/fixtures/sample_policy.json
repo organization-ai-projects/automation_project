@@ -1,0 +1,13 @@
+{
+  "name": "test_policy",
+  "rules": [
+    {
+      "kind": {"ForbidDependency": {"from": "crate_a", "to": "crate_c"}},
+      "description": "crate_a must not depend on crate_c"
+    },
+    {
+      "kind": {"MaxDependencies": {"crate_name": "crate_c", "max": 5}},
+      "description": "crate_c must have at most 5 dependencies"
+    }
+  ]
+}
