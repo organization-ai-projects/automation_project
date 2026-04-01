@@ -125,6 +125,8 @@ members = [
   "projects/products/unstable/story_weaver/ui",
   "projects/products/unstable/rust_language/backend",
   "projects/products/unstable/rust_language/ui",
+  "projects/products/unstable/repo_oracle/backend",
+  "projects/products/unstable/repo_oracle/ui",
 ]
 resolver = "2"
 

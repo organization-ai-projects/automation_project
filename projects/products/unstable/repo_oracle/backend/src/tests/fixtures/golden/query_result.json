@@ -1,0 +1,11 @@
+{
+  "matches": [
+    "crate_b",
+    "crate_c"
+  ],
+  "query": {
+    "ReverseDeps": {
+      "crate_name": "crate_a"
+    }
+  }
+}

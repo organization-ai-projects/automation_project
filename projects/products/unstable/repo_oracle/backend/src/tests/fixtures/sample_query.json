@@ -1,0 +1,5 @@
+[
+  {"ReverseDeps": {"crate_name": "crate_a"}},
+  {"PublicItems": {"crate_name": "crate_b"}},
+  {"FindSymbol": {"substring": "helper"}}
+]
