@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use crate::bundle::BundlePacker;
 use crate::bundle::bundle_format::MAGIC;
 use crate::output::canonical_json::render_verify_report;
-use crate::verify::verify_report::{EntryStatus, VerifyReport};
 use crate::verify::Verifier;
+use crate::verify::verify_report::{EntryStatus, VerifyReport};
 
 fn make_temp_dir(suffix: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("artifact_lab_gv_{suffix}"));
@@ -53,7 +53,10 @@ fn verify_corrupted_bundle_reports_hash_mismatch() {
     let report = Verifier::verify(&bundle_path).expect("verify corrupted");
     assert!(!report.ok, "corrupted bundle must fail verification");
     assert!(
-        report.results.iter().any(|r| r.status_label() == "hash_mismatch"),
+        report
+            .results
+            .iter()
+            .any(|r| r.status_label() == "hash_mismatch"),
         "must report hash_mismatch"
     );
 }

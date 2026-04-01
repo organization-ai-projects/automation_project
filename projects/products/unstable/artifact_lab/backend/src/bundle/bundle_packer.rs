@@ -29,9 +29,8 @@ impl BundlePacker {
         // File contents in canonical (sorted) order
         for entry in &manifest.entries {
             let file_path = root.join(entry.path.replace('/', std::path::MAIN_SEPARATOR_STR));
-            let content = std::fs::read(&file_path).map_err(|e| {
-                Error::Internal(format!("failed to read '{}': {e}", entry.path))
-            })?;
+            let content = std::fs::read(&file_path)
+                .map_err(|e| Error::Internal(format!("failed to read '{}': {e}", entry.path)))?;
             let content_len = content.len() as u64;
             data.extend_from_slice(&content_len.to_le_bytes());
             data.extend_from_slice(&content);
@@ -54,13 +53,11 @@ impl BundlePacker {
         Ok(entries)
     }
 
-    fn walk(
-        root: &Path,
-        current: &Path,
-        entries: &mut Vec<ManifestEntry>,
-    ) -> Result<(), Error> {
+    fn walk(root: &Path, current: &Path, entries: &mut Vec<ManifestEntry>) -> Result<(), Error> {
         let mut dir_entries: Vec<std::path::PathBuf> = std::fs::read_dir(current)
-            .map_err(|e| Error::Internal(format!("failed to read dir '{}': {e}", current.display())))?
+            .map_err(|e| {
+                Error::Internal(format!("failed to read dir '{}': {e}", current.display()))
+            })?
             .filter_map(|e| e.ok().map(|e| e.path()))
             .collect();
 

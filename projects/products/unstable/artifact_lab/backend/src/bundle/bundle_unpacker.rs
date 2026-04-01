@@ -45,7 +45,9 @@ pub(crate) fn read_header_and_manifest(
 ) -> Result<(Manifest, usize), Error> {
     // Magic
     if data.len() < cursor + 4 {
-        return Err(Error::ManifestFormat("bundle too short: missing magic".to_string()));
+        return Err(Error::ManifestFormat(
+            "bundle too short: missing magic".to_string(),
+        ));
     }
     let magic = &data[cursor..cursor + 4];
     if magic != MAGIC {
@@ -58,7 +60,9 @@ pub(crate) fn read_header_and_manifest(
 
     // Version
     if data.len() < cursor + 4 {
-        return Err(Error::ManifestFormat("bundle too short: missing version".to_string()));
+        return Err(Error::ManifestFormat(
+            "bundle too short: missing version".to_string(),
+        ));
     }
     let version = u32::from_be_bytes(data[cursor..cursor + 4].try_into().unwrap());
     if version != FORMAT_VERSION {
@@ -74,13 +78,14 @@ pub(crate) fn read_header_and_manifest(
             "bundle too short: missing manifest length".to_string(),
         ));
     }
-    let manifest_len =
-        u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap()) as usize;
+    let manifest_len = u64::from_le_bytes(data[cursor..cursor + 8].try_into().unwrap()) as usize;
     cursor += 8;
 
     // Manifest JSON
     if data.len() < cursor + manifest_len {
-        return Err(Error::ManifestFormat("bundle too short: truncated manifest".to_string()));
+        return Err(Error::ManifestFormat(
+            "bundle too short: truncated manifest".to_string(),
+        ));
     }
     let manifest_json = std::str::from_utf8(&data[cursor..cursor + manifest_len])
         .map_err(|e| Error::ManifestFormat(format!("manifest is not valid UTF-8: {e}")))?;
@@ -97,12 +102,13 @@ fn read_file_content(data: &[u8], cursor: &mut usize) -> Result<Vec<u8>, Error> 
             "bundle too short: missing content length".to_string(),
         ));
     }
-    let content_len =
-        u64::from_le_bytes(data[*cursor..*cursor + 8].try_into().unwrap()) as usize;
+    let content_len = u64::from_le_bytes(data[*cursor..*cursor + 8].try_into().unwrap()) as usize;
     *cursor += 8;
 
     if data.len() < *cursor + content_len {
-        return Err(Error::ManifestFormat("bundle too short: truncated content".to_string()));
+        return Err(Error::ManifestFormat(
+            "bundle too short: truncated content".to_string(),
+        ));
     }
     let content = data[*cursor..*cursor + content_len].to_vec();
     *cursor += content_len;

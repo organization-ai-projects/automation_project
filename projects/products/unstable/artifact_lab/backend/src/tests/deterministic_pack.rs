@@ -37,7 +37,10 @@ fn pack_same_dir_twice_produces_identical_bytes() {
         bytes2.len(),
         "bundle sizes must match for identical input"
     );
-    assert_eq!(bytes1, bytes2, "bundle bytes must be identical for identical input");
+    assert_eq!(
+        bytes1, bytes2,
+        "bundle bytes must be identical for identical input"
+    );
 }
 
 #[test]
@@ -58,7 +61,10 @@ fn pack_order_independent_of_readdir_order() {
     let bytes_a = fs::read(&out_a).expect("read bundle a");
     let bytes_b = fs::read(&out_b).expect("read bundle b");
 
-    assert_eq!(bytes_a, bytes_b, "identical content must produce identical bundle");
+    assert_eq!(
+        bytes_a, bytes_b,
+        "identical content must produce identical bundle"
+    );
 }
 
 #[test]
@@ -77,5 +83,8 @@ fn different_content_produces_different_bundle() {
     let bytes1 = fs::read(&out1).expect("read 1");
     let bytes2 = fs::read(&out2).expect("read 2");
 
-    assert_ne!(bytes1, bytes2, "different content must produce different bundle");
+    assert_ne!(
+        bytes1, bytes2,
+        "different content must produce different bundle"
+    );
 }

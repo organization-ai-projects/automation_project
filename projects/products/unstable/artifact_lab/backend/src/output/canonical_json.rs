@@ -18,7 +18,10 @@ pub fn render_verify_report(report: &VerifyReport) -> String {
             }
             EntryStatus::HashMismatch { expected, actual } => {
                 out.push_str("      \"status\": \"hash_mismatch\",\n");
-                out.push_str(&format!("      \"expected_hash\": {},\n", json_str(expected)));
+                out.push_str(&format!(
+                    "      \"expected_hash\": {},\n",
+                    json_str(expected)
+                ));
                 out.push_str(&format!("      \"actual_hash\": {}\n", json_str(actual)));
             }
             EntryStatus::SizeMismatch { expected, actual } => {

@@ -62,8 +62,7 @@ impl CliParser {
         }
 
         Ok(CliCommand::Pack {
-            root: root
-                .ok_or_else(|| Error::InvalidUsage("pack requires --root".to_string()))?,
+            root: root.ok_or_else(|| Error::InvalidUsage("pack requires --root".to_string()))?,
             out: out.ok_or_else(|| Error::InvalidUsage("pack requires --out".to_string()))?,
         })
     }
@@ -107,8 +106,7 @@ impl CliParser {
         Ok(CliCommand::Unpack {
             bundle: bundle
                 .ok_or_else(|| Error::InvalidUsage("unpack requires --bundle".to_string()))?,
-            out: out
-                .ok_or_else(|| Error::InvalidUsage("unpack requires --out".to_string()))?,
+            out: out.ok_or_else(|| Error::InvalidUsage("unpack requires --out".to_string()))?,
         })
     }
 

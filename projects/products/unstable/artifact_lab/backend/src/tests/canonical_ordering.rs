@@ -38,11 +38,7 @@ fn manifest_subdirectory_entries_sorted_lexicographically() {
 
 #[test]
 fn manifest_canonical_json_has_sorted_entries() {
-    let entries = vec![
-        entry("c.txt"),
-        entry("a.txt"),
-        entry("b.txt"),
-    ];
+    let entries = vec![entry("c.txt"), entry("a.txt"), entry("b.txt")];
     let manifest = Manifest::new(entries);
     let json = manifest.to_canonical_json();
 
