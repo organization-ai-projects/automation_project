@@ -1,0 +1,33 @@
+(
+  schema_version: 1,
+  generated_at: 1775052000000,
+  id: "a1b2c3d4e5f6071829304152637485a6",
+  name: "Universe Simulation Engine",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "b2c3d4e5f60718293041526374a5b6c7", title: "Universe Simulation Engine", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "deterministic-simulation",
+    "3d-spatial",
+    "physics-engine",
+    "binary-persistence",
+    "ron-save",
+    "universe-cosmology",
+  ],
+
+  domains: [
+    (id: "c3d4e5f60718293041526374a5b6c7d8", desc: "full universe simulation from big bang to heat death with toggleable physics"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/"],
+    config_files: ["backend/Cargo.toml", "ui/Cargo.toml", "metadata.ron"],
+  ),
+)
