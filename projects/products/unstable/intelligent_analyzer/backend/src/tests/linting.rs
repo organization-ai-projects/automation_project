@@ -61,12 +61,10 @@ fn detect_missing_doc_comment() {
 fn detect_unused_import() {
     let source = "use std::collections::HashMap;\nlet x = 1;\n";
     let findings = LintEngine::lint(source);
-    assert!(
-        findings
-            .iter()
-            .any(|f| f.kind == FindingKind::Custom("unused_import".to_string())
-                && f.message.contains("HashMap"))
-    );
+    assert!(findings.iter().any(
+        |f| f.kind == FindingKind::Custom("unused_import".to_string())
+            && f.message.contains("HashMap")
+    ));
 }
 
 #[test]
@@ -84,12 +82,9 @@ fn no_unused_import_when_used() {
 fn detect_unused_import_with_alias() {
     let source = "use std::collections::HashMap as Map;\nlet x = 1;\n";
     let findings = LintEngine::lint(source);
-    assert!(
-        findings
-            .iter()
-            .any(|f| f.kind == FindingKind::Custom("unused_import".to_string())
-                && f.message.contains("Map"))
-    );
+    assert!(findings.iter().any(
+        |f| f.kind == FindingKind::Custom("unused_import".to_string()) && f.message.contains("Map")
+    ));
 }
 
 #[test]
