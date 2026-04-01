@@ -1,0 +1,15 @@
+[package]
+name = "artifact_lab"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "artifact_lab"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+common_json = { workspace = true }
