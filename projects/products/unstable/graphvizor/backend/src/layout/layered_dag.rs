@@ -20,12 +20,15 @@ impl LayoutEngine for LayeredDag {
             adjacency.entry(node.id.as_str()).or_default();
         }
 
+        // Deduplicate edges so in-degree and adjacency are consistent
+        let mut dedup_edges: BTreeSet<(&str, &str)> = BTreeSet::new();
         for edge in &canonical.edges {
-            *in_degree.entry(edge.to.as_str()).or_insert(0) += 1;
-            adjacency
-                .entry(edge.from.as_str())
-                .or_default()
-                .insert(edge.to.as_str());
+            dedup_edges.insert((edge.from.as_str(), edge.to.as_str()));
+        }
+
+        for &(from, to) in &dedup_edges {
+            *in_degree.entry(to).or_insert(0) += 1;
+            adjacency.entry(from).or_default().insert(to);
         }
 
         // Kahn's algorithm with BTreeSet for deterministic ordering
@@ -67,6 +70,19 @@ impl LayoutEngine for LayeredDag {
                 for id in next_ready {
                     queue.push_back(id);
                 }
+            }
+        }
+
+        // Assign unprocessed nodes (cycles) to a deterministic fallback layer
+        let max_layer = layer_map.values().copied().max().unwrap_or(0);
+        let fallback_layer = if layer_map.len() < canonical.nodes.len() {
+            max_layer + 1
+        } else {
+            max_layer
+        };
+        for node in &canonical.nodes {
+            if !layer_map.contains_key(node.id.as_str()) {
+                layer_map.insert(node.id.as_str(), fallback_layer);
             }
         }
 

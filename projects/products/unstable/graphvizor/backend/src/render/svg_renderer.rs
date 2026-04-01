@@ -4,6 +4,30 @@ use crate::layout::NodePosition;
 /// Renders a deterministic SVG from graph definition and positioned nodes.
 pub struct SvgRenderer;
 
+/// Escapes XML special characters in text content.
+fn escape_xml(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// Truncates a string to at most `max_chars` Unicode characters.
+fn truncate_chars(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars) {
+        Some((byte_idx, _)) => &s[..byte_idx],
+        None => s,
+    }
+}
+
 impl SvgRenderer {
     pub fn render(graph: &GraphDefinition, positions: &[NodePosition]) -> String {
         let canonical = graph.canonicalize();
@@ -30,6 +54,13 @@ impl SvgRenderer {
             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\">\n"
         ));
 
+        // Arrow marker definition
+        svg.push_str("  <defs>\n");
+        svg.push_str("    <marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"10\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\">\n");
+        svg.push_str("      <path d=\"M 0 0 L 10 5 L 0 10 z\" fill=\"#999\"/>\n");
+        svg.push_str("    </marker>\n");
+        svg.push_str("  </defs>\n");
+
         // Draw edges first (sorted canonically: by from, then to)
         for edge in &canonical.edges {
             if let (Some(&(fx, fy)), Some(&(tx, ty))) = (
@@ -52,7 +83,7 @@ impl SvgRenderer {
                 let cx = nx + offset_x;
                 let cy = ny + offset_y;
                 let label = node.label.as_deref().unwrap_or(node.id.as_str());
-                let display_label = if label.len() > 20 { &label[..20] } else { label };
+                let display_label = escape_xml(truncate_chars(label, 20));
                 svg.push_str(&format!(
                     "  <rect x=\"{}\" y=\"{}\" width=\"120\" height=\"40\" rx=\"6\" fill=\"#dbeafe\" stroke=\"#3b82f6\"/>\n",
                     cx - 60, cy - 20
