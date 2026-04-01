@@ -13,14 +13,14 @@ impl CodeAnalysis {
         let symbols = SymbolExtractor::extract(source);
         let scopes = ScopeResolver::resolve(source);
 
-        // Detect unused variables: defined in scope but never referenced later.
+        // Detect unused symbols: defined in scope but never referenced later.
         for (name, def_line) in &symbols.definitions {
             if !symbols.references.iter().any(|(n, _)| n == name) {
                 findings.push(Finding::new(
-                    FindingKind::UnusedVariable,
+                    FindingKind::UnusedSymbol,
                     Severity::Warning,
                     *def_line,
-                    format!("variable `{name}` is defined but never used"),
+                    format!("symbol `{name}` is defined but never used"),
                 ));
             }
         }
@@ -42,7 +42,9 @@ impl CodeAnalysis {
             findings.push(Finding::new(
                 FindingKind::ScopeViolation,
                 Severity::Error,
-                scopes.mismatch_line.unwrap_or(1),
+                scopes
+                    .mismatch_line
+                    .unwrap_or_else(|| source.lines().count().max(1)),
                 "mismatched braces detected".to_string(),
             ));
         }

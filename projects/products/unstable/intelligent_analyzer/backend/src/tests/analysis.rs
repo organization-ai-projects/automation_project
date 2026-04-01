@@ -11,7 +11,7 @@ fn detect_unused_variable() {
     assert!(
         findings
             .iter()
-            .any(|f| f.kind == FindingKind::UnusedVariable && f.message.contains("x"))
+            .any(|f| f.kind == FindingKind::UnusedSymbol && f.message.contains("x"))
     );
 }
 
@@ -21,7 +21,7 @@ fn no_finding_when_all_variables_used() {
     let findings = CodeAnalysis::analyze(source);
     let unused: Vec<_> = findings
         .iter()
-        .filter(|f| f.kind == FindingKind::UnusedVariable)
+        .filter(|f| f.kind == FindingKind::UnusedSymbol)
         .collect();
     assert!(unused.is_empty());
 }

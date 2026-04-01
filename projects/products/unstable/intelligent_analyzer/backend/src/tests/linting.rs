@@ -56,3 +56,49 @@ fn detect_missing_doc_comment() {
             .any(|f| f.kind == FindingKind::Custom("missing_doc_comment".to_string()))
     );
 }
+
+#[test]
+fn detect_unused_import() {
+    let source = "use std::collections::HashMap;\nlet x = 1;\n";
+    let findings = LintEngine::lint(source);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.kind == FindingKind::Custom("unused_import".to_string())
+                && f.message.contains("HashMap"))
+    );
+}
+
+#[test]
+fn no_unused_import_when_used() {
+    let source = "use std::collections::HashMap;\nlet m = HashMap::new();\n";
+    let findings = LintEngine::lint(source);
+    let unused: Vec<_> = findings
+        .iter()
+        .filter(|f| f.kind == FindingKind::Custom("unused_import".to_string()))
+        .collect();
+    assert!(unused.is_empty());
+}
+
+#[test]
+fn detect_unused_import_with_alias() {
+    let source = "use std::collections::HashMap as Map;\nlet x = 1;\n";
+    let findings = LintEngine::lint(source);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.kind == FindingKind::Custom("unused_import".to_string())
+                && f.message.contains("Map"))
+    );
+}
+
+#[test]
+fn no_unused_import_when_alias_used() {
+    let source = "use std::collections::HashMap as Map;\nlet m = Map::new();\n";
+    let findings = LintEngine::lint(source);
+    let unused: Vec<_> = findings
+        .iter()
+        .filter(|f| f.kind == FindingKind::Custom("unused_import".to_string()))
+        .collect();
+    assert!(unused.is_empty());
+}

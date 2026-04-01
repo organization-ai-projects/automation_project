@@ -79,9 +79,38 @@ fn check_unused_imports(source: &str) -> Vec<Finding> {
     for (idx, line) in source.lines().enumerate() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("use ") {
-            if let Some(name) = rest.split("::").last() {
-                let name = name.trim_end_matches(';').trim();
-                if !name.is_empty() && !name.contains('{') {
+            // Remove trailing semicolon and surrounding whitespace.
+            let rest = rest.trim_end_matches(';').trim();
+
+            // Handle grouped imports like `use foo::{Bar, Baz as Qux};`
+            if let Some(start) = rest.find('{') {
+                if let Some(end) = rest.rfind('}') {
+                    let inner = &rest[start + 1..end];
+                    for item in inner.split(',') {
+                        let item = item.trim();
+                        if item.is_empty() || item == "*" || item == "self" {
+                            continue;
+                        }
+                        let name = if let Some(as_pos) = item.find(" as ") {
+                            item[as_pos + 4..].trim()
+                        } else {
+                            item.rsplit("::").next().unwrap_or(item).trim()
+                        };
+                        if !name.is_empty() {
+                            imports.push((name.to_string(), idx + 1));
+                        }
+                    }
+                }
+            } else {
+                if rest.is_empty() || rest.ends_with("::*") || rest == "self" {
+                    continue;
+                }
+                let name = if let Some(as_pos) = rest.find(" as ") {
+                    rest[as_pos + 4..].trim()
+                } else {
+                    rest.rsplit("::").next().unwrap_or(rest).trim()
+                };
+                if !name.is_empty() {
                     imports.push((name.to_string(), idx + 1));
                 }
             }
