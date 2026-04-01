@@ -49,17 +49,14 @@ fn handle_scan(args: &[String]) -> Result<(), diagnostics::Error> {
             i += 1;
             root = Some(
                 args.get(i)
-                    .ok_or_else(|| {
-                        diagnostics::Error::InvalidCli("--root requires a path".into())
-                    })?
+                    .ok_or_else(|| diagnostics::Error::InvalidCli("--root requires a path".into()))?
                     .clone(),
             );
         }
         i += 1;
     }
 
-    let root =
-        root.ok_or_else(|| diagnostics::Error::InvalidCli("--root is required".into()))?;
+    let root = root.ok_or_else(|| diagnostics::Error::InvalidCli("--root is required".into()))?;
 
     let snap = scanner::WorkspaceScanner::scan(&root)?;
     let json = report::ReportGenerator::generate_snapshot_report(&snap)?;

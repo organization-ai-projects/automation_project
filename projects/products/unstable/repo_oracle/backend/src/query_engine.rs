@@ -22,9 +22,7 @@ impl QueryEngine {
                 .public_items
                 .iter()
                 .filter(|item| item.name.contains(substring.as_str()))
-                .map(|item| {
-                    format!("{}::{}::{}", item.crate_name, item.module_path, item.name)
-                })
+                .map(|item| format!("{}::{}::{}", item.crate_name, item.module_path, item.name))
                 .collect(),
         };
 

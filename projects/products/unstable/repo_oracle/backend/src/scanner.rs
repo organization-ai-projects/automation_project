@@ -125,8 +125,7 @@ impl WorkspaceScanner {
 
 fn read_package_name(root: &Path, member_path: &str) -> Result<String, Error> {
     let crate_toml = root.join(member_path).join("Cargo.toml");
-    let content =
-        std::fs::read_to_string(&crate_toml).map_err(|e| Error::Io(e.to_string()))?;
+    let content = std::fs::read_to_string(&crate_toml).map_err(|e| Error::Io(e.to_string()))?;
     let value: toml::Value = content
         .parse()
         .map_err(|e: toml::de::Error| Error::Parse(e.to_string()))?;
@@ -152,9 +151,7 @@ fn collect_rs_files_recursive(
     let entries =
         std::fs::read_dir(dir).map_err(|e| Error::Io(format!("{}: {}", dir.display(), e)))?;
 
-    let mut entries: Vec<_> = entries
-        .filter_map(|e| e.ok())
-        .collect();
+    let mut entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
     entries.sort_by_key(|e| e.file_name());
 
     for entry in entries {
@@ -170,9 +167,7 @@ fn collect_rs_files_recursive(
 
 fn file_to_module_path(crate_name: &str, member_path: &str, rel_to_root: &str) -> String {
     let src_prefix = format!("{}/src/", member_path);
-    let within_src = rel_to_root
-        .strip_prefix(&src_prefix)
-        .unwrap_or(rel_to_root);
+    let within_src = rel_to_root.strip_prefix(&src_prefix).unwrap_or(rel_to_root);
 
     let without_ext = within_src.strip_suffix(".rs").unwrap_or(within_src);
 
@@ -180,9 +175,7 @@ fn file_to_module_path(crate_name: &str, member_path: &str, rel_to_root: &str) -
         return crate_name.to_string();
     }
 
-    let without_mod = without_ext
-        .strip_suffix("/mod")
-        .unwrap_or(without_ext);
+    let without_mod = without_ext.strip_suffix("/mod").unwrap_or(without_ext);
 
     let module_part = without_mod.replace('/', "::");
     format!("{crate_name}::{module_part}")
@@ -202,11 +195,9 @@ fn parse_public_items(source: &str) -> Vec<(String, ItemKind)> {
             items.push((name, ItemKind::Enum));
         } else if let Some(name) = try_extract_pub_item(trimmed, "pub trait ", ItemKind::Trait) {
             items.push((name, ItemKind::Trait));
-        } else if let Some(name) = try_extract_pub_item(trimmed, "pub type ", ItemKind::TypeAlias)
-        {
+        } else if let Some(name) = try_extract_pub_item(trimmed, "pub type ", ItemKind::TypeAlias) {
             items.push((name, ItemKind::TypeAlias));
-        } else if let Some(name) = try_extract_pub_item(trimmed, "pub const ", ItemKind::Constant)
-        {
+        } else if let Some(name) = try_extract_pub_item(trimmed, "pub const ", ItemKind::Constant) {
             items.push((name, ItemKind::Constant));
         } else if let Some(name) = try_extract_pub_item(trimmed, "pub static ", ItemKind::Static) {
             items.push((name, ItemKind::Static));
@@ -228,9 +219,5 @@ fn try_extract_pub_item(line: &str, prefix: &str, _kind: ItemKind) -> Option<Str
         .chars()
         .take_while(|c| c.is_alphanumeric() || *c == '_')
         .collect();
-    if name.is_empty() {
-        None
-    } else {
-        Some(name)
-    }
+    if name.is_empty() { None } else { Some(name) }
 }
