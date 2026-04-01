@@ -70,10 +70,10 @@ fn cmd_render(args: &[String]) -> Result<String, GraphvizorError> {
 }
 
 fn print_usage() {
-    println!("graphvizor - deterministic graph visualizer");
+    println!("graphvizor_backend - deterministic graph visualizer");
     println!();
     println!("Commands:");
-    println!("  render --in <graph.json> --out <out.svg> --layout <name>");
+    println!("  graphvizor_backend render --in <graph.json> --out <out.svg> --layout <name>");
     println!();
     println!("Layouts: layered (default), force");
 }

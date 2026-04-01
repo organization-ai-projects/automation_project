@@ -47,6 +47,9 @@ impl JsonCodec {
             nodes.push(crate::graph::Node { id, label });
         }
 
+        let node_ids: std::collections::BTreeSet<&str> =
+            nodes.iter().map(|n| n.id.as_str()).collect();
+
         let mut edges = Vec::new();
         for item in edges_arr {
             let from = item
@@ -65,6 +68,18 @@ impl JsonCodec {
                     GraphvizorError::JsonParse("edge 'to' must be a string".to_string())
                 })?
                 .to_string();
+
+            if !node_ids.contains(from.as_str()) {
+                return Err(GraphvizorError::JsonParse(format!(
+                    "edge references unknown node '{from}'"
+                )));
+            }
+            if !node_ids.contains(to.as_str()) {
+                return Err(GraphvizorError::JsonParse(format!(
+                    "edge references unknown node '{to}'"
+                )));
+            }
+
             edges.push(crate::graph::Edge { from, to });
         }
 

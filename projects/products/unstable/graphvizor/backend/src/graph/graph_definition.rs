@@ -11,7 +11,7 @@ pub struct GraphDefinition {
 }
 
 impl GraphDefinition {
-    /// Returns a canonically ordered copy (nodes by id, edges by from then to).
+    /// Returns a canonically ordered copy (nodes by id then label, edges by from then to).
     pub fn canonicalize(&self) -> Self {
         let mut nodes = self.nodes.clone();
         nodes.sort();
