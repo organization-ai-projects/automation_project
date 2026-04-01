@@ -48,7 +48,8 @@ members = [
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
   "projects/libraries/layers/domain/runtime_core",
-  "projects/products/unstable/living_spreadsheet",
+  "projects/products/unstable/living_spreadsheet/backend",
+  "projects/products/unstable/living_spreadsheet/ui",
   "projects/products/stable/platform_versioning/backend",
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
@@ -124,6 +125,12 @@ members = [
   "projects/products/unstable/story_weaver/ui",
   "projects/products/unstable/universe_simulation_engine/backend",
   "projects/products/unstable/universe_simulation_engine/ui",
+  "projects/products/unstable/spec_to_runtime_compiler/backend",
+  "projects/products/unstable/spec_to_runtime_compiler/ui",
+  "projects/products/unstable/rust_language/backend",
+  "projects/products/unstable/rust_language/ui",
+  "projects/products/unstable/graphvizor/backend",
+  "projects/products/unstable/graphvizor/ui",
 ]
 resolver = "2"
 
