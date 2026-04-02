@@ -1,3 +1,4 @@
+//! projects/products/stable/platform_ide/backend/src/verification/verification_finding.rs
 use serde::{Deserialize, Serialize};
 
 use crate::verification::FindingSeverity;

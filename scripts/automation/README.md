@@ -1,6 +1,8 @@
 # Automation Documentation
 
-This directory contains scripts for project-wide automation tasks.
+This directory contains active shell entrypoints for project-wide automation tasks.
+Versioning and migrated automation logic are canonical in Rust under
+`tools/versioning_automation`.
 
 ## Role in the Project
 
@@ -22,46 +24,30 @@ automation/
 │   ├── pre-commit                  # Runs code formatting before commit
 │   ├── prepare-commit-msg          # Auto-generates commit subject
 │   ├── pre-push                    # Runs quality checks before push
-│   └── install_hooks.sh            # Installs git hooks
-├── audit_security.sh               # Security audit on dependencies
-├── build_accounts_ui.sh            # Build accounts UI bundle
-├── build_and_check_ui_bundles.sh   # Build and verify artifacts
-├── build_ui_bundles.sh             # Discover and build all UI bundles
-├── audit_issue_status.sh           # Audit open issues vs commit references
-├── changed_crates.sh               # List crates touched in a diff
-├── check_dependencies.sh           # Check for outdated/missing dependencies
-├── check_merge_conflicts.sh        # Test merge for conflicts
-├── clean_artifacts.sh              # Clean build artifacts
+│   └── (installed via `versioning_automation automation install-hooks`)
 ├── git_add_command_override.sh     # Shell override for git add -> staging guard
 ├── git_add_guard.sh                # Guarded staging with split-policy checks
-├── pre_add_review.sh               # Pre-add internal review (format, clippy, tests)
-├── pre_push_check.sh               # Pre-push validation (checks, tests, conflicts)
-├── release_prepare.sh              # Prepare releases with version/changelog/tag
-├── setup_hooks.sh                  # Install git hooks
 ├── check_script_integrity.sh       # Validate script sourcing/root-path integrity
 ├── tests/
-│   └── critical_workflows_regression.sh # Minimal shell regression suite
+│   ├── critical_workflows_regression.sh # Critical cross-workflow regression suite
+│   └── enforcer_shell_contract_regression.sh # Enforcer check for shell-structure violations
 ├── SCRIPT_WORKFLOWS.md             # Canonical workflow inventory + entrypoints
-├── sync_docs.sh                    # Documentation synchronization (placeholder)
-└── test_coverage.sh                # Generate test coverage reports
+└── tests/                          # Shell regression/integration tests
 ```
 
 ## Files
 
-- `README.md`: This file.
+For the exhaustive, always-updated list, use:
+
+- `TOC.md`
+
+High-level groups:
+
 - `git_hooks/`: Git hooks for commit validation and pre-push checks.
-- `audit_security.sh`: Security audit on dependencies.
-- `build_accounts_ui.sh`: Build accounts UI bundle.
-- `build_and_check_ui_bundles.sh`: Build and verify artifacts.
-- `build_ui_bundles.sh`: Discover and build all UI bundles.
-- `audit_issue_status.sh`: Audit open issues vs commit references in a branch range.
-- `changed_crates.sh`: List crates touched in a diff.
-- `check_dependencies.sh`: Check for outdated/missing dependencies.
-- `check_merge_conflicts.sh`: Test merge for conflicts.
-- `clean_artifacts.sh`: Clean build artifacts.
-- `git_add_command_override.sh`: Shell override for `git add` to use guarded staging.
-- `git_add_guard.sh`: Guarded staging with split-policy checks.
-- `pre_add_review.sh`: Pre-add internal review.
+- quality/security/build scripts: `check_*.sh`.
+- git safety helpers: `git_add_guard.sh`, `git_add_command_override.sh`.
+- canonical pre-push hook: `scripts/automation/git_hooks/pre-push`.
+- regression/integrity guards: `check_script_integrity.sh`, `tests/*.sh`, `SCRIPT_WORKFLOWS.md`.
 
 ## Optional shell override for `git add`
 
@@ -73,24 +59,34 @@ source /absolute/path/to/repo/scripts/automation/git_add_command_override.sh
 
 After sourcing, only `git add` is overridden; all other `git` commands are unchanged.
 
-- `pre_push_check.sh`: Pre-push validation.
-- `check_script_integrity.sh`: Script integrity checks (ROOT_DIR, sourced helpers, required imports).
-- `release_prepare.sh`: Prepare releases with version/changelog/tag.
-- `tests/critical_workflows_regression.sh`: Minimal shell regression suite for critical workflows.
-- `SCRIPT_WORKFLOWS.md`: Canonical user-facing workflow inventory and supported invocation paths.
-- `setup_hooks.sh`: Install git hooks.
-- `sync_docs.sh`: Documentation synchronization (placeholder).
-- `test_coverage.sh`: Generate test coverage reports.
-
 ## Adding New Automation Scripts
 
 When adding a new automation script:
 
 1. **Does it operate on the whole repository?** → Belongs here
-2. **Is it a version control workflow task?** → Belongs in `versioning/`
-3. **Is it a reusable utility?** → Belongs in `common/`
+2. **Is it Git/GitHub versioning automation logic?** → Belongs in `tools/versioning_automation` (Rust CLI)
+3. **Is it a reusable shell utility?** → Belongs in `scripts/common_lib/`
 
 Document the script in:
 
 - This README (add to list)
-- `documentation/technical_documentation/versioning/file_versioning/scripts_overview.md`
+- `TOC.md` (required)
+- `SCRIPT_WORKFLOWS.md` when it is a user-facing workflow entrypoint
+
+## Migrated Rust Commands
+
+Use these commands directly instead of removed shell wrappers:
+
+- `versioning_automation automation audit-security`
+- `versioning_automation automation build-accounts-ui`
+- `versioning_automation automation build-ui-bundles`
+- `versioning_automation automation build-and-check-ui-bundles`
+- `versioning_automation automation changed-crates [<ref1>] [<ref2>] [--output-format paths]`
+- `versioning_automation automation check-dependencies`
+- `versioning_automation automation check-merge-conflicts`
+- `versioning_automation automation clean-artifacts`
+- `versioning_automation automation pre-add-review`
+- `versioning_automation automation test-coverage`
+- `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
+- `versioning_automation automation release-prepare <version> [--auto-changelog]`
+- `versioning_automation automation install-hooks`

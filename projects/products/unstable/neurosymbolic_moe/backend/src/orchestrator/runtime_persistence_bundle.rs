@@ -1,0 +1,452 @@
+//! projects/products/unstable/neurosymbolic_moe/backend/src/orchestrator/runtime_persistence_bundle.rs
+use crate::buffer_manager::BufferManager;
+use crate::dataset_engine::{Correction, DatasetEntry};
+use crate::memory_engine::MemoryEntry;
+use crate::orchestrator::checksum_writer::{
+    append_segment_delimiter, fnv1a64_init, fnv1a64_update,
+};
+use crate::orchestrator::version::Version;
+use crate::orchestrator::{
+    AutoImprovementPolicy, AutoImprovementStatus, GovernanceAuditEntry,
+    GovernancePersistenceBundle, GovernanceStateSnapshot, ModelRegistry, RuntimeBundleComponents,
+    TrainerTriggerEvent,
+};
+use protocol::ProtocolId;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::Write as _;
+
+const RUNTIME_BUNDLE_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimePersistenceBundle {
+    #[serde(default = "RuntimePersistenceBundle::schema_version")]
+    pub schema_version: u32,
+    #[serde(default)]
+    pub runtime_checksum: String,
+    pub governance: GovernancePersistenceBundle,
+    pub short_term_memory_entries: Vec<MemoryEntry>,
+    pub long_term_memory_entries: Vec<MemoryEntry>,
+    pub buffer_manager: BufferManager,
+    #[serde(default)]
+    pub dataset_entries: Vec<DatasetEntry>,
+    #[serde(default)]
+    pub dataset_corrections: HashMap<ProtocolId, Vec<Correction>>,
+    #[serde(default)]
+    pub auto_improvement_policy: Option<AutoImprovementPolicy>,
+    #[serde(default)]
+    pub auto_improvement_status: AutoImprovementStatus,
+    #[serde(default)]
+    pub model_registry: ModelRegistry,
+    #[serde(default)]
+    pub trainer_trigger_events: Vec<TrainerTriggerEvent>,
+    #[serde(default)]
+    pub trainer_trigger_dead_letter_events: Vec<TrainerTriggerEvent>,
+    #[serde(default)]
+    pub trainer_trigger_leased_event_ids: Vec<ProtocolId>,
+}
+
+impl RuntimePersistenceBundle {
+    pub fn schema_version() -> u32 {
+        RUNTIME_BUNDLE_SCHEMA_VERSION
+    }
+
+    pub fn has_supported_schema(&self) -> bool {
+        self.schema_version == Self::schema_version()
+    }
+
+    pub fn from_components(components: RuntimeBundleComponents) -> Self {
+        let mut bundle = Self {
+            schema_version: RUNTIME_BUNDLE_SCHEMA_VERSION,
+            runtime_checksum: String::new(),
+            governance: components.governance,
+            short_term_memory_entries: components.short_term_memory_entries,
+            long_term_memory_entries: components.long_term_memory_entries,
+            buffer_manager: components.buffer_manager,
+            dataset_entries: components.dataset_entries,
+            dataset_corrections: components.dataset_corrections,
+            auto_improvement_policy: components.auto_improvement_policy,
+            auto_improvement_status: components.auto_improvement_status,
+            model_registry: components.model_registry,
+            trainer_trigger_events: components.trainer_trigger_events,
+            trainer_trigger_dead_letter_events: components.trainer_trigger_dead_letter_events,
+            trainer_trigger_leased_event_ids: components.trainer_trigger_leased_event_ids,
+        };
+        bundle.runtime_checksum = bundle.recompute_checksum();
+        bundle
+    }
+
+    pub fn ensure_checksum(&mut self) {
+        if self.runtime_checksum.is_empty() {
+            self.runtime_checksum = self.recompute_checksum();
+        }
+    }
+
+    pub fn verify_checksum(&self) -> bool {
+        !self.runtime_checksum.is_empty() && self.runtime_checksum == self.recompute_checksum()
+    }
+
+    pub fn recompute_checksum(&self) -> String {
+        recompute_runtime_checksum_from_components(
+            self.schema_version,
+            self.governance.state.schema_version,
+            self.governance.state.version_number.clone(),
+            &self.governance.state.state_checksum,
+            &self.governance.audit_entries,
+            &self.governance.snapshots,
+            &self.short_term_memory_entries,
+            &self.long_term_memory_entries,
+            &self.buffer_manager,
+            &self.dataset_entries,
+            &self.dataset_corrections,
+            self.auto_improvement_policy.as_ref(),
+            &self.auto_improvement_status,
+            &self.model_registry,
+            &self.trainer_trigger_events,
+            &self.trainer_trigger_dead_letter_events,
+            &self.trainer_trigger_leased_event_ids,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn recompute_runtime_checksum_from_components<'a, 'b, 'c, S, L, T, U>(
+    schema_version: u32,
+    governance_state_schema_version: u32,
+    governance_state_version: Version,
+    governance_state_checksum: &str,
+    governance_audit_entries: &[GovernanceAuditEntry],
+    governance_snapshots: &[GovernanceStateSnapshot],
+    short_term_memory_entries: S,
+    long_term_memory_entries: L,
+    buffer_manager: &BufferManager,
+    dataset_entries: &[DatasetEntry],
+    dataset_corrections: &HashMap<ProtocolId, Vec<Correction>>,
+    auto_improvement_policy: Option<&AutoImprovementPolicy>,
+    auto_improvement_status: &AutoImprovementStatus,
+    model_registry: &ModelRegistry,
+    trainer_trigger_events: T,
+    trainer_trigger_dead_letter_events: T,
+    trainer_trigger_leased_event_ids: U,
+) -> String
+where
+    S: IntoIterator<Item = &'a MemoryEntry>,
+    L: IntoIterator<Item = &'b MemoryEntry>,
+    T: IntoIterator<Item = &'c TrainerTriggerEvent>,
+    U: IntoIterator<Item = &'c ProtocolId>,
+{
+    let short_fp = memory_entries_fingerprint(short_term_memory_entries);
+    let long_fp = memory_entries_fingerprint(long_term_memory_entries);
+    let working_fp = working_buffer_fingerprint(buffer_manager);
+    let sessions_fp = session_buffer_fingerprint(buffer_manager);
+    let governance_fp = governance_fingerprint(
+        governance_state_schema_version,
+        governance_state_version,
+        governance_state_checksum,
+        governance_audit_entries,
+        governance_snapshots,
+    );
+    let dataset_fp = dataset_fingerprint(dataset_entries, dataset_corrections);
+    let auto_improvement_fp =
+        auto_improvement_fingerprint(auto_improvement_policy, auto_improvement_status);
+    let model_registry_fp = model_registry_fingerprint(model_registry);
+    let trainer_events_fp = trainer_trigger_events_fingerprint(trainer_trigger_events);
+    let trainer_dead_letter_events_fp =
+        trainer_trigger_events_fingerprint(trainer_trigger_dead_letter_events);
+    let trainer_leased_ids_fp =
+        trainer_trigger_leased_event_ids_fingerprint(trainer_trigger_leased_event_ids);
+
+    let schema_version_fp = schema_version.to_string();
+    let mut hash = fnv1a64_init();
+    fnv1a64_update(&mut hash, schema_version_fp.as_bytes());
+    for part in [
+        governance_fp.as_str(),
+        short_fp.as_str(),
+        long_fp.as_str(),
+        working_fp.as_str(),
+        sessions_fp.as_str(),
+        dataset_fp.as_str(),
+        auto_improvement_fp.as_str(),
+        model_registry_fp.as_str(),
+        trainer_events_fp.as_str(),
+        trainer_dead_letter_events_fp.as_str(),
+        trainer_leased_ids_fp.as_str(),
+    ] {
+        fnv1a64_update(&mut hash, b":");
+        fnv1a64_update(&mut hash, part.as_bytes());
+    }
+    format!("{hash:016x}")
+}
+
+fn memory_entries_fingerprint<'a, I>(entries: I) -> String
+where
+    I: IntoIterator<Item = &'a MemoryEntry>,
+{
+    let mut ordered_entries: Vec<&MemoryEntry> = entries.into_iter().collect();
+    ordered_entries.sort_by(|a, b| {
+        a.id.cmp(&b.id)
+            .then(a.content.cmp(&b.content))
+            .then(a.created_at.cmp(&b.created_at))
+    });
+    let mut fingerprint = String::new();
+    for (idx, entry) in ordered_entries.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push(';');
+        }
+        let mut tags: Vec<&str> = entry.tags.iter().map(String::as_str).collect();
+        tags.sort_unstable();
+        let mut metadata: Vec<(&str, &str)> = entry
+            .metadata
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        metadata.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}|{}|{:?}|{}|{:?}|{}|{:?}|",
+            entry.id,
+            entry.content,
+            tags,
+            entry.created_at,
+            entry
+                .expires_at
+                .map_or("None".to_string(), |v| format!("{:?}", v)),
+            entry.relevance,
+            entry.memory_type
+        ) {}
+        for (metadata_idx, (key, value)) in metadata.iter().enumerate() {
+            if metadata_idx > 0 {
+                fingerprint.push(',');
+            }
+            if let Ok(()) = write!(fingerprint, "{key}={value}") {}
+        }
+    }
+    fingerprint
+}
+
+fn working_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
+    let working = buffer_manager.working();
+    let mut keys = working.keys();
+    keys.sort_unstable();
+    let mut fingerprint = String::new();
+    for key in keys {
+        if let Some(entry) = working.get(key) {
+            if !fingerprint.is_empty() {
+                fingerprint.push(';');
+            }
+            if let Ok(()) = write!(fingerprint, "{}={}", entry.key, entry.value) {}
+        }
+    }
+    fingerprint
+}
+
+fn session_buffer_fingerprint(buffer_manager: &BufferManager) -> String {
+    let sessions_buffer = buffer_manager.sessions();
+    let mut sessions = sessions_buffer.list_sessions();
+    sessions.sort_unstable_by_key(|session| session.to_string());
+    let mut fingerprint = String::new();
+    for session in sessions {
+        if !fingerprint.is_empty() {
+            fingerprint.push(';');
+        }
+        if let Ok(()) = write!(fingerprint, "{session}:") {}
+        let values = sessions_buffer.values_ref(&session);
+        for (value_idx, value) in values.iter().enumerate() {
+            if value_idx > 0 {
+                fingerprint.push('|');
+            }
+            fingerprint.push_str(&value.to_string());
+        }
+    }
+    fingerprint
+}
+
+fn governance_fingerprint(
+    state_schema_version: u32,
+    state_version: Version,
+    state_checksum: &str,
+    audit_entries: &[GovernanceAuditEntry],
+    snapshots: &[GovernanceStateSnapshot],
+) -> String {
+    let mut fingerprint = String::new();
+    if let Ok(()) = write!(
+        fingerprint,
+        "{}:{}:{}:",
+        state_schema_version, state_version, state_checksum
+    ) {}
+    for (idx, entry) in audit_entries.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push('|');
+        }
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}:{}:{}",
+            entry.version, entry.checksum, entry.reason
+        ) {}
+    }
+    fingerprint.push_str("::");
+    for (idx, snapshot) in snapshots.iter().enumerate() {
+        if idx > 0 {
+            fingerprint.push('|');
+        }
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}:{}:{}",
+            snapshot.version, snapshot.reason, snapshot.state.state_checksum
+        ) {}
+    }
+    fingerprint
+}
+
+fn dataset_fingerprint(
+    entries: &[DatasetEntry],
+    corrections: &HashMap<ProtocolId, Vec<Correction>>,
+) -> String {
+    let mut ordered_entries: Vec<&DatasetEntry> = entries.iter().collect();
+    ordered_entries.sort_by_key(|entry| entry.id.to_hex());
+    let mut fingerprint = String::new();
+    let mut first_segment = true;
+    for entry in ordered_entries {
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}|{}|{}|{}|{:?}|{:?}|{}|{:?}",
+            entry.id,
+            entry.task_id,
+            entry.expert_id,
+            entry.input,
+            entry.outcome,
+            entry.score,
+            entry.created_at,
+            entry.tags
+        ) {}
+    }
+
+    let mut ordered_keys: Vec<&ProtocolId> = corrections.keys().collect();
+    ordered_keys.sort_by_key(|key| key.to_hex());
+    for key in ordered_keys {
+        if let Some(values) = corrections.get(key) {
+            for correction in values {
+                append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
+                if let Ok(()) = write!(
+                    fingerprint,
+                    "corr:{}|{}|{}|{}",
+                    correction.entry_id,
+                    correction.corrected_output,
+                    correction.reason,
+                    correction.corrected_at
+                ) {}
+            }
+        }
+    }
+    fingerprint
+}
+
+fn auto_improvement_fingerprint(
+    policy: Option<&AutoImprovementPolicy>,
+    status: &AutoImprovementStatus,
+) -> String {
+    let policy_part = if let Some(policy) = policy {
+        format!(
+            "{}|{}|{:?}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+            policy.min_dataset_entries,
+            policy.min_success_ratio,
+            policy.min_average_score,
+            policy.training_build_options.generated_at,
+            policy.training_build_options.validation_ratio,
+            policy.training_build_options.min_score,
+            policy.training_build_options.include_failure_entries,
+            policy.training_build_options.include_partial_entries,
+            policy.training_build_options.split_seed,
+            policy.trainer_trigger_min_retry_delay_seconds,
+            policy.trainer_trigger_max_delivery_attempts_before_dead_letter
+        )
+    } else {
+        "none".to_string()
+    };
+    let status_part = format!(
+        "{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}",
+        status.global_counters.runs_total,
+        status.global_counters.bootstrap_entries_total,
+        status.last_bundle_checksum,
+        status.last_included_entries,
+        status.last_train_samples,
+        status.last_validation_samples,
+        status.skip_counters.min_dataset_entries_total,
+        status.skip_counters.min_success_ratio_total,
+        status.skip_counters.min_average_score_total,
+        status.skip_counters.human_review_required_total,
+        status.skip_counters.duplicate_bundle_total,
+        status.global_counters.build_failures_total,
+        status.last_skip_reason,
+        status.delivery_stats.delivery_attempts_total,
+        status.delivery_stats.delivery_failures_total,
+        status.delivery_stats.acknowledged_total,
+        status.delivery_stats.dead_letter_total
+    );
+    format!("{policy_part}::{status_part}")
+}
+
+fn model_registry_fingerprint(registry: &ModelRegistry) -> String {
+    let mut fingerprint = String::new();
+    if let Ok(()) = write!(
+        fingerprint,
+        "active={:?}|next={}",
+        registry.active_model_version, registry.next_model_version
+    ) {}
+    for entry in &registry.entries {
+        fingerprint.push_str("::");
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}|{}|{}|{}|{}|{}|{}",
+            entry.model_version,
+            entry.training_bundle_checksum,
+            entry.included_entries,
+            entry.train_samples,
+            entry.validation_samples,
+            entry.generated_at,
+            entry.promoted
+        ) {}
+    }
+    fingerprint
+}
+
+fn trainer_trigger_events_fingerprint<'a, I>(events: I) -> String
+where
+    I: IntoIterator<Item = &'a TrainerTriggerEvent>,
+{
+    let mut fingerprint = String::new();
+    let mut first_segment = true;
+    for event in events {
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
+        if let Ok(()) = write!(
+            fingerprint,
+            "{}|{}|{}|{}|{}|{}|{}|{}|{:?}",
+            event.event_id,
+            event.model_version,
+            event.training_bundle_checksum,
+            event.included_entries,
+            event.train_samples,
+            event.validation_samples,
+            event.generated_at,
+            event.delivery_attempts,
+            event.last_attempted_at
+        ) {}
+    }
+    fingerprint
+}
+
+fn trainer_trigger_leased_event_ids_fingerprint<'a, I>(ids: I) -> String
+where
+    I: IntoIterator<Item = &'a ProtocolId>,
+{
+    let mut ordered_ids: Vec<&ProtocolId> = ids.into_iter().collect();
+    ordered_ids.sort_unstable_by_key(|id| id.to_string());
+    let mut fingerprint = String::new();
+    let mut first_segment = true;
+    for id in &ordered_ids {
+        append_segment_delimiter(&mut fingerprint, "::", &mut first_segment);
+        if let Ok(()) = write!(fingerprint, "{:?}", id) {}
+    }
+    fingerprint
+}

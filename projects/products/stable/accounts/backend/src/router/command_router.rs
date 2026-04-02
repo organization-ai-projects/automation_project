@@ -2,9 +2,14 @@
 use protocol::{Command, Event};
 use security::TokenService;
 
-use crate::store::account_manager::AccountManager;
-
-use super::{accounts, auth, helpers, setup};
+use crate::{
+    router::{
+        err_event, handle_create_user, handle_get_user, handle_list_users, handle_login,
+        handle_reset_password, handle_setup_admin, handle_setup_status, handle_update_status,
+        handle_update_user,
+    },
+    store::AccountManager,
+};
 
 const ACTION_SETUP_STATUS: &str = "accounts.setup_status";
 const ACTION_SETUP_ADMIN: &str = "accounts.setup_admin";
@@ -31,19 +36,19 @@ pub async fn handle_command(
     let meta = cmd.metadata.clone();
     let action = match cmd.action.as_deref().map(str::trim) {
         Some(a) if !a.is_empty() => a,
-        _ => return helpers::err_event(&meta, 400, "Command action is missing"),
+        _ => return err_event(&meta, 400, "Command action is missing"),
     };
 
     match action {
-        ACTION_SETUP_STATUS => setup::handle_setup_status(&meta, manager).await,
-        ACTION_SETUP_ADMIN => setup::handle_setup_admin(&meta, &cmd, manager).await,
-        ACTION_LOGIN => auth::handle_login(&meta, &cmd, manager, token_service).await,
-        ACTION_LIST_USERS => accounts::handle_list_users(&meta, manager).await,
-        ACTION_GET_USER => accounts::handle_get_user(&meta, &cmd, manager).await,
-        ACTION_CREATE_USER => accounts::handle_create_user(&meta, &cmd, manager).await,
-        ACTION_UPDATE_USER => accounts::handle_update_user(&meta, &cmd, manager).await,
-        ACTION_UPDATE_STATUS => accounts::handle_update_status(&meta, &cmd, manager).await,
-        ACTION_RESET_PASSWORD => accounts::handle_reset_password(&meta, &cmd, manager).await,
-        _ => helpers::err_event(&meta, 404, "Unsupported action"),
+        ACTION_SETUP_STATUS => handle_setup_status(&meta, manager).await,
+        ACTION_SETUP_ADMIN => handle_setup_admin(&meta, &cmd, manager).await,
+        ACTION_LOGIN => handle_login(&meta, &cmd, manager, token_service).await,
+        ACTION_LIST_USERS => handle_list_users(&meta, manager).await,
+        ACTION_GET_USER => handle_get_user(&meta, &cmd, manager).await,
+        ACTION_CREATE_USER => handle_create_user(&meta, &cmd, manager).await,
+        ACTION_UPDATE_USER => handle_update_user(&meta, &cmd, manager).await,
+        ACTION_UPDATE_STATUS => handle_update_status(&meta, &cmd, manager).await,
+        ACTION_RESET_PASSWORD => handle_reset_password(&meta, &cmd, manager).await,
+        _ => err_event(&meta, 404, "Unsupported action"),
     }
 }

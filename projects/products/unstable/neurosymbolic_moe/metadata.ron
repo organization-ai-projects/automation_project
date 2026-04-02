@@ -1,0 +1,37 @@
+(
+  schema_version: 1,
+  generated_at: 1772841600000,
+  id: "neurosymbolic_moe",
+  name: "Neurosymbolic MoE",
+  kind: "product",
+  version: "0.1.0",
+
+  entrypoints: (
+    ui: [
+      (id: "neurosymbolic_moe_ui", title: "Neurosymbolic MoE", role: "user"),
+    ],
+  ),
+
+  capabilities: [
+    "moe-orchestration",
+    "expert-routing",
+    "rag-context",
+    "memory-buffers",
+    "trace-logging",
+  ],
+
+  domains: [
+    (id: "neurosymbolic_runtime", desc: "modular mixture-of-experts execution"),
+  ],
+
+  ai_hints: (
+    primary_language: "rust",
+    important_paths: ["backend/", "ui/", "README.md", "metadata.ron"],
+    config_files: [
+      "backend/Cargo.toml",
+      "backend/backend_manifest.ron",
+      "ui/Cargo.toml",
+      "ui/ui_manifest.ron",
+    ],
+  ),
+)

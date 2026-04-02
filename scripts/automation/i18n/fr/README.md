@@ -2,7 +2,9 @@
 
 Langue : [English](../../README.md) | **Francais**
 
-Ce repertoire contient les scripts d'automatisation transverses au projet.
+Ce repertoire contient les entrypoints shell actifs pour l'automatisation transverse.
+La logique canonique de versioning et des automatisations migrees est en Rust dans
+`tools/versioning_automation`.
 
 ## Role dans le projet
 
@@ -24,53 +26,43 @@ automation/
 │   ├── pre-commit                  # Lance le formatage avant commit
 │   ├── prepare-commit-msg          # Genere automatiquement le sujet de commit
 │   ├── pre-push                    # Lance les checks qualite avant push
-│   └── install_hooks.sh            # Installe les hooks Git
-├── audit_security.sh               # Audit securite des dependances
-├── audit_issue_status.sh           # Audit des issues ouvertes vs references commits
-├── build_accounts_ui.sh            # Build du bundle UI accounts
-├── build_and_check_ui_bundles.sh   # Build + verification des artefacts UI
-├── build_ui_bundles.sh             # Detection + build de tous les bundles UI
-├── changed_crates.sh               # Liste les crates modifiees dans un diff
-├── check_dependencies.sh           # Detecte dependances obsoletes/manquantes
-├── check_merge_conflicts.sh        # Teste les conflits de merge
-├── clean_artifacts.sh              # Nettoie les artefacts de build
+│   └── (installe via `versioning_automation automation install-hooks`)
 ├── git_add_guard.sh                # Ajout securise avec regles de split
-├── pre_add_review.sh               # Pre-check interne avant review
-├── pre_push_check.sh               # Validation avant push (checks/tests/conflicts)
-├── release_prepare.sh              # Preparation release (version/changelog/tag)
-├── setup_hooks.sh                  # Installation des hooks Git
-├── sync_docs.sh                    # Synchronisation documentation (placeholder)
-└── test_coverage.sh                # Generation des rapports de couverture
+└── tests/                          # Tests shell de regression/integration
 ```
 
 ## Fichiers
 
 - `README.md`: Ce document (version EN canonique).
 - `git_hooks/`: Hooks Git de validation commit/push.
-- `audit_security.sh`: Audit securite des dependances.
-- `audit_issue_status.sh`: Audit des issues ouvertes vs references commits sur un range de branches.
-- `build_accounts_ui.sh`: Build UI accounts.
-- `build_and_check_ui_bundles.sh`: Build + verification artefacts UI.
-- `build_ui_bundles.sh`: Decouverte + build de tous les bundles UI.
-- `changed_crates.sh`: Detection des crates modifiees.
-- `check_dependencies.sh`: Verification des dependances.
-- `check_merge_conflicts.sh`: Detection des conflits de merge.
-- `clean_artifacts.sh`: Nettoyage des artefacts.
 - `git_add_guard.sh`: Ajout securise avec regles de split.
-- `pre_add_review.sh`: Verification avant review interne.
-- `pre_push_check.sh`: Validation pre-push.
-- `release_prepare.sh`: Preparation release.
-- `setup_hooks.sh`: Installation des hooks Git.
-- `sync_docs.sh`: Synchronisation de la documentation (placeholder).
-- `test_coverage.sh`: Rapport de couverture.
+
+Hook pre-push canonique: `scripts/automation/git_hooks/pre-push`.
 
 ## Ajouter un script d'automatisation
 
 1. **Il agit sur tout le repository?** -> Il va ici.
-2. **C'est un workflow de versioning?** -> Il va dans `versioning/`.
-3. **C'est une utilitaire reutilisable?** -> Il va dans `common_lib/`.
+2. **C'est de la logique de workflow Git/GitHub versioning?** -> Il va dans `tools/versioning_automation` (Rust CLI).
+3. **C'est un utilitaire shell reutilisable?** -> Il va dans `scripts/common_lib/`.
 
 Documenter la nouvelle entree dans:
 
 - Ce `README`
-- La documentation technique des scripts
+- `TOC.md` (obligatoire)
+- `SCRIPT_WORKFLOWS.md` si c'est un entrypoint utilisateur
+
+## Commandes Rust migrees
+
+- `versioning_automation automation audit-security`
+- `versioning_automation automation build-accounts-ui`
+- `versioning_automation automation build-ui-bundles`
+- `versioning_automation automation build-and-check-ui-bundles`
+- `versioning_automation automation changed-crates [<ref1>] [<ref2>] [--output-format paths]`
+- `versioning_automation automation check-dependencies`
+- `versioning_automation automation check-merge-conflicts`
+- `versioning_automation automation clean-artifacts`
+- `versioning_automation automation pre-add-review`
+- `versioning_automation automation test-coverage`
+- `versioning_automation automation audit-issue-status [--repo owner/name] [--base origin/main] [--head origin/dev] [--limit <n>] [--output <file>]`
+- `versioning_automation automation release-prepare <version> [--auto-changelog]`
+- `versioning_automation automation install-hooks`

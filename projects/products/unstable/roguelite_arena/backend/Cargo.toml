@@ -1,0 +1,15 @@
+[package]
+name = "roguelite_arena_backend"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "roguelite_arena_backend"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+common_json = { workspace = true }

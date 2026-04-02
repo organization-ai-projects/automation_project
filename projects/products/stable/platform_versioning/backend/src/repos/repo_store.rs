@@ -4,13 +4,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-#[cfg(test)]
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use crate::errors::PvError;
 use crate::ids::RepoId;
 use crate::objects::ObjectStore;
@@ -197,67 +190,5 @@ impl RepoStore {
 
     fn repo_dir(&self, id: &RepoId) -> PathBuf {
         self.root.join("repos").join(id.as_str())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn unique_test_dir(tag: &str) -> PathBuf {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let pid = std::process::id();
-        let nanos = next_nonce();
-        std::env::temp_dir().join(format!("pv_repos_{tag}_{pid}_{nanos}_{id}"))
-    }
-
-    #[test]
-    fn create_and_get() {
-        let dir = unique_test_dir("create");
-        let store = RepoStore::open(&dir).unwrap();
-        let id: RepoId = "my-repo".parse().unwrap();
-        store
-            .create(id.clone(), "My Repo".to_string(), None, 1000)
-            .unwrap();
-        let repo = store.get(&id).unwrap();
-        assert_eq!(repo.metadata.name, "My Repo");
-    }
-
-    #[test]
-    fn list_repos() {
-        let dir = unique_test_dir("list");
-        let store = RepoStore::open(&dir).unwrap();
-        let id1: RepoId = "alpha".parse().unwrap();
-        let id2: RepoId = "beta".parse().unwrap();
-        store.create(id1, "Alpha".to_string(), None, 1).unwrap();
-        store.create(id2, "Beta".to_string(), None, 2).unwrap();
-        let list = store.list().unwrap();
-        assert_eq!(list.len(), 2);
-    }
-
-    #[test]
-    fn get_missing_returns_not_found() {
-        let dir = unique_test_dir("missing");
-        let store = RepoStore::open(&dir).unwrap();
-        let id: RepoId = "ghost".parse().unwrap();
-        let result = store.get(&id);
-        assert!(matches!(result, Err(PvError::RepoNotFound(_))));
-    }
-
-    #[test]
-    fn update_metadata() {
-        let dir = unique_test_dir("update");
-        let store = RepoStore::open(&dir).unwrap();
-        let id: RepoId = "my-repo".parse().unwrap();
-        store
-            .create(id.clone(), "Old Name".to_string(), None, 1)
-            .unwrap();
-        let updated = store
-            .update_metadata(&id, Some("New Name".to_string()), None, 2)
-            .unwrap();
-        assert_eq!(updated.name, "New Name");
     }
 }

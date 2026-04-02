@@ -18,5 +18,5 @@ source "$(git rev-parse --show-toplevel)/scripts/common_lib/versioning/file_vers
 
 ## Notes
 
-- These helpers are intended to be sourced by scripts under `scripts/versioning/file_versioning/github/`.
+- These helpers are intended to be sourced by repository automation shell scripts (for example under `scripts/automation/`).
 - They require `gh` and `jq` to be available in the caller environment.

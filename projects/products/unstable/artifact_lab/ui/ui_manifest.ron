@@ -1,0 +1,8 @@
+(
+  schema_version: 1,
+  id: "artifact_lab_ui",
+  title: "Artifact Lab UI",
+  entrypoint: "index.html",
+  kind: "ui_bundle",
+  version: "0.1.0",
+)

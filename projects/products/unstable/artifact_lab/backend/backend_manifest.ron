@@ -1,0 +1,9 @@
+(
+  schema_version: 1,
+  id: "artifact_lab_backend",
+  title: "Artifact Lab Backend",
+  entrypoint: "artifact_lab",
+  kind: "backend_service",
+  transport: "stdio_cli",
+  version: "0.1.0",
+)

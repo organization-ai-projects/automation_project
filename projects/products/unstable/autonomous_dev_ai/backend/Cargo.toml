@@ -1,0 +1,25 @@
+[package]
+name = "autonomous_dev_ai_backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = "0.3"
+log = "0.4.29"
+
+# Workspace libraries
+symbolic = { workspace = true }
+neural = { workspace = true }
+ai = { workspace = true }
+common = { workspace = true }
+common_ron = { workspace = true }
+common_json = { workspace = true }
+common_binary = { workspace = true }
+common_time = { workspace = true }
+protocol = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.3"

@@ -90,37 +90,3 @@ impl FromStr for RefName {
         Ok(Self(s.to_string()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_branch() {
-        let r: RefName = "heads/main".parse().unwrap();
-        assert_eq!(r.kind(), RefKind::Branch);
-        assert_eq!(r.short_name(), "main");
-    }
-
-    #[test]
-    fn parse_tag() {
-        let r: RefName = "tags/v1.0".parse().unwrap();
-        assert_eq!(r.kind(), RefKind::Tag);
-        assert_eq!(r.short_name(), "v1.0");
-    }
-
-    #[test]
-    fn parse_missing_prefix() {
-        assert!("main".parse::<RefName>().is_err());
-    }
-
-    #[test]
-    fn parse_empty_short() {
-        assert!("heads/".parse::<RefName>().is_err());
-    }
-
-    #[test]
-    fn parse_invalid_chars() {
-        assert!("heads/my branch".parse::<RefName>().is_err());
-    }
-}

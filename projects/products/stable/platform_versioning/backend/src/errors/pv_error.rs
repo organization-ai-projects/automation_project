@@ -106,29 +106,3 @@ impl PvError {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn invalid_id_has_correct_code() {
-        let err = PvError::InvalidId("bad".to_string());
-        assert_eq!(err.code(), ErrorCode::InvalidId);
-        assert_eq!(err.category(), ErrorCategory::InvalidInput);
-    }
-
-    #[test]
-    fn not_found_category() {
-        let err = PvError::ObjectNotFound("abc".to_string());
-        assert_eq!(err.category(), ErrorCategory::NotFound);
-    }
-
-    #[test]
-    fn io_error_maps_to_internal_code() {
-        let io = std::io::Error::other("disk full");
-        let err = PvError::from(io);
-        assert_eq!(err.code(), ErrorCode::Internal);
-        assert_eq!(err.category(), ErrorCategory::Io);
-    }
-}

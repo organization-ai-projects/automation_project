@@ -1,0 +1,51 @@
+name: neurosymbolic_moe backend CI
+
+on:
+  pull_request:
+    paths:
+      - "projects/products/unstable/neurosymbolic_moe/backend/**"
+      - "scripts/automation/test_coverage.sh"
+      - ".github/workflows/neurosymbolic_moe_backend_ci.yml"
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - "projects/products/unstable/neurosymbolic_moe/backend/**"
+      - "scripts/automation/test_coverage.sh"
+      - ".github/workflows/neurosymbolic_moe_backend_ci.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+  MOE_PERF_BUDGETS: "1"
+  COVERAGE_FAIL_UNDER: "80"
+
+jobs:
+  neurosymbolic-moe-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Rust fmt
+        run: cargo fmt --manifest-path projects/products/unstable/neurosymbolic_moe/backend/Cargo.toml --check
+
+      - name: Rust clippy
+        run: cargo clippy -p neurosymbolic_moe_backend --tests -- -D warnings
+
+      - name: Rust tests
+        run: cargo test -p neurosymbolic_moe_backend
+
+      - name: Perf budgets
+        run: cargo test -p neurosymbolic_moe_backend perf_budget_ -- --nocapture
+
+      - name: Coverage threshold
+        run: bash scripts/automation/test_coverage.sh

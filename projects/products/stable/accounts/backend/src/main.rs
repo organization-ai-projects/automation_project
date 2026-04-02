@@ -1,7 +1,13 @@
-// projects/products/stable/accounts/backend/src/main.rs
+//! projects/products/stable/accounts/backend/src/main.rs
+mod backend_hello;
 mod router;
+mod runtime;
 mod store;
 
+#[cfg(test)]
+mod tests;
+
+use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,45 +19,26 @@ use futures_util::{SinkExt, StreamExt};
 use protocol::protocol_id::ProtocolId;
 use protocol::{Command, CommandType, Metadata, Payload};
 use security::{Role, TokenService};
-use serde::Serialize;
+#[cfg(unix)]
+use tokio::signal;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{info, warn};
 
-use crate::store::account_manager::AccountManager;
-
-async fn flush_and_stop_periodic_task(
-    flush_handle: &tokio::task::JoinHandle<()>,
-    manager: &AccountManager,
-    context: &str,
-) {
-    flush_handle.abort();
-    if let Err(err) = manager.flush_if_dirty().await {
-        warn!(%err, "Failed to flush accounts {}", context);
-    }
-    if let Err(err) = manager.flush_audit().await {
-        warn!(%err, "Failed to flush audit log {}", context);
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct BackendHello {
-    product_id: ProtocolId,
-    instance_id: ProtocolId,
-    capabilities: Vec<String>,
-    routes: Vec<String>,
-}
+use crate::backend_hello::BackendHello;
+use crate::runtime::flush_and_stop_periodic_task;
+use crate::store::AccountManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let engine_ws = std::env::var("ACCOUNTS_BACKEND_ENGINE_WS")
+    let engine_ws = env::var("ACCOUNTS_BACKEND_ENGINE_WS")
         .unwrap_or_else(|_| "ws://127.0.0.1:3030/ws".to_string());
-    let jwt_secret = std::env::var("ACCOUNTS_BACKEND_JWT_SECRET")
-        .or_else(|_| std::env::var("ENGINE_JWT_SECRET"))
+    let jwt_secret = env::var("ACCOUNTS_BACKEND_JWT_SECRET")
+        .or_else(|_| env::var("ENGINE_JWT_SECRET"))
         .unwrap_or_else(|_| "CHANGE_ME_CHANGE_ME_CHANGE_ME_32CHARS_MIN!!".to_string());
 
-    let data_dir = std::env::var("ACCOUNTS_DATA_DIR")
+    let data_dir = env::var("ACCOUNTS_DATA_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| AccountManager::default_data_dir());
     let account_manager = AccountManager::load(data_dir)
@@ -60,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Accounts data dir: {:?}", account_manager.data_dir());
 
     // Get configurable flush interval (default: 5 minutes, minimum: 1 second)
-    let flush_interval_secs = std::env::var("ACCOUNTS_FLUSH_INTERVAL_SECS")
+    let flush_interval_secs = env::var("ACCOUNTS_FLUSH_INTERVAL_SECS")
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(300); // 5 minutes default
@@ -81,7 +68,9 @@ async fn main() -> anyhow::Result<()> {
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             interval.tick().await;
-            if let Err(err) = flush_manager.flush_if_dirty().await {
+            if flush_manager.is_dirty()
+                && let Err(err) = flush_manager.flush_if_dirty().await
+            {
                 warn!(%err, "Failed to flush login metadata");
             }
         }
@@ -93,8 +82,8 @@ async fn main() -> anyhow::Result<()> {
         .issue(subject, Role::Admin, 24 * 60 * 60 * 1000, None)
         .context("issue token")?;
 
-    let product_id_raw = std::env::var("ENGINE_ACCOUNTS_PRODUCT_ID")
-        .or_else(|_| std::env::var("ACCOUNTS_PRODUCT_ID"))
+    let product_id_raw = env::var("ENGINE_ACCOUNTS_PRODUCT_ID")
+        .or_else(|_| env::var("ACCOUNTS_PRODUCT_ID"))
         .context("ACCOUNTS_PRODUCT_ID env var is required")?;
     let product_id =
         ProtocolId::from_str(&product_id_raw).context("invalid ACCOUNTS_PRODUCT_ID")?;
@@ -144,24 +133,22 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         #[cfg(unix)]
         {
-            let mut sigterm =
-                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                    Ok(signal) => signal,
-                    Err(err) => {
-                        warn!(%err, "Failed to create SIGTERM handler");
-                        shutdown_flag_clone.store(true, Ordering::Relaxed);
-                        return;
-                    }
-                };
-            let mut sigint =
-                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-                    Ok(signal) => signal,
-                    Err(err) => {
-                        warn!(%err, "Failed to create SIGINT handler");
-                        shutdown_flag_clone.store(true, Ordering::Relaxed);
-                        return;
-                    }
-                };
+            let mut sigterm = match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+                Ok(signal) => signal,
+                Err(err) => {
+                    warn!(%err, "Failed to create SIGTERM handler");
+                    shutdown_flag_clone.store(true, Ordering::Relaxed);
+                    return;
+                }
+            };
+            let mut sigint = match signal::unix::signal(signal::unix::SignalKind::interrupt()) {
+                Ok(signal) => signal,
+                Err(err) => {
+                    warn!(%err, "Failed to create SIGINT handler");
+                    shutdown_flag_clone.store(true, Ordering::Relaxed);
+                    return;
+                }
+            };
             tokio::select! {
                 _ = sigterm.recv() => info!("Received SIGTERM"),
                 _ = sigint.recv() => info!("Received SIGINT"),

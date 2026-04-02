@@ -21,21 +21,3 @@ impl IssueVisibility {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn admin_gets_all() {
-        assert_eq!(IssueVisibility::for_role(true), IssueVisibility::All);
-    }
-
-    #[test]
-    fn non_admin_gets_assigned_or_shared() {
-        assert_eq!(
-            IssueVisibility::for_role(false),
-            IssueVisibility::AssignedOrShared
-        );
-    }
-}

@@ -33,10 +33,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            scripts/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         run: |
@@ -53,9 +55,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
+          target/debug/versioning_automation issue done-status \
             --on-dev-merge \
-            --pr "$PR_NUMBER"
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
 
       - name: Remove done-in-dev on issue close
         if: github.event_name == 'issues'
@@ -64,9 +67,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
+          target/debug/versioning_automation issue done-status \
             --on-issue-closed \
-            --issue "$ISSUE_NUMBER"
+            --issue "$ISSUE_NUMBER" \
+            --repo "$GH_REPO"
 
       - name: Manual dispatch - dev merge mode
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'dev_merge'
@@ -79,9 +83,10 @@ jobs:
             echo "Invalid or missing pr_number for dev_merge mode." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
+          target/debug/versioning_automation issue done-status \
             --on-dev-merge \
-            --pr "$PR_NUMBER"
+            --pr "$PR_NUMBER" \
+            --repo "$GH_REPO"
 
       - name: Manual dispatch - issue closed mode
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'issue_closed'
@@ -94,6 +99,7 @@ jobs:
             echo "Invalid or missing issue_number for issue_closed mode." >&2
             exit 1
           fi
-          bash scripts/versioning/file_versioning/github/issues/done_status/run.sh \
+          target/debug/versioning_automation issue done-status \
             --on-issue-closed \
-            --issue "$ISSUE_NUMBER"
+            --issue "$ISSUE_NUMBER" \
+            --repo "$GH_REPO"

@@ -1,4 +1,4 @@
-/// A single changed line in a local diff.
+//! projects/products/stable/platform_ide/backend/src/diff/diff_line.rs
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffLine {
     /// A line present only in the original.

@@ -25,29 +25,3 @@ impl HashDigest {
         hasher.finalize().into()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_blob_is_deterministic() {
-        let a = HashDigest::compute(b"");
-        let b = HashDigest::compute(b"");
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn different_inputs_differ() {
-        let a = HashDigest::compute(b"hello");
-        let b = HashDigest::compute(b"world");
-        assert_ne!(a, b);
-    }
-
-    #[test]
-    fn parts_matches_concat() {
-        let full = HashDigest::compute(b"helloworld");
-        let parts = HashDigest::compute_parts(&[b"hello", b"world"]);
-        assert_eq!(full, parts);
-    }
-}

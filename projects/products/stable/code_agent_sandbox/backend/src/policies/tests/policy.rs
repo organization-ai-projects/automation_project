@@ -1,5 +1,6 @@
-// projects/products/code_agent_sandbox/src/policies/tests/policy.rs
+//! projects/products/code_agent_sandbox/src/policies/tests/policy.rs
 use std::error::Error;
+use std::io::Write;
 use std::path::PathBuf;
 
 use crate::{
@@ -21,7 +22,6 @@ fn create_temp_override_file(content: &str) -> Result<tempfile::NamedTempFile, B
         .tempfile_in(std::env::temp_dir())?;
 
     // Write the provided content into the temporary file.
-    use std::io::Write;
     named_file.write_all(content.as_bytes())?;
     named_file.flush()?;
 

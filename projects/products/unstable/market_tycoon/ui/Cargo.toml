@@ -1,0 +1,11 @@
+[package]
+name = "market_tycoon_ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+common_json = { workspace = true }
+dioxus = { workspace = true }
+dioxus-web = "0.7.3"

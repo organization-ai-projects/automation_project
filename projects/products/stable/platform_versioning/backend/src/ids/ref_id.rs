@@ -58,34 +58,3 @@ impl FromStr for RefId {
         Ok(Self(s.to_string()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_valid() {
-        let id: RefId = "heads/main".parse().unwrap();
-        assert_eq!(id.as_str(), "heads/main");
-    }
-
-    #[test]
-    fn parse_empty() {
-        assert!("".parse::<RefId>().is_err());
-    }
-
-    #[test]
-    fn parse_leading_slash() {
-        assert!("/heads/main".parse::<RefId>().is_err());
-    }
-
-    #[test]
-    fn parse_double_slash() {
-        assert!("heads//main".parse::<RefId>().is_err());
-    }
-
-    #[test]
-    fn parse_spaces() {
-        assert!("heads/my branch".parse::<RefId>().is_err());
-    }
-}

@@ -1,3 +1,4 @@
+//! projects/products/stable/platform_ide/backend/src/verification/finding_severity.rs
 use serde::{Deserialize, Serialize};
 
 /// The severity level of a verification finding.

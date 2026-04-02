@@ -1,0 +1,9 @@
+(
+  schema_version: 1,
+  id: "intelligent_analyzer_ui",
+  title: "Intelligent Analyzer UI",
+  entrypoint: "intelligent_analyzer_ui",
+  kind: "ui",
+  transport: "wasm",
+  version: "0.1.0",
+)

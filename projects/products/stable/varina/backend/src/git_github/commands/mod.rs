@@ -14,3 +14,6 @@ pub use push::git_push_current_branch;
 pub use reset::git_reset;
 pub use rev_parse::ensure_git_repo;
 pub use status::git_status_porcelain_z;
+
+#[cfg(test)]
+mod tests;

@@ -1,4 +1,4 @@
-// projects/products/stable/platform_ide/backend/src/app.rs
+//! projects/products/stable/platform_ide/backend/src/app.rs
 use crate::auth::Session;
 use crate::changes::ChangeSet;
 use crate::client::PlatformClient;

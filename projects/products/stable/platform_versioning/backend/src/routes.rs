@@ -1,12 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-fn next_nonce() -> u32 {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static NONCE: AtomicU32 = AtomicU32::new(1);
-    NONCE.fetch_add(1, Ordering::Relaxed)
-}
-
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
@@ -25,6 +19,7 @@ use crate::ids::{self, CommitId, RefId, RepoId};
 use crate::indexes::{self, Index};
 use crate::issues::{Issue, IssueId, IssueStore, IssueVisibility};
 use crate::merges::{Merge, MergeResult};
+use crate::nonce::next_nonce;
 use crate::objects::{self, Blob, HashDigest, Object};
 use crate::pipeline::{self, CommitBuilder};
 use crate::refs_store::{HeadState, RefTarget};

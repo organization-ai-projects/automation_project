@@ -6,7 +6,7 @@ This document defines how labels are used across Issues and Pull Requests.
 
 - Label definitions live in `.github/labels.json`.
 - Synchronization script:
-  - `bash scripts/versioning/file_versioning/orchestrators/execute/labels_sync.sh`
+  - `versioning_automation automation labels-sync --labels-file .github/labels.json`
 
 ## Naming Rules
 

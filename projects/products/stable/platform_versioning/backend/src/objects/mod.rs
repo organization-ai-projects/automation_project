@@ -18,3 +18,6 @@ pub use object_store::ObjectStore;
 pub use tree::Tree;
 pub use tree_entry::TreeEntry;
 pub use tree_entry_kind::TreeEntryKind;
+
+#[cfg(test)]
+mod tests;

@@ -18,6 +18,7 @@ members = [
   "projects/libraries/core/foundation/common_calendar",
   "projects/libraries/core/foundation/common_time",
   "projects/libraries/core/foundation/common_ron",
+  "projects/libraries/core/foundation/ap_file_format",
   "projects/libraries/core/foundation/protocol_macros",
   "projects/products/stable/core/central_ui",
   "projects/products/stable/core/engine",
@@ -31,7 +32,6 @@ members = [
   "projects/products/stable/code_agent_sandbox/ui",
   "projects/products/unstable/auto_manager_ai",
   "projects/products/unstable/autonomy_orchestrator_ai",
-  "projects/products/unstable/autonomous_dev_ai",
   "projects/products/unstable/autonomy_reviewer_ai",
   "projects/products/unstable/auto_render",
   "projects/products/unstable/colony_manager/backend",
@@ -48,7 +48,8 @@ members = [
   "projects/libraries/core/foundation/hybrid_arena",
   "projects/libraries/layers/domain/versioning",
   "projects/libraries/layers/domain/runtime_core",
-  "projects/products/unstable/living_spreadsheet",
+  "projects/products/unstable/living_spreadsheet/backend",
+  "projects/products/unstable/living_spreadsheet/ui",
   "projects/products/stable/platform_versioning/backend",
   "projects/products/stable/platform_versioning/ui",
   "projects/products/stable/platform_ide/backend",
@@ -63,7 +64,8 @@ members = [
   "projects/products/unstable/simkernel/ui",
   "projects/products/unstable/diplo_sim/backend",
   "projects/products/unstable/diplo_sim/ui",
-  "projects/products/unstable/princeps",
+  "projects/products/unstable/princeps/backend",
+  "projects/products/unstable/princeps/ui",
   "projects/products/unstable/dev_agent",
   "projects/products/unstable/factory_sim",
   "projects/products/unstable/workflow_offline",
@@ -91,6 +93,50 @@ members = [
   "projects/products/unstable/schema_world/ui",
   "projects/products/unstable/agent_engine/backend",
   "projects/products/unstable/agent_engine/ui",
+  "projects/products/unstable/neurosymbolic_moe/backend",
+  "projects/products/unstable/neurosymbolic_moe/ui",
+  "projects/products/unstable/wasm_console_ui/backend",
+  "projects/products/unstable/wasm_console_ui/ui",
+  "projects/products/unstable/patchsmith/backend",
+  "projects/products/unstable/investment_decision_engine/backend",
+  "projects/products/unstable/life_engine/backend",
+  "projects/products/unstable/life_engine/ui",
+  "projects/products/unstable/market_tycoon/backend",
+  "projects/products/unstable/market_tycoon/ui",
+  "projects/products/unstable/tiny_search/backend",
+  "projects/products/unstable/tiny_search/ui",
+  "projects/products/unstable/state_machine_lab/backend",
+  "projects/products/unstable/state_machine_lab/ui",
+  "projects/products/unstable/system_protect/backend",
+  "projects/products/unstable/system_protect/ui",
+  "projects/products/unstable/monster_catcher/backend",
+  "projects/products/unstable/monster_catcher/ui",
+  "projects/products/unstable/roguelite_arena/backend",
+  "projects/products/unstable/roguelite_arena/ui",
+  "projects/products/unstable/econ_sandbox/backend",
+  "projects/products/unstable/econ_sandbox/ui",
+  "projects/products/unstable/tactics_grid/backend",
+  "projects/products/unstable/tactics_grid/ui",
+  "projects/products/unstable/weather_reasoning_sandbox/backend",
+  "projects/products/unstable/weather_reasoning_sandbox/ui",
+  "projects/products/unstable/story_weaver/backend",
+  "projects/products/unstable/story_weaver/ui",
+  "projects/products/unstable/intelligent_analyzer/backend",
+  "projects/products/unstable/intelligent_analyzer/ui",
+  "projects/products/unstable/universe_simulation_engine/backend",
+  "projects/products/unstable/universe_simulation_engine/ui",
+  "projects/products/unstable/spec_to_runtime_compiler/backend",
+  "projects/products/unstable/spec_to_runtime_compiler/ui",
+  "projects/products/unstable/fuzz_harness/backend",
+  "projects/products/unstable/fuzz_harness/ui",
+  "projects/products/unstable/artifact_lab/backend",
+  "projects/products/unstable/artifact_lab/ui",
+  "projects/products/unstable/repo_oracle/backend",
+  "projects/products/unstable/repo_oracle/ui",
+  "projects/products/unstable/graphvizor/backend",
+  "projects/products/unstable/graphvizor/ui",
+  "tools/all_automation",
+  "tools/versioning_automation",
 ]
 resolver = "2"
 
@@ -113,6 +159,12 @@ tokio = { version = "1", default-features = false, features = ["full"] }
 lazy_static = "1.5"
 anyhow = "1.0.101"
 tracing-subscriber = "0.3"
+sha2 = "0.10.8"
+hex = "0.4.3"
+axum = { version = "0.8.1", features = ["json"] }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+dioxus = { version = "0.7.3", features = ["web"] }
 
 pjson_proc_macros = { path = "projects/libraries/core/foundation/pjson_proc_macros" }
 common = { path = "projects/libraries/core/foundation/common" }
@@ -130,6 +182,7 @@ command_runner = { path = "projects/libraries/core/foundation/command_runner" }
 common_calendar = { path = "projects/libraries/core/foundation/common_calendar" }
 common_time = { path = "projects/libraries/core/foundation/common_time" }
 common_ron = { path = "projects/libraries/core/foundation/common_ron" }
+ap_file_format = { path = "projects/libraries/core/foundation/ap_file_format" }
 common_parsing = { path = "projects/libraries/core/foundation/common_parsing" }
 common_tokenize = { path = "projects/libraries/core/foundation/common_tokenize" }
 protocol_macros = { path = "projects/libraries/core/foundation/protocol_macros" }
@@ -139,9 +192,3 @@ ai = { path = "projects/libraries/layers/orchestration/ai" }
 hybrid_arena = { path = "projects/libraries/core/foundation/hybrid_arena" }
 versioning = { path = "projects/libraries/layers/domain/versioning" }
 runtime_core = { path = "projects/libraries/layers/domain/runtime_core" }
-
-sha2 = "0.10.8"
-hex = "0.4.3"
-axum = { version = "0.8.1", features = ["json"] }
-tower = { version = "0.5", features = ["util"] }
-http = "1"

@@ -8,3 +8,6 @@ pub(crate) use action::Action;
 pub(crate) use action_executor::execute_action;
 pub(crate) use action_result::ActionResult;
 pub(crate) use low_level_action_context::{LowLevelActionContext, run_low_level_actions};
+
+#[cfg(test)]
+mod tests;

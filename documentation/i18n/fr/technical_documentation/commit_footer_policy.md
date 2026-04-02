@@ -35,7 +35,7 @@ Part of #410
 ```
 
 ```text
-fix(scripts/versioning/file_versioning/github): avoid premature close on out-of-sync issue state
+fix(tools/versioning_automation): avoid premature close on out-of-sync issue state
 
 Part of #389
 Reopen #389

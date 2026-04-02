@@ -5,9 +5,9 @@ use common_json::{Json, JsonMap, from_value, to_json_string, to_value};
 use protocol::{Command, Event, EventType, EventVariant, Metadata, Payload, ProtocolId};
 use security::Permission;
 
-use crate::store::account_store_error::AccountStoreError;
+use crate::store::AccountStoreError;
 
-pub fn payload_as<T>(cmd: &Command) -> Result<T, String>
+pub(crate) fn payload_as<T>(cmd: &Command) -> Result<T, String>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -15,14 +15,14 @@ where
     from_value(payload).map_err(|e| e.to_string())
 }
 
-pub fn payload_value(cmd: &Command) -> Result<Json, String> {
+pub(crate) fn payload_value(cmd: &Command) -> Result<Json, String> {
     cmd.payload
         .as_ref()
         .and_then(|p| p.payload.clone())
         .ok_or_else(|| "Missing payload".to_string())
 }
 
-pub fn get_user_id(cmd: &Command) -> Result<ProtocolId, String> {
+pub(crate) fn get_user_id(cmd: &Command) -> Result<ProtocolId, String> {
     let payload = payload_value(cmd)?;
     let map = match payload {
         Json::Object(map) => map,
@@ -37,7 +37,7 @@ pub fn get_user_id(cmd: &Command) -> Result<ProtocolId, String> {
     }
 }
 
-pub fn parse_permissions(values: &[String]) -> Result<Vec<Permission>, String> {
+pub(crate) fn parse_permissions(values: &[String]) -> Result<Vec<Permission>, String> {
     let mut perms = Vec::new();
     for value in values {
         let perm =
@@ -47,13 +47,13 @@ pub fn parse_permissions(values: &[String]) -> Result<Vec<Permission>, String> {
     Ok(perms)
 }
 
-pub fn ok_payload_json() -> Json {
+pub(crate) fn ok_payload_json() -> Json {
     let mut map = JsonMap::new();
     map.insert("ok".to_string(), Json::Bool(true));
     Json::Object(map)
 }
 
-pub fn ok_payload<T: serde::Serialize>(
+pub(crate) fn ok_payload<T: serde::Serialize>(
     meta: &Metadata,
     name: &str,
     payload_type: &str,
@@ -78,7 +78,7 @@ pub fn ok_payload<T: serde::Serialize>(
     }
 }
 
-pub fn err_event(meta: &Metadata, status: u16, message: &str) -> Event {
+pub(crate) fn err_event(meta: &Metadata, status: u16, message: &str) -> Event {
     let mut map = JsonMap::new();
     map.insert("status".to_string(), common_json::number_u64(status as u64));
     map.insert("message".to_string(), Json::String(message.to_string()));
@@ -104,7 +104,7 @@ pub fn err_event(meta: &Metadata, status: u16, message: &str) -> Event {
     }
 }
 
-pub fn map_store_error(meta: &Metadata, err: AccountStoreError) -> Event {
+pub(crate) fn map_store_error(meta: &Metadata, err: AccountStoreError) -> Event {
     match err {
         AccountStoreError::NotFound => err_event(meta, 404, "User not found"),
         AccountStoreError::AlreadyExists => err_event(meta, 409, "User already exists"),

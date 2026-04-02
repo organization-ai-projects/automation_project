@@ -27,29 +27,3 @@ impl RoleView {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn admin_is_admin() {
-        assert!(RoleView::Admin.is_admin());
-    }
-
-    #[test]
-    fn developer_is_not_admin() {
-        assert!(!RoleView::Developer.is_admin());
-    }
-
-    #[test]
-    fn label_is_human_readable() {
-        assert_eq!(RoleView::Admin.label(), "Admin");
-        assert_eq!(RoleView::Developer.label(), "Developer");
-    }
-
-    #[test]
-    fn default_is_developer() {
-        assert_eq!(RoleView::default(), RoleView::Developer);
-    }
-}

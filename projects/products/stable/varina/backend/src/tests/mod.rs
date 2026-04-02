@@ -1,4 +1,9 @@
-// projects/products/stable/varina/backend/src/tests/mod.rs
+mod app;
+mod automation;
+mod classified_changes_ref;
+mod handler_error;
+mod policy_evaluation;
 mod pre_checks;
 mod repo_path_validator;
 mod router;
+mod validation_error;

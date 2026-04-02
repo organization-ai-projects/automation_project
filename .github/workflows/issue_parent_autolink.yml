@@ -20,12 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            .github/issue_required_fields.conf
-            scripts/versioning/file_versioning/github/
-            scripts/common_lib/versioning/file_versioning/github/
-          sparse-checkout-cone-mode: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build versioning_automation
+        run: cargo build -p versioning_automation
 
       - name: Ensure jq is available
         run: |
@@ -42,9 +42,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          chmod +x scripts/versioning/file_versioning/github/issues/auto_link/run.sh
-          bash scripts/versioning/file_versioning/github/issues/auto_link/run.sh \
-            --issue "$ISSUE_NUMBER"
+          target/debug/versioning_automation issue auto-link \
+            --issue "$ISSUE_NUMBER" \
+            --repo "$GH_REPO"
 
       - name: Evaluate issue Parent field (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -61,7 +61,6 @@ jobs:
             echo "Invalid issue_number '$ISSUE_NUMBER' (expected positive integer)." >&2
             exit 1
           fi
-          chmod +x scripts/versioning/file_versioning/github/issues/auto_link/run.sh
-          bash scripts/versioning/file_versioning/github/issues/auto_link/run.sh \
-            --issue "$ISSUE_NUMBER"
-
+          target/debug/versioning_automation issue auto-link \
+            --issue "$ISSUE_NUMBER" \
+            --repo "$GH_REPO"

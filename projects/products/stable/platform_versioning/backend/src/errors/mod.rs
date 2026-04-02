@@ -6,3 +6,6 @@ pub mod pv_error;
 pub use error_category::ErrorCategory;
 pub use error_code::ErrorCode;
 pub use pv_error::PvError;
+
+#[cfg(test)]
+mod tests;
