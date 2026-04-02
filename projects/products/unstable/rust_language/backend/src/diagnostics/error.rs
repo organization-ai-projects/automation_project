@@ -1,7 +1,8 @@
+//! projects/products/unstable/rust_language/backend/src/diagnostics/error.rs
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum Error {
+pub(crate) enum Error {
     #[error("invalid CLI: {0}")]
     InvalidCli(String),
 

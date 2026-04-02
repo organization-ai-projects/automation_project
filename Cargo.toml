@@ -101,8 +101,6 @@ members = [
   "projects/products/unstable/investment_decision_engine/backend",
   "projects/products/unstable/life_engine/backend",
   "projects/products/unstable/life_engine/ui",
-  "tools/all_automation",
-  "tools/versioning_automation",
   "projects/products/unstable/market_tycoon/backend",
   "projects/products/unstable/market_tycoon/ui",
   "projects/products/unstable/tiny_search/backend",
@@ -129,8 +127,6 @@ members = [
   "projects/products/unstable/universe_simulation_engine/ui",
   "projects/products/unstable/spec_to_runtime_compiler/backend",
   "projects/products/unstable/spec_to_runtime_compiler/ui",
-  "projects/products/unstable/rust_language/backend",
-  "projects/products/unstable/rust_language/ui",
   "projects/products/unstable/fuzz_harness/backend",
   "projects/products/unstable/fuzz_harness/ui",
   "projects/products/unstable/artifact_lab/backend",
@@ -139,6 +135,8 @@ members = [
   "projects/products/unstable/repo_oracle/ui",
   "projects/products/unstable/graphvizor/backend",
   "projects/products/unstable/graphvizor/ui",
+  "tools/all_automation",
+  "tools/versioning_automation",
 ]
 resolver = "2"
 

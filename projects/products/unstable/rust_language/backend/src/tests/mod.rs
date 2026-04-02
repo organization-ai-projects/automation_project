@@ -1,4 +1,2 @@
-mod binary_persistence;
-mod compiler_pipeline;
-mod lexer_tokenization;
-mod transpiler_output;
+//! projects/products/unstable/rust_language/backend/src/tests/mod.rs
+mod app_error;

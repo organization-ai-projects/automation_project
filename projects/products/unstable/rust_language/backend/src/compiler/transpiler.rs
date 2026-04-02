@@ -1,10 +1,11 @@
-use crate::diagnostics::error::Error;
-use crate::model::rhl_ast::RhlAst;
+//! projects/products/unstable/rust_language/backend/src/compiler/transpiler.rs
+use crate::diagnostics::Error;
+use crate::model::RhlAst;
 
-pub struct Transpiler;
+pub(crate) struct Transpiler;
 
 impl Transpiler {
-    pub fn transpile(ast: &RhlAst) -> Result<String, Error> {
+    pub(crate) fn transpile(ast: &RhlAst) -> Result<String, Error> {
         let mut output = String::new();
         Self::emit(ast, &mut output, 0)?;
         Ok(output)

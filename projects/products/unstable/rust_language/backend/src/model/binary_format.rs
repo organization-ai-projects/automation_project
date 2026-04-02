@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BinaryFormat {
-    pub magic: [u8; 4],
-    pub version: u8,
-    pub checksum: String,
-    pub payload: Vec<u8>,
+pub(crate) struct BinaryFormat {
+    pub(crate) magic: [u8; 4],
+    pub(crate) version: u8,
+    pub(crate) checksum: String,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl BinaryFormat {
-    pub fn new(payload: Vec<u8>, checksum: String) -> Self {
+    pub(crate) fn new(payload: Vec<u8>, checksum: String) -> Self {
         Self {
             magic: *b"RHLB",
             version: 1,
@@ -18,7 +18,7 @@ impl BinaryFormat {
         }
     }
 
-    pub fn validate_magic(&self) -> bool {
+    pub(crate) fn validate_magic(&self) -> bool {
         self.magic == *b"RHLB"
     }
 }

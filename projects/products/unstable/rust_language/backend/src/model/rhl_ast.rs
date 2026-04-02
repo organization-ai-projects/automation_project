@@ -1,7 +1,8 @@
+//! projects/products/unstable/rust_language/backend/src/model/rhl_ast.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum RhlAst {
+pub(crate) enum RhlAst {
     Program(Vec<RhlAst>),
     FnDecl {
         name: String,
