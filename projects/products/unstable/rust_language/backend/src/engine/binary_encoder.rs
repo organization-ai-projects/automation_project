@@ -1,5 +1,6 @@
-use crate::diagnostics::error::Error;
-use crate::model::binary_format::BinaryFormat;
+//! projects/products/unstable/rust_language/backend/src/engine/binary_encoder.rs
+use crate::engine::engine_errors::EngineErrors;
+use crate::model::BinaryFormat;
 
 use common_binary::BinaryOptions;
 use sha2::{Digest, Sha256};
@@ -12,25 +13,26 @@ const BINARY_OPTIONS: BinaryOptions = BinaryOptions {
     verify_checksum: true,
 };
 
-pub struct BinaryEncoder;
+pub(crate) struct BinaryEncoder;
 
 impl BinaryEncoder {
-    pub fn encode_rust_to_binary(rust_code: &str) -> Result<BinaryFormat, Error> {
+    pub(crate) fn encode_rust_to_binary(rust_code: &str) -> Result<BinaryFormat, EngineErrors> {
         let payload = rust_code.as_bytes().to_vec();
         let checksum = Self::compute_checksum(&payload);
         Ok(BinaryFormat::new(payload, checksum))
     }
 
-    pub fn write_binary(path: &Path, format: &BinaryFormat) -> Result<(), Error> {
-        common_binary::write_binary(format, path, &BINARY_OPTIONS).map_err(Error::from)
+    pub(crate) fn write_binary(path: &Path, format: &BinaryFormat) -> Result<(), EngineErrors> {
+        common_binary::write_binary(format, path, &BINARY_OPTIONS)
+            .map_err(|e| EngineErrors::Runtime(e.to_string()))
     }
 
-    pub fn read_binary(path: &Path) -> Result<BinaryFormat, Error> {
-        let format: BinaryFormat =
-            common_binary::read_binary(path, &BINARY_OPTIONS).map_err(Error::from)?;
+    pub(crate) fn read_binary(path: &Path) -> Result<BinaryFormat, EngineErrors> {
+        let format: BinaryFormat = common_binary::read_binary(path, &BINARY_OPTIONS)
+            .map_err(|e| EngineErrors::Runtime(e.to_string()))?;
         let expected = Self::compute_checksum(&format.payload);
         if format.checksum != expected {
-            return Err(Error::Binary(format!(
+            return Err(EngineErrors::Runtime(format!(
                 "payload checksum mismatch: expected {expected}, got {}",
                 format.checksum
             )));

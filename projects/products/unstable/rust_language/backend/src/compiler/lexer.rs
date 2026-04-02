@@ -1,15 +1,15 @@
-use crate::diagnostics::error::Error;
-use crate::model::rhl_token::RhlToken;
+//! projects/products/unstable/rust_language/backend/src/compiler/lexer.rs
+use crate::{diagnostics::Error, model::RhlToken};
 
-pub struct Lexer {
-    input: Vec<char>,
-    pos: usize,
-    line: usize,
-    col: usize,
+pub(crate) struct Lexer {
+    pub(crate) input: Vec<char>,
+    pub(crate) pos: usize,
+    pub(crate) line: usize,
+    pub(crate) col: usize,
 }
 
 impl Lexer {
-    pub fn new(source: &str) -> Self {
+    pub(crate) fn new(source: &str) -> Self {
         Self {
             input: source.chars().collect(),
             pos: 0,
@@ -18,7 +18,7 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<RhlToken>, Error> {
+    pub(crate) fn tokenize(&mut self) -> Result<Vec<RhlToken>, Error> {
         let mut tokens = Vec::new();
         while self.pos < self.input.len() {
             self.skip_whitespace();

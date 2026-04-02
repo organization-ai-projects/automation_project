@@ -1,7 +1,8 @@
+//! projects/products/unstable/rust_language/backend/src/model/rhl_token.rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum RhlToken {
+pub(crate) enum RhlToken {
     KeywordFn,
     KeywordLet,
     KeywordMut,
@@ -54,7 +55,7 @@ pub enum RhlToken {
 }
 
 impl RhlToken {
-    pub fn is_keyword(&self) -> bool {
+    pub(crate) fn is_keyword(&self) -> bool {
         matches!(
             self,
             RhlToken::KeywordFn

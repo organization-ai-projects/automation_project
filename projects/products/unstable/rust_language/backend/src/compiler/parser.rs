@@ -1,7 +1,6 @@
-use crate::diagnostics::error::Error;
-use crate::model::rhl_ast::RhlAst;
-use crate::model::rhl_token::RhlToken;
-
+//! projects/products/unstable/rust_language/backend/src/compiler/parser.rs
+use crate::diagnostics::Error;
+use crate::model::{RhlAst, RhlToken};
 pub struct Parser {
     tokens: Vec<RhlToken>,
     pos: usize,

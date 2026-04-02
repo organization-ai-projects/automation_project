@@ -1,36 +1,40 @@
-use crate::diagnostics::error::Error;
-
+//! projects/products/unstable/rust_language/backend/src/ai_assist/error_analyzer.rs
+use crate::app_error::AppError;
 use ai::{AiBody, Task};
 
-pub struct ErrorAnalyzer {
+pub(crate) struct ErrorAnalyzer {
     ai: AiBody,
 }
 
 impl ErrorAnalyzer {
-    pub fn new() -> Result<Self, Error> {
-        let ai = AiBody::new()?;
+    pub(crate) fn new() -> Result<Self, AppError> {
+        let ai = AiBody::new().map_err(AppError::from)?;
         Ok(Self { ai })
     }
 
-    pub fn analyze_compilation_error(
+    pub(crate) fn analyze_compilation_error(
         &mut self,
         source_code: &str,
         error_message: &str,
-    ) -> Result<String, Error> {
+    ) -> Result<String, AppError> {
         let prompt = format!(
             "Analyze this RHL compilation error and explain what went wrong.\n\nSource:\n{source_code}\n\nError:\n{error_message}"
         );
         let task = Task::new_code_analysis(prompt);
-        let result = self.ai.solve(&task)?;
+        let result = self.ai.solve(&task).map_err(AppError::from)?;
         Ok(result.output)
     }
 
-    pub fn suggest_fix(&mut self, source_code: &str, error_message: &str) -> Result<String, Error> {
+    pub(crate) fn suggest_fix(
+        &mut self,
+        source_code: &str,
+        error_message: &str,
+    ) -> Result<String, AppError> {
         let prompt = format!(
             "Suggest a fix for this RHL compilation error.\n\nSource:\n{source_code}\n\nError:\n{error_message}"
         );
         let task = Task::new_code_analysis(prompt);
-        let result = self.ai.solve(&task)?;
+        let result = self.ai.solve(&task).map_err(AppError::from)?;
         Ok(result.output)
     }
 }
